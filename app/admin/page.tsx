@@ -76,15 +76,28 @@ export default function AgendaPage() {
     artista_id: '',
   })
 
-  const [formData, setFormData] = useState({
-    room_id: '',
-    productor_id: '',
-    artista_id: '',
-    fecha_inicio: '',
-    fecha_fin: '',
-    notas: '',
-    estado: 'programada' as const,
-  })
+  type EstadoSesion = 'programada' | 'en_curso' | 'completada' | 'cancelada'
+
+type FormDataState = {
+  room_id: string
+  productor_id: string
+  artista_id: string
+  fecha_inicio: string
+  fecha_fin: string
+  notas: string
+  estado: EstadoSesion
+}
+
+const [formData, setFormData] = useState<FormDataState>({
+  room_id: '',
+  productor_id: '',
+  artista_id: '',
+  fecha_inicio: '',
+  fecha_fin: '',
+  notas: '',
+  estado: 'programada',
+})
+
 
   const [errors, setErrors] = useState<string[]>([])
   const supabase = createClient()
@@ -415,7 +428,7 @@ export default function AgendaPage() {
                       <Select
                         id="estado"
                         value={formData.estado}
-                        onChange={(e) => setFormData({ ...formData, estado: e.target.value as any })}
+                        onChange={(e) => setFormData({ ...formData, estado: e.target.value as FormDataState['estado'] })}
                       >
                         <option value="programada">Programada</option>
                         <option value="en_curso">En Curso</option>
@@ -652,4 +665,14 @@ export default function AgendaPage() {
       </div>
     </div>
   )
+}type FormDataState = {
+  room_id: string
+  productor_id: string
+  artista_id: string
+  fecha_inicio: string
+  fecha_fin: string
+  notas: string
+  estado: Sesion['estado']
 }
+
+
