@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ChevronLeft, ChevronRight, Plus, Pencil, X } from 'lucide-react'
 import { format, startOfWeek, addDays, addWeeks, subWeeks, parseISO, isSameDay, isWithinInterval } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz'
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
 
 const timezone = 'America/Santiago'
 
@@ -98,9 +98,9 @@ export default function AgendaPage() {
       setArtistas(artistasRes.data || [])
 
       // Fetch sesiones for the week
-      const weekStartUTC = zonedTimeToUtc(weekStart, timezone)
+      const weekStartUTC = fromZonedTime(weekStart, timezone)
       const weekEnd = addDays(weekStart, 7)
-      const weekEndUTC = zonedTimeToUtc(weekEnd, timezone)
+      const weekEndUTC = fromZonedTime(weekEnd, timezone)
 
       let query = supabase
         .from('sesiones')
@@ -203,11 +203,11 @@ export default function AgendaPage() {
     e.preventDefault()
     setErrors([])
 
-    const fechaInicioUTC = zonedTimeToUtc(
+    const fechaInicioUTC = fromZonedTime(
       parseISO(formData.fecha_inicio),
       timezone
     ).toISOString()
-    const fechaFinUTC = zonedTimeToUtc(
+    const fechaFinUTC = fromZonedTime(
       parseISO(formData.fecha_fin),
       timezone
     ).toISOString()
@@ -268,11 +268,11 @@ export default function AgendaPage() {
 
   const handleEdit = (sesion: Sesion) => {
     setEditingSesion(sesion)
-    const fechaInicioLocal = utcToZonedTime(
+    const fechaInicioLocal = toZonedTime(
       parseISO(sesion.fecha_inicio),
       timezone
     )
-    const fechaFinLocal = utcToZonedTime(parseISO(sesion.fecha_fin), timezone)
+    const fechaFinLocal = toZonedTime(parseISO(sesion.fecha_fin), timezone)
 
     setFormData({
       room_id: sesion.room_id,
@@ -332,8 +332,8 @@ export default function AgendaPage() {
 
     return sesiones.filter((sesion) => {
       if (sesion.estado === 'cancelada') return false
-      const inicio = utcToZonedTime(parseISO(sesion.fecha_inicio), timezone)
-      const fin = utcToZonedTime(parseISO(sesion.fecha_fin), timezone)
+      const inicio = toZonedTime(parseISO(sesion.fecha_inicio), timezone)
+      const fin = toZonedTime(parseISO(sesion.fecha_fin), timezone)
       return (
         isSameDay(inicio, day) &&
         inicio.getHours() <= hour &&
@@ -343,8 +343,8 @@ export default function AgendaPage() {
   }
 
   const getSesionStyle = (sesion: Sesion) => {
-    const inicio = utcToZonedTime(parseISO(sesion.fecha_inicio), timezone)
-    const fin = utcToZonedTime(parseISO(sesion.fecha_fin), timezone)
+    const inicio = toZonedTime(parseISO(sesion.fecha_inicio), timezone)
+    const fin = toZonedTime(parseISO(sesion.fecha_fin), timezone)
     const duration = (fin.getTime() - inicio.getTime()) / (1000 * 60 * 60)
     const startHour = inicio.getHours() + inicio.getMinutes() / 60
 
