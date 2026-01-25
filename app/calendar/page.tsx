@@ -253,14 +253,14 @@ export default function CalendarPage() {
     setLoading(true);
 
     const [roomsRes, staffRes, servicesRes] = await Promise.all([
-      sb.from("rooms").select("id,name").eq("org_id", ORG_ID).order("created_at", { ascending: true }),
-      sb
+      supabase.from("rooms").select("id,name").eq("org_id", ORG_ID).order("created_at", { ascending: true }),
+      supabase
         .from("staff")
         .select("id,name,role,active")
         .eq("org_id", ORG_ID)
         .eq("active", true)
         .order("created_at", { ascending: true }),
-      sb
+      supabase
         .from("services")
         .select("id,name,duration_minutes,price,active")
         .eq("org_id", ORG_ID)
@@ -283,7 +283,7 @@ export default function CalendarPage() {
     const rangeStart = startOfDay(wStart);
     const rangeEnd = endOfDay(addDays(wStart, 6));
 
-    const { data, error } = await sb
+    const { data, error } = await supabase
       .from("bookings")
       .select("id,room_id,staff_id,service_id,client_name,client_phone,start_at,end_at,notes,color")
       .eq("org_id", ORG_ID) // ✅ IMPORTANTÍSIMO
@@ -318,8 +318,8 @@ export default function CalendarPage() {
   ====================== */
   const createBooking = async () => {
 
-const sb = getSupabase()
-if (!sb) {
+const supabase = getSupabase()
+if (!supabase) {
   throw new Error("Supabase URL/ANON KEY missing (check Vercel env vars)")
 }
 
@@ -334,7 +334,7 @@ if (!sb) {
     const start = new Date(startAt);
     const end = new Date(start.getTime() + duration * 60 * 1000);
 
-    const { error } = await sb.from("bookings").insert([
+    const { error } = await supabase.from("bookings").insert([
       {
         org_id: ORG_ID, // ✅ AQUÍ
         room_id: roomId,
@@ -372,7 +372,7 @@ if (!sb) {
   const saveColor = async () => {
     if (!selectedBooking) return;
 
-    const { error } = await sb
+    const { error } = await supabase
       .from("bookings")
       .update({ color: editColor })
       .eq("id", selectedBooking.id)
@@ -389,8 +389,8 @@ if (!sb) {
 
   const deleteBooking = async () => {
 
-const sb = getSupabase()
-if (!sb) {
+const supabase = getSupabase()
+if (!supabase) {
   throw new Error("Supabase URL/ANON KEY missing (check Vercel env vars)")
 }
 
@@ -398,7 +398,7 @@ if (!sb) {
     const ok = confirm("¿Eliminar reserva?");
     if (!ok) return;
 
-    const { error } = await sb
+    const { error } = await supabase
       .from("bookings")
       .delete()
       .eq("id", selectedBooking.id)
@@ -437,7 +437,7 @@ if (!sb) {
     const newStart = slotIndexToDate(targetDay, safeSlot);
     const newEnd = new Date(newStart.getTime() + durationMin * 60 * 1000);
 
-    const { error } = await sb
+    const { error } = await supabase
       .from("bookings")
       .update({
         room_id: newRoomId,
@@ -489,7 +489,7 @@ if (!sb) {
         return;
       }
 
-      const { error } = await sb
+      const { error } = await supabase
         .from("bookings")
         .update({ end_at: finalPreview.end_at })
         .eq("id", booking.id)
