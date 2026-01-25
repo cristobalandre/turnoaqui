@@ -84,14 +84,24 @@ export default function AgendaPage() {
     artista_id: '',
   })
 
-  const [formData, setFormData] = useState({
+  type FormState = {
+    room_id: string
+    productor_id: string
+    artista_id: string
+    fecha_inicio: string
+    fecha_fin: string
+    notas: string
+    estado: Sesion['estado']
+  }
+
+  const [formData, setFormData] = useState<FormState>({
     room_id: '',
     productor_id: '',
     artista_id: '',
     fecha_inicio: '',
     fecha_fin: '',
     notas: '',
-    estado: 'programada' as const,
+    estado: 'programada',
   })
 
   const [errors, setErrors] = useState<string[]>([])
