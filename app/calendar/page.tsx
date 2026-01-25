@@ -1,9 +1,9 @@
 "use client";
 
-export const dynamic = "force-dynamic"
-export const revalidate = 0
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   addDays,
   addWeeks,
@@ -15,32 +15,13 @@ import {
   subWeeks,
 } from "date-fns";
 import { DndContext, DragEndEvent, useDraggable, useDroppable } from "@dnd-kit/core";
-import { createBrowserClient } from "@supabase/ssr"
+import { supabase as sb } from "@/lib/supabaseClient";
 
 /* ======================
    ✅ ORG FIJA
 ====================== */
 const ORG_ID = "a573aa05-d62b-44c7-a878-b9138902a094";
 
-
-
-// --- Supabase browser client (lazy init) ---
-const supabaseRef = useRef<ReturnType<typeof createBrowserClient> | null>(null)
-
-const getSupabase = () => {
-  // Avoid creating client during SSR / build
-  if (typeof window === "undefined") return null
-
-  if (!supabaseRef.current) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-    if (!url || !key) return null
-    supabaseRef.current = createBrowserClient(url, key)
-  }
-
-  return supabaseRef.current
-}
 /* ======================
    TIPOS
 ====================== */
@@ -67,40 +48,59 @@ type Booking = {
 const START_HOUR = 8;
 const END_HOUR = 23;
 const SLOT_MIN = 30; // snap cada 30 minutos
-const DAY_SLOTS = ((END_HOUR - START_HOUR) * 60) / SLOT_MIN;
 
-const CELL_HEIGHT = 28; // px por slot
-const ROOM_COL_WIDTH = 220;
-const TIME_COL_WIDTH = 84;
+const PX_PER_HOUR = 60; // 60px = 1 hora (30px por slot)
+const HEADER_H = 56;
+const GRID_BG = "#0b0f1a";
+const GRID_LINE = "rgba(255,255,255,0.08)";
+const CARD_BG = "rgba(255,255,255,0.04)";
+const CARD_BORDER = "rgba(255,255,255,0.08)";
+const TEXT = "rgba(255,255,255,0.92)";
+const MUTED = "rgba(255,255,255,0.6)";
 
-// alturas headers para sticky top
-const HEADER_DAY_H = 46;
-const HEADER_ROOM_H = 44;
+/* ======================
+   HELPERS FECHAS / UI
+====================== */
+const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
+function toLocalISO(date: Date) {
+  // Date -> yyyy-MM-ddTHH:mm (para input datetime-local)
+  const pad = (x: number) => String(x).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  const MM = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
 }
 
-function dayKey(d: Date) {
-  return format(d, "yyyy-MM-dd");
+function parseLocalInput(value: string) {
+  // yyyy-MM-ddTHH:mm -> Date local
+  return new Date(value);
 }
 
-function dayKeyFromISO(iso: string) {
-  return format(new Date(iso), "yyyy-MM-dd");
+function minutesSinceStartOfDay(date: Date) {
+  return date.getHours() * 60 + date.getMinutes();
 }
 
-function getSlotIndexFromISO(iso: string) {
-  const d = new Date(iso);
-  const minutes = d.getHours() * 60 + d.getMinutes();
-  const start = START_HOUR * 60;
-  return Math.floor((minutes - start) / SLOT_MIN);
+function roundToSlotMin(min: number) {
+  const slot = SLOT_MIN;
+  return Math.round(min / slot) * slot;
 }
 
-function slotIndexToDate(day: Date, slotIndex: number) {
-  const base = new Date(day);
-  base.setHours(START_HOUR, 0, 0, 0);
-  const minutes = slotIndex * SLOT_MIN;
-  return new Date(base.getTime() + minutes * 60 * 1000);
+function calcTopPx(date: Date) {
+  const min = minutesSinceStartOfDay(date);
+  const minFromStart = min - START_HOUR * 60;
+  return (minFromStart / 60) * PX_PER_HOUR;
+}
+
+function calcHeightPx(start: Date, end: Date) {
+  const mins = differenceInMinutes(end, start);
+  return (mins / 60) * PX_PER_HOUR;
+}
+
+function timeLabel(date: Date) {
+  return format(date, "HH:mm");
 }
 
 /* ======================
@@ -119,11 +119,10 @@ function DraggableBooking({
   heightPx: number;
   label: string;
   onDoubleClick: () => void;
-  onResizeStart: (booking: Booking, startClientY: number) => void;
+  onResizeStart: (e: React.MouseEvent) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: booking.id,
-    data: { booking },
   });
 
   const style: CSSProperties = {
@@ -131,17 +130,17 @@ function DraggableBooking({
     left: 8,
     right: 8,
     top: topPx,
-    height: Math.max(heightPx, 22),
-    borderRadius: 10,
-    padding: "8px 10px",
-    border: "1px solid rgba(0,0,0,.08)",
-    boxShadow: isDragging ? "0 12px 22px rgba(0,0,0,.22)" : "0 6px 14px rgba(0,0,0,.10)",
-    background: booking.color || "#3b82f6",
-    color: "#fff",
+    height: heightPx,
+    borderRadius: 12,
+    background: booking.color || "rgba(59,130,246,0.18)",
+    border: `1px solid ${CARD_BORDER}`,
+    boxShadow: isDragging ? "0 12px 30px rgba(0,0,0,0.35)" : "0 8px 18px rgba(0,0,0,0.25)",
+    padding: "10px 10px 6px",
     cursor: "grab",
     userSelect: "none",
+    backdropFilter: "blur(10px)",
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-    opacity: isDragging ? 0.92 : 1,
+    zIndex: isDragging ? 50 : 10,
     overflow: "hidden",
   };
 
@@ -149,102 +148,93 @@ function DraggableBooking({
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
       onDoubleClick={onDoubleClick}
-      title="Arrastra para mover | Doble click para editar | Arrastra abajo para cambiar duración"
+      {...attributes}
+      {...listeners}
+      title="Doble click para editar"
     >
-      <div style={{ fontWeight: 950, fontSize: 12, lineHeight: "16px" }}>{label}</div>
-      <div style={{ fontSize: 12, opacity: 0.95 }}>{booking.client_name || "Cliente"}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>{label}</div>
+      <div style={{ fontSize: 11, color: MUTED, marginTop: 6 }}>
+        {booking.client_phone ? `📞 ${booking.client_phone}` : "—"}
+      </div>
 
-      {/* Handle Resize abajo */}
+      {/* Handle resize (abajo) */}
       <div
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          onResizeStart(booking, e.clientY);
-        }}
+        onMouseDown={onResizeStart}
         style={{
           position: "absolute",
           left: 0,
           right: 0,
           bottom: 0,
-          height: 10,
+          height: 12,
           cursor: "ns-resize",
-          background: "rgba(255,255,255,.18)",
+          opacity: 0.85,
         }}
+        title="Arrastra para alargar/acortar"
       />
     </div>
   );
 }
 
-/* ======================
-   SLOT DROPPABLE
-====================== */
-function SlotDrop({ id }: { id: string }) {
+function DroppableCell({ id }: { id: string }) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
     <div
       ref={setNodeRef}
       style={{
-        height: CELL_HEIGHT,
-        borderBottom: "1px solid #f2f2f2",
-        background: isOver ? "rgba(59,130,246,.10)" : "transparent",
+        position: "absolute",
+        inset: 0,
+        borderRadius: 12,
+        outline: isOver ? "2px solid rgba(59,130,246,0.7)" : "none",
+        outlineOffset: -2,
       }}
     />
   );
 }
 
 /* ======================
-   PÁGINA PRINCIPAL
+   PAGE
 ====================== */
 export default function CalendarPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [loading, setLoading] = useState(false);
 
-  // Modal editar
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [editColor, setEditColor] = useState("#3b82f6");
+  const [weekStart, setWeekStart] = useState(() =>
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  );
 
-  // Crear reserva
+  // form crear booking
   const [roomId, setRoomId] = useState("");
   const [staffId, setStaffId] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
-  const [startAt, setStartAt] = useState("");
   const [notes, setNotes] = useState("");
-  const [newColor, setNewColor] = useState("#3b82f6");
+  const [startAt, setStartAt] = useState("");
+  const [color, setColor] = useState("#3b82f6");
 
-  // Resize live preview
-  const [resizePreview, setResizePreview] = useState<{ id: string; end_at: string } | null>(null);
-  const resizePreviewRef = useRef<{ id: string; end_at: string } | null>(null);
+  // modal editar / eliminar
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [editColor, setEditColor] = useState("#3b82f6");
 
-  const days = useMemo(() => Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i)), [weekStart]);
+  // resize state
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeBookingId, setResizeBookingId] = useState<string | null>(null);
+  const [resizeStartY, setResizeStartY] = useState(0);
+  const [resizeOriginalEnd, setResizeOriginalEnd] = useState<Date | null>(null);
 
-  const timeLabels = useMemo(() => {
-    const arr: string[] = [];
-    for (let h = START_HOUR; h < END_HOUR; h++) {
-      arr.push(`${String(h).padStart(2, "0")}:00`);
-      arr.push(`${String(h).padStart(2, "0")}:30`);
-    }
-    return arr;
-  }, []);
+  const resizePreviewRef = useMemo(() => ({ current: null as null | Booking }), []);
 
-  const serviceMap = useMemo(() => {
-    const m = new Map<string, Service>();
-    services.forEach((s) => m.set(s.id, s));
-    return m;
-  }, [services]);
+  const weekDays = useMemo(() => {
+    return Array.from({ length: 7 }).map((_, idx) => addDays(weekStart, idx));
+  }, [weekStart]);
 
-  const serviceName = (id: string | null) => services.find((s) => s.id === id)?.name ?? "-";
-  const roomName = (id: string) => rooms.find((r) => r.id === id)?.name ?? "Recurso";
+  const serviceMap = useMemo(() => new Map(services.map((s) => [s.id, s])), [services]);
 
   /* ======================
      ✅ LOAD DATA (con org_id)
@@ -252,15 +242,21 @@ export default function CalendarPage() {
   const loadAll = async () => {
     setLoading(true);
 
+    if (!sb) {
+      alert("Supabase no inicializado (revisa env vars en Vercel)");
+      setLoading(false);
+      return;
+    }
+
     const [roomsRes, staffRes, servicesRes] = await Promise.all([
-      supabase.from("rooms").select("id,name").eq("org_id", ORG_ID).order("created_at", { ascending: true }),
-      supabase
+      sb.from("rooms").select("id,name").eq("org_id", ORG_ID).order("created_at", { ascending: true }),
+      sb
         .from("staff")
         .select("id,name,role,active")
         .eq("org_id", ORG_ID)
         .eq("active", true)
         .order("created_at", { ascending: true }),
-      supabase
+      sb
         .from("services")
         .select("id,name,duration_minutes,price,active")
         .eq("org_id", ORG_ID)
@@ -268,9 +264,18 @@ export default function CalendarPage() {
         .order("created_at", { ascending: true }),
     ]);
 
-    if (roomsRes.error) alert("Error rooms: " + roomsRes.error.message);
-    if (staffRes.error) alert("Error staff: " + staffRes.error.message);
-    if (servicesRes.error) alert("Error services: " + servicesRes.error.message);
+    if (roomsRes.error) {
+      console.error(roomsRes.error);
+      alert("Error cargando rooms: " + roomsRes.error.message);
+    }
+    if (staffRes.error) {
+      console.error(staffRes.error);
+      alert("Error cargando staff: " + staffRes.error.message);
+    }
+    if (servicesRes.error) {
+      console.error(servicesRes.error);
+      alert("Error cargando services: " + servicesRes.error.message);
+    }
 
     setRooms((roomsRes.data as Room[]) || []);
     setStaff((staffRes.data as Staff[]) || []);
@@ -280,10 +285,12 @@ export default function CalendarPage() {
   };
 
   const loadBookingsForWeek = async (wStart: Date) => {
+    if (!sb) return;
+
     const rangeStart = startOfDay(wStart);
     const rangeEnd = endOfDay(addDays(wStart, 6));
 
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from("bookings")
       .select("id,room_id,staff_id,service_id,client_name,client_phone,start_at,end_at,notes,color")
       .eq("org_id", ORG_ID) // ✅ IMPORTANTÍSIMO
@@ -294,6 +301,7 @@ export default function CalendarPage() {
     if (error) {
       console.error(error);
       alert("Error cargando reservas: " + error.message);
+      setBookings([]);
       return;
     }
 
@@ -301,15 +309,12 @@ export default function CalendarPage() {
   };
 
   useEffect(() => {
-    (async () => {
-      await loadAll();
-      await loadBookingsForWeek(weekStart);
-    })();
+    void loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    loadBookingsForWeek(weekStart);
+    void loadBookingsForWeek(weekStart);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart]);
 
@@ -317,11 +322,10 @@ export default function CalendarPage() {
      ✅ CREAR RESERVA (con org_id)
   ====================== */
   const createBooking = async () => {
-
-const supabase = getSupabase()
-if (!supabase) {
-  throw new Error("Supabase URL/ANON KEY missing (check Vercel env vars)")
-}
+    if (!sb) {
+      alert("Supabase no inicializado (revisa env vars en Vercel)");
+      return;
+    }
 
     if (!roomId) return alert("Selecciona un recurso.");
     if (!serviceId) return alert("Selecciona un servicio.");
@@ -334,7 +338,7 @@ if (!supabase) {
     const start = new Date(startAt);
     const end = new Date(start.getTime() + duration * 60 * 1000);
 
-    const { error } = await supabase.from("bookings").insert([
+    const { error } = await sb.from("bookings").insert([
       {
         org_id: ORG_ID, // ✅ AQUÍ
         room_id: roomId,
@@ -345,19 +349,22 @@ if (!supabase) {
         start_at: start.toISOString(),
         end_at: end.toISOString(),
         notes: notes.trim() || null,
-        color: newColor,
+        color,
       },
     ]);
 
     if (error) {
-      alert("No se pudo crear ❌\n" + error.message);
+      console.error(error);
+      alert("Error creando reserva: " + error.message);
       return;
     }
 
+    // reset form
     setClientName("");
     setClientPhone("");
     setNotes("");
     setStartAt("");
+
     await loadBookingsForWeek(weekStart);
   };
 
@@ -372,7 +379,12 @@ if (!supabase) {
   const saveColor = async () => {
     if (!selectedBooking) return;
 
-    const { error } = await supabase
+    if (!sb) {
+      alert("Supabase no inicializado (revisa env vars en Vercel)");
+      return;
+    }
+
+    const { error } = await sb
       .from("bookings")
       .update({ color: editColor })
       .eq("id", selectedBooking.id)
@@ -388,17 +400,16 @@ if (!supabase) {
   };
 
   const deleteBooking = async () => {
-
-const supabase = getSupabase()
-if (!supabase) {
-  throw new Error("Supabase URL/ANON KEY missing (check Vercel env vars)")
-}
+    if (!sb) {
+      alert("Supabase no inicializado (revisa env vars en Vercel)");
+      return;
+    }
 
     if (!selectedBooking) return;
     const ok = confirm("¿Eliminar reserva?");
     if (!ok) return;
 
-    const { error } = await supabase
+    const { error } = await sb
       .from("bookings")
       .delete()
       .eq("id", selectedBooking.id)
@@ -414,30 +425,37 @@ if (!supabase) {
   };
 
   /* ======================
-     ✅ DRAG (MOVER) (seguro por org)
-     droppable id = `${dayKey}|${roomId}|${slotIndex}`
+     ✅ DRAG & DROP (move booking)
   ====================== */
   const onDragEnd = async (event: DragEndEvent) => {
-    const over = event.over;
+    if (!sb) return;
+
+    const { active, over } = event;
     if (!over) return;
 
-    const booking = event.active.data.current?.booking as Booking | undefined;
+    const bookingId = String(active.id);
+    const dropId = String(over.id); // roomId|dayIndex
+
+    const booking = bookings.find((b) => b.id === bookingId);
     if (!booking) return;
 
-    const [newDayKey, newRoomId, slotStr] = String(over.id).split("|");
-    const slotIndex = Number(slotStr);
+    const [newRoomId, dayIndexStr] = dropId.split("|");
+    const dayIndex = Number(dayIndexStr);
 
-    if (!newDayKey || !newRoomId || Number.isNaN(slotIndex)) return;
+    const oldStart = new Date(booking.start_at);
+    const oldEnd = new Date(booking.end_at);
+    const durationMin = differenceInMinutes(oldEnd, oldStart);
 
-    const durationMin = differenceInMinutes(new Date(booking.end_at), new Date(booking.start_at));
+    const targetDay = weekDays[dayIndex];
+    if (!targetDay) return;
 
-    const targetDay = new Date(`${newDayKey}T00:00:00`);
-    const safeSlot = clamp(slotIndex, 0, DAY_SLOTS - 1);
+    // Mantener hora pero mover día
+    const newStart = new Date(targetDay);
+    newStart.setHours(oldStart.getHours(), oldStart.getMinutes(), 0, 0);
 
-    const newStart = slotIndexToDate(targetDay, safeSlot);
     const newEnd = new Date(newStart.getTime() + durationMin * 60 * 1000);
 
-    const { error } = await supabase
+    const { error } = await sb
       .from("bookings")
       .update({
         room_id: newRoomId,
@@ -448,7 +466,7 @@ if (!supabase) {
       .eq("org_id", ORG_ID);
 
     if (error) {
-      alert("No se pudo mover ❌\n" + error.message);
+      alert("Error moviendo reserva: " + error.message);
       return;
     }
 
@@ -456,121 +474,214 @@ if (!supabase) {
   };
 
   /* ======================
-     ✅ RESIZE (DURACIÓN) (seguro por org)
+     ✅ RESIZE (change end_at)
   ====================== */
-  const startResize = (booking: Booking, startClientY: number) => {
-    const startAtMs = new Date(booking.start_at).getTime();
-    const originalEndMs = new Date(booking.end_at).getTime();
+  const startResize = (booking: Booking, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsResizing(true);
+    setResizeBookingId(booking.id);
+    setResizeStartY(e.clientY);
+    setResizeOriginalEnd(new Date(booking.end_at));
+    resizePreviewRef.current = booking;
+    document.body.style.cursor = "ns-resize";
+  };
 
-    const originalSlots = Math.max(1, Math.round((originalEndMs - startAtMs) / (SLOT_MIN * 60 * 1000)));
-    const minSlots = 1;
+  useEffect(() => {
+    if (!isResizing) return;
 
-    const onMove = (ev: PointerEvent) => {
-      const deltaPx = ev.clientY - startClientY;
-      const deltaSlots = Math.round(deltaPx / CELL_HEIGHT);
+    const onMove = (e: MouseEvent) => {
+      if (!resizeBookingId || !resizeOriginalEnd) return;
+      const booking = bookings.find((b) => b.id === resizeBookingId);
+      if (!booking) return;
 
-      const newSlots = Math.max(minSlots, originalSlots + deltaSlots);
-      const newEnd = new Date(startAtMs + newSlots * SLOT_MIN * 60 * 1000).toISOString();
+      const deltaY = e.clientY - resizeStartY;
+      const deltaMinutes = Math.round((deltaY / PX_PER_HOUR) * 60);
 
-      const next = { id: booking.id, end_at: newEnd };
-      resizePreviewRef.current = next;
-      setResizePreview(next);
+      const start = new Date(booking.start_at);
+      const oldEnd = resizeOriginalEnd;
+      const newEnd = new Date(oldEnd.getTime() + deltaMinutes * 60 * 1000);
+
+      // clamp mínimo 30 min
+      const minEnd = new Date(start.getTime() + SLOT_MIN * 60 * 1000);
+      const clamped = newEnd < minEnd ? minEnd : newEnd;
+
+      resizePreviewRef.current = { ...booking, end_at: clamped.toISOString() };
+      // fuerza re-render suave
+      setBookings((prev) => [...prev]);
     };
 
     const onUp = async () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
+      if (!sb) return;
 
+      setIsResizing(false);
+      document.body.style.cursor = "default";
+
+      const booking = bookings.find((b) => b.id === resizeBookingId);
       const finalPreview = resizePreviewRef.current;
 
-      if (!finalPreview || finalPreview.id !== booking.id) {
-        resizePreviewRef.current = null;
-        setResizePreview(null);
-        return;
-      }
+      setResizeBookingId(null);
 
-      const { error } = await supabase
+      if (!booking || !finalPreview) return;
+
+      if (finalPreview.end_at === booking.end_at) return;
+
+      const { error } = await sb
         .from("bookings")
         .update({ end_at: finalPreview.end_at })
         .eq("id", booking.id)
         .eq("org_id", ORG_ID);
 
       if (error) {
-        alert("No se pudo cambiar duración ❌\n" + error.message);
+        alert("Error ajustando: " + error.message);
+        return;
       }
 
-      resizePreviewRef.current = null;
-      setResizePreview(null);
       await loadBookingsForWeek(weekStart);
     };
 
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-  };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isResizing, resizeBookingId, resizeOriginalEnd, resizeStartY, bookings]);
 
   /* ======================
-     AGRUPACIÓN RESERVAS POR DÍA+SALA
+     UI GRID
   ====================== */
-  const bookingsByDayRoom = useMemo(() => {
+  const hours = useMemo(() => {
+    const arr: number[] = [];
+    for (let h = START_HOUR; h <= END_HOUR; h++) arr.push(h);
+    return arr;
+  }, []);
+
+  const bookingsByRoom = useMemo(() => {
     const map = new Map<string, Booking[]>();
+    for (const r of rooms) map.set(r.id, []);
     for (const b of bookings) {
-      const key = `${dayKeyFromISO(b.start_at)}|${b.room_id}`;
-      const arr = map.get(key) || [];
-      arr.push(b);
+      if (!map.has(b.room_id)) map.set(b.room_id, []);
+      map.get(b.room_id)!.push(b);
+    }
+    for (const [key, arr] of map.entries()) {
+      arr.sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
       map.set(key, arr);
     }
     return map;
-  }, [bookings]);
+  }, [bookings, rooms]);
 
-  const totalRoomCols = rooms.length * 7;
-  const gridMinWidth = TIME_COL_WIDTH + totalRoomCols * ROOM_COL_WIDTH;
-
-  if (loading) return <div style={{ padding: 24 }}>Cargando...</div>;
+  const gridHeightPx = (END_HOUR - START_HOUR) * PX_PER_HOUR;
 
   return (
-    <div style={{ padding: 24 }}>
-      {/* HEADER */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 980, margin: 0 }}>Agenda Week Full 🤯💥</h1>
-          <div style={{ color: "#666", marginTop: 4 }}>
-            Semana desde: <b>{format(weekStart, "yyyy-MM-dd")}</b>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: `radial-gradient(1000px 700px at 30% 20%, rgba(59,130,246,0.20), transparent 60%),
+                    radial-gradient(900px 600px at 70% 60%, rgba(168,85,247,0.16), transparent 55%),
+                    ${GRID_BG}`,
+        color: TEXT,
+        padding: 18,
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          height: HEADER_H,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderRadius: 18,
+          padding: "0 14px",
+          border: `1px solid ${CARD_BORDER}`,
+          background: CARD_BG,
+          backdropFilter: "blur(14px)",
+          boxShadow: "0 10px 26px rgba(0,0,0,0.25)",
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ fontSize: 16, fontWeight: 800 }}>Calendario</div>
+          <div style={{ fontSize: 12, color: MUTED }}>
+            Semana: {format(weekStart, "dd MMM")} — {format(addDays(weekStart, 6), "dd MMM")}
           </div>
+          {loading ? (
+            <div style={{ marginLeft: 10, fontSize: 12, color: MUTED }}>Cargando...</div>
+          ) : null}
         </div>
 
         <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={() => setWeekStart((w) => subWeeks(w, 1))}
-            style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 12, cursor: "pointer" }}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 14,
+              border: `1px solid ${CARD_BORDER}`,
+              background: "rgba(255,255,255,0.05)",
+              color: TEXT,
+              cursor: "pointer",
+            }}
           >
-            ← Semana
+            ◀ Semana
           </button>
+
           <button
             onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
-            style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 12, cursor: "pointer" }}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 14,
+              border: `1px solid ${CARD_BORDER}`,
+              background: "rgba(255,255,255,0.05)",
+              color: TEXT,
+              cursor: "pointer",
+            }}
           >
             Hoy
           </button>
+
           <button
             onClick={() => setWeekStart((w) => addWeeks(w, 1))}
-            style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 12, cursor: "pointer" }}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 14,
+              border: `1px solid ${CARD_BORDER}`,
+              background: "rgba(255,255,255,0.05)",
+              color: TEXT,
+              cursor: "pointer",
+            }}
           >
-            Semana →
+            Semana ▶
           </button>
         </div>
       </div>
 
-      {/* CREAR RESERVA */}
-      <div style={{ marginTop: 16, border: "1px solid #eee", borderRadius: 14, padding: 14, maxWidth: 1600 }}>
-        <div style={{ fontWeight: 980, marginBottom: 10 }}>Nueva reserva</div>
+      {/* Form */}
+      <div
+        style={{
+          borderRadius: 18,
+          border: `1px solid ${CARD_BORDER}`,
+          background: CARD_BG,
+          backdropFilter: "blur(14px)",
+          padding: 14,
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Crear reserva</div>
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr", gap: 10 }}>
           <select
             value={roomId}
             onChange={(e) => setRoomId(e.target.value)}
-            style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 12 }}
+            style={{
+              padding: 10,
+              borderRadius: 14,
+              border: `1px solid ${CARD_BORDER}`,
+              background: "rgba(0,0,0,0.25)",
+              color: TEXT,
+            }}
           >
-            <option value="">Recurso</option>
+            <option value="">Sala / Recurso</option>
             {rooms.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -581,7 +692,13 @@ if (!supabase) {
           <select
             value={serviceId}
             onChange={(e) => setServiceId(e.target.value)}
-            style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 12 }}
+            style={{
+              padding: 10,
+              borderRadius: 14,
+              border: `1px solid ${CARD_BORDER}`,
+              background: "rgba(0,0,0,0.25)",
+              color: TEXT,
+            }}
           >
             <option value="">Servicio</option>
             {services.map((s) => (
@@ -594,351 +711,325 @@ if (!supabase) {
           <select
             value={staffId}
             onChange={(e) => setStaffId(e.target.value)}
-            style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 12 }}
+            style={{
+              padding: 10,
+              borderRadius: 14,
+              border: `1px solid ${CARD_BORDER}`,
+              background: "rgba(0,0,0,0.25)",
+              color: TEXT,
+            }}
           >
-            <option value="">(Opcional) Staff</option>
-            {staff.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.role})
+            <option value="">Staff (opcional)</option>
+            {staff.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
               </option>
             ))}
           </select>
 
           <input
+            type="datetime-local"
+            value={startAt}
+            onChange={(e) => setStartAt(e.target.value)}
+            style={{
+              padding: 10,
+              borderRadius: 14,
+              border: `1px solid ${CARD_BORDER}`,
+              background: "rgba(0,0,0,0.25)",
+              color: TEXT,
+            }}
+          />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
+          <input
             value={clientName}
             onChange={(e) => setClientName(e.target.value)}
-            placeholder="Cliente"
-            style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 12, width: 220 }}
+            placeholder="Nombre cliente"
+            style={{
+              padding: 10,
+              borderRadius: 14,
+              border: `1px solid ${CARD_BORDER}`,
+              background: "rgba(0,0,0,0.25)",
+              color: TEXT,
+            }}
           />
 
           <input
             value={clientPhone}
             onChange={(e) => setClientPhone(e.target.value)}
             placeholder="Teléfono (opcional)"
-            style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 12, width: 200 }}
-          />
-
-          <input
-            type="datetime-local"
-            value={startAt}
-            onChange={(e) => setStartAt(e.target.value)}
-            style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 12 }}
+            style={{
+              padding: 10,
+              borderRadius: 14,
+              border: `1px solid ${CARD_BORDER}`,
+              background: "rgba(0,0,0,0.25)",
+              color: TEXT,
+            }}
           />
 
           <input
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Notas"
-            style={{ padding: "10px 12px", border: "1px solid #ddd", borderRadius: 12, width: 260 }}
+            placeholder="Notas (opcional)"
+            style={{
+              padding: 10,
+              borderRadius: 14,
+              border: `1px solid ${CARD_BORDER}`,
+              background: "rgba(0,0,0,0.25)",
+              color: TEXT,
+            }}
           />
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontWeight: 950 }}>Color</span>
-            <input type="color" value={newColor} onChange={(e) => setNewColor(e.target.value)} />
-          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              style={{ width: 44, height: 40, borderRadius: 12, border: `1px solid ${CARD_BORDER}` }}
+              title="Color del bloque"
+            />
 
-          <button
-            onClick={createBooking}
-            style={{
-              padding: "10px 14px",
-              border: "1px solid #ddd",
-              borderRadius: 12,
-              cursor: "pointer",
-              fontWeight: 980,
-            }}
-          >
-            Crear
-          </button>
+            <button
+              onClick={() => void createBooking()}
+              style={{
+                flex: 1,
+                padding: "10px 12px",
+                borderRadius: 14,
+                border: `1px solid ${CARD_BORDER}`,
+                background: "rgba(59,130,246,0.22)",
+                color: TEXT,
+                cursor: "pointer",
+                fontWeight: 800,
+              }}
+            >
+              + Crear
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* ✅ CALENDARIO */}
-      <div style={{ marginTop: 16, border: "1px solid #eee", borderRadius: 14, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <div style={{ minWidth: gridMinWidth }}>
-            {/* HEADER DÍAS */}
+      {/* Grid */}
+      <div
+        style={{
+          borderRadius: 18,
+          border: `1px solid ${CARD_BORDER}`,
+          background: CARD_BG,
+          backdropFilter: "blur(14px)",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ display: "grid", gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}>
+          {/* Head left */}
+          <div style={{ padding: 12, borderBottom: `1px solid ${GRID_LINE}`, color: MUTED, fontSize: 12 }}>
+            Hora
+          </div>
+
+          {weekDays.map((d, idx) => (
             <div
+              key={idx}
               style={{
-                display: "flex",
-                position: "sticky",
-                top: 0,
-                zIndex: 50,
-                background: "#fafafa",
-                borderBottom: "1px solid #eee",
-                height: HEADER_DAY_H,
+                padding: 12,
+                borderBottom: `1px solid ${GRID_LINE}`,
+                borderLeft: `1px solid ${GRID_LINE}`,
+                fontWeight: 800,
+                fontSize: 12,
               }}
             >
-              <div
-                style={{
-                  width: TIME_COL_WIDTH,
-                  minWidth: TIME_COL_WIDTH,
-                  padding: 10,
-                  fontWeight: 980,
-                  position: "sticky",
-                  left: 0,
-                  zIndex: 60,
-                  background: "#fafafa",
-                  borderRight: "1px solid #eee",
-                }}
-              >
-                Hora
+              {format(d, "EEE dd")}
+            </div>
+          ))}
+        </div>
+
+        <DndContext onDragEnd={onDragEnd}>
+          {rooms.map((room) => (
+            <div
+              key={room.id}
+              style={{
+                display: "grid",
+                gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)`,
+                borderTop: `1px solid ${GRID_LINE}`,
+              }}
+            >
+              {/* Room name */}
+              <div style={{ padding: 12, borderRight: `1px solid ${GRID_LINE}` }}>
+                <div style={{ fontWeight: 900, fontSize: 13 }}>{room.name}</div>
+                <div style={{ fontSize: 11, color: MUTED, marginTop: 6 }}>
+                  {bookingsByRoom.get(room.id)?.length || 0} reservas
+                </div>
               </div>
 
-              {days.map((d) => (
-                <div
-                  key={dayKey(d)}
-                  style={{
-                    width: rooms.length * ROOM_COL_WIDTH,
-                    minWidth: rooms.length * ROOM_COL_WIDTH,
-                    padding: 10,
-                    fontWeight: 980,
-                    borderLeft: "1px solid #eee",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {format(d, "EEEE dd/MM")}
-                </div>
-              ))}
-            </div>
+              {/* Days columns */}
+              {weekDays.map((day, dayIdx) => {
+                const cellId = `${room.id}|${dayIdx}`;
 
-            {/* HEADER SALAS */}
-            <div
-              style={{
-                display: "flex",
-                position: "sticky",
-                top: HEADER_DAY_H,
-                zIndex: 49,
-                background: "#fff",
-                borderBottom: "1px solid #eee",
-                height: HEADER_ROOM_H,
-              }}
-            >
-              <div
-                style={{
-                  width: TIME_COL_WIDTH,
-                  minWidth: TIME_COL_WIDTH,
-                  position: "sticky",
-                  left: 0,
-                  zIndex: 60,
-                  background: "#fff",
-                  borderRight: "1px solid #eee",
-                }}
-              />
-              {days.map((d) => (
-                <div key={dayKey(d)} style={{ display: "flex", borderLeft: "1px solid #eee" }}>
-                  {rooms.map((r) => (
-                    <div
-                      key={`${dayKey(d)}-${r.id}`}
-                      style={{
-                        width: ROOM_COL_WIDTH,
-                        minWidth: ROOM_COL_WIDTH,
-                        padding: 10,
-                        borderLeft: "1px solid #f3f3f3",
-                        fontWeight: 950,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {r.name}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-
-            {/* BODY */}
-            <DndContext onDragEnd={onDragEnd}>
-              <div style={{ display: "flex" }}>
-                {/* Columna horas */}
-                <div
-                  style={{
-                    width: TIME_COL_WIDTH,
-                    minWidth: TIME_COL_WIDTH,
-                    borderRight: "1px solid #eee",
-                    position: "sticky",
-                    left: 0,
-                    zIndex: 40,
-                    background: "#fff",
-                  }}
-                >
-                  {timeLabels.map((t, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        height: CELL_HEIGHT,
-                        borderBottom: "1px solid #f2f2f2",
-                        padding: "4px 8px",
-                        fontSize: 12,
-                        color: idx % 2 === 0 ? "#333" : "#999",
-                        fontWeight: idx % 2 === 0 ? 950 : 600,
-                      }}
-                    >
-                      {idx % 2 === 0 ? t : ""}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Semana */}
-                <div style={{ display: "flex" }}>
-                  {days.map((day) => {
-                    const dk = dayKey(day);
+                // bookings in this room/day
+                const dayBookings =
+                  (bookingsByRoom.get(room.id) || []).filter((b) => {
+                    const d0 = new Date(b.start_at);
                     return (
-                      <div key={dk} style={{ display: "flex", borderLeft: "1px solid #eee" }}>
-                        {rooms.map((room) => {
-                          const mapKey = `${dk}|${room.id}`;
-                          const roomBookings = bookingsByDayRoom.get(mapKey) || [];
-
-                          return (
-                            <div
-                              key={`${dk}-${room.id}`}
-                              style={{
-                                position: "relative",
-                                width: ROOM_COL_WIDTH,
-                                minWidth: ROOM_COL_WIDTH,
-                                borderLeft: "1px solid #f3f3f3",
-                              }}
-                            >
-                              <div style={{ position: "relative", height: DAY_SLOTS * CELL_HEIGHT }}>
-                                {/* Slots */}
-                                {Array.from({ length: DAY_SLOTS }).map((_, slotIndex) => (
-                                  <SlotDrop key={slotIndex} id={`${dk}|${room.id}|${slotIndex}`} />
-                                ))}
-
-                                {/* Bookings */}
-                                {roomBookings.map((b) => {
-                                  const previewEnd = resizePreview?.id === b.id ? resizePreview.end_at : b.end_at;
-
-                                  const slotStart = getSlotIndexFromISO(b.start_at);
-                                  const slotEnd = getSlotIndexFromISO(previewEnd);
-
-                                  const top = clamp(slotStart, 0, DAY_SLOTS) * CELL_HEIGHT;
-                                  const height = clamp(slotEnd - slotStart, 1, DAY_SLOTS) * CELL_HEIGHT;
-
-                                  const label = `${format(new Date(b.start_at), "HH:mm")}–${format(
-                                    new Date(previewEnd),
-                                    "HH:mm"
-                                  )} · ${serviceName(b.service_id)}`;
-
-                                  return (
-                                    <DraggableBooking
-                                      key={b.id}
-                                      booking={{ ...b, end_at: previewEnd }}
-                                      topPx={top}
-                                      heightPx={height}
-                                      label={label}
-                                      onDoubleClick={() => openEdit(b)}
-                                      onResizeStart={startResize}
-                                    />
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      d0.getFullYear() === day.getFullYear() &&
+                      d0.getMonth() === day.getMonth() &&
+                      d0.getDate() === day.getDate()
                     );
-                  })}
-                </div>
-              </div>
-            </DndContext>
-          </div>
-        </div>
+                  }) || [];
+
+                return (
+                  <div
+                    key={cellId}
+                    style={{
+                      position: "relative",
+                      height: gridHeightPx,
+                      borderLeft: `1px solid ${GRID_LINE}`,
+                      background:
+                        "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))",
+                    }}
+                  >
+                    {/* Droppable */}
+                    <DroppableCell id={cellId} />
+
+                    {/* Hour lines */}
+                    {hours.map((h) => {
+                      const top = (h - START_HOUR) * PX_PER_HOUR;
+                      return (
+                        <div
+                          key={h}
+                          style={{
+                            position: "absolute",
+                            left: 0,
+                            right: 0,
+                            top,
+                            borderTop: `1px solid ${GRID_LINE}`,
+                            opacity: 0.6,
+                          }}
+                        />
+                      );
+                    })}
+
+                    {/* Bookings */}
+                    {dayBookings.map((b) => {
+                      const start = new Date(b.start_at);
+                      const end = new Date(b.end_at);
+
+                      const topPx = calcTopPx(start);
+                      const heightPx = calcHeightPx(start, end);
+
+                      const serviceName =
+                        services.find((s) => s.id === b.service_id)?.name || "Servicio";
+                      const label = `${timeLabel(start)} — ${serviceName} • ${b.client_name || "Cliente"}`;
+
+                      return (
+                        <DraggableBooking
+                          key={b.id}
+                          booking={b}
+                          topPx={topPx}
+                          heightPx={heightPx}
+                          label={label}
+                          onDoubleClick={() => openEdit(b)}
+                          onResizeStart={(e) => startResize(b, e)}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </DndContext>
       </div>
 
-      {/* MODAL EDITAR */}
-      {selectedBooking && (
+      {/* Modal editar */}
+      {selectedBooking ? (
         <div
           onClick={() => setSelectedBooking(null)}
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,.55)",
+            background: "rgba(0,0,0,0.55)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 9999,
-            padding: 16,
+            padding: 18,
+            zIndex: 999,
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              width: 420,
-              background: "#fff",
-              borderRadius: 14,
-              padding: 14,
-              boxShadow: "0 12px 30px rgba(0,0,0,.25)",
+              width: "min(520px, 92vw)",
+              borderRadius: 18,
+              border: `1px solid ${CARD_BORDER}`,
+              background: "rgba(20,24,34,0.92)",
+              backdropFilter: "blur(14px)",
+              padding: 16,
+              boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-              <div style={{ fontWeight: 980 }}>Editar reserva</div>
+              <div style={{ fontWeight: 900 }}>Editar reserva</div>
               <button
                 onClick={() => setSelectedBooking(null)}
                 style={{
-                  border: "1px solid #ddd",
-                  borderRadius: 12,
+                  border: `1px solid ${CARD_BORDER}`,
+                  background: "rgba(255,255,255,0.05)",
+                  color: TEXT,
                   padding: "6px 10px",
+                  borderRadius: 12,
                   cursor: "pointer",
                 }}
               >
-                Cerrar
+                ✕
               </button>
             </div>
 
-            <div style={{ marginTop: 10, color: "#666" }}>
-              <div>
-                <b>Día:</b> {format(new Date(selectedBooking.start_at), "EEEE dd/MM")}
-              </div>
-              <div>
-                <b>Sala:</b> {roomName(selectedBooking.room_id)}
-              </div>
-              <div>
-                <b>Servicio:</b> {serviceName(selectedBooking.service_id)}
-              </div>
-              <div>
-                <b>Cliente:</b> {selectedBooking.client_name}
-              </div>
+            <div style={{ fontSize: 12, color: MUTED, marginTop: 8 }}>
+              {selectedBooking.client_name || "Cliente"} • {format(new Date(selectedBooking.start_at), "dd/MM HH:mm")}
             </div>
 
-            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
-              <b>Color</b>
-              <input type="color" value={editColor} onChange={(e) => setEditColor(e.target.value)} />
-            </div>
-
-            <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 14 }}>
+              <div style={{ fontSize: 12, color: MUTED }}>Color:</div>
+              <input
+                type="color"
+                value={editColor}
+                onChange={(e) => setEditColor(e.target.value)}
+                style={{ width: 50, height: 38, borderRadius: 12, border: `1px solid ${CARD_BORDER}` }}
+              />
               <button
-                onClick={saveColor}
+                onClick={() => void saveColor()}
                 style={{
                   flex: 1,
                   padding: "10px 12px",
-                  borderRadius: 12,
-                  border: "1px solid #ddd",
+                  borderRadius: 14,
+                  border: `1px solid ${CARD_BORDER}`,
+                  background: "rgba(34,197,94,0.20)",
+                  color: TEXT,
                   cursor: "pointer",
-                  fontWeight: 980,
+                  fontWeight: 900,
                 }}
               >
-                Guardar color
-              </button>
-
-              <button
-                onClick={deleteBooking}
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                  border: "1px solid #ddd",
-                  cursor: "pointer",
-                  fontWeight: 980,
-                }}
-              >
-                Eliminar
+                Guardar
               </button>
             </div>
+
+            <button
+              onClick={() => void deleteBooking()}
+              style={{
+                width: "100%",
+                marginTop: 12,
+                padding: "10px 12px",
+                borderRadius: 14,
+                border: `1px solid ${CARD_BORDER}`,
+                background: "rgba(239,68,68,0.20)",
+                color: TEXT,
+                cursor: "pointer",
+                fontWeight: 900,
+              }}
+            >
+              Eliminar
+            </button>
           </div>
         </div>
-      )}
-
-      <div style={{ marginTop: 16 }}>
-        <a href="/dashboard">← volver al dashboard</a>
-      </div>
+      ) : null}
     </div>
   );
 }
