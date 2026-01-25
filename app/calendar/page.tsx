@@ -1,7 +1,9 @@
 'use client'
 
+// Prevent Next from trying to prerender this page at build time
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -105,8 +107,6 @@ export default function AgendaPage() {
   })
 
   const [errors, setErrors] = useState<string[]>([])
-  const supabase = createClient()
-
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 })
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const hours = Array.from({ length: 24 }, (_, i) => i)
