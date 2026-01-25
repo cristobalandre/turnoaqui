@@ -281,7 +281,7 @@ export default function AgendaPage() {
       fecha_inicio: format(fechaInicioLocal, "yyyy-MM-dd'T'HH:mm"),
       fecha_fin: format(fechaFinLocal, "yyyy-MM-dd'T'HH:mm"),
       notas: sesion.notas || '',
-      estado: sesion.estado,
+      estado: sesion.estado as any,
     })
     setDialogOpen(true)
   }
