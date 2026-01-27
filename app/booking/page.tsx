@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { format, addDays, startOfWeek, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, addMinutes, isBefore, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
+import { Upload, CheckCircle2, Loader2, Music } from "lucide-react";
 
 // --- CONFIGURACIÓN SUPABASE ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -24,9 +25,14 @@ export default function BookingPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  
+  // Formulario y Archivo
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+  const [referenceUrl, setReferenceUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [loadingHours, setLoadingHours] = useState(false);
@@ -48,11 +54,32 @@ export default function BookingPage() {
     fetchData();
   }, []);
 
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
-  const endDate = startOfWeek(addDays(monthEnd, 7), { weekStartsOn: 1 });
-  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
+  // Lógica para subir el archivo al Bucket
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true);
+      if (!e.target.files || e.target.files.length === 0) return;
+
+      const file = e.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('session-files')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('session-files').getPublicUrl(fileName);
+      setReferenceUrl(data.publicUrl);
+
+    } catch (error) {
+      console.error(error);
+      alert("Error al subir archivo");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   useEffect(() => {
     if (!selectedDate || !selectedRoom) return;
@@ -79,16 +106,13 @@ export default function BookingPage() {
 
       while (cursor < closeTime) {
         const slotStart = new Date(cursor);
-        const slotEnd = addMinutes(cursor, 60);
+        const isPastTime = isBefore(slotStart, addMinutes(now, 15));
 
         const isBusy = bookings?.some(b => {
           const bStart = new Date(b.start_at);
           const bEnd = new Date(b.end_at);
-          return (slotStart < bEnd && slotEnd > bStart);
+          return (slotStart < bEnd && addMinutes(slotStart, 60) > bStart);
         });
-
-        // 🟢 VALIDACIÓN CRUCIAL: No mostrar horas que ya pasaron (con margen de 15 min)
-        const isPastTime = isBefore(slotStart, addMinutes(now, 15));
 
         if (!isBusy && !isPastTime) {
           slots.push(format(slotStart, "HH:mm"));
@@ -98,7 +122,6 @@ export default function BookingPage() {
       setAvailableSlots(slots);
       setLoadingHours(false);
     };
-
     fetchAvailability();
   }, [selectedDate, selectedRoom]);
 
@@ -123,122 +146,107 @@ export default function BookingPage() {
         service_id: defaultService?.id, 
         color: "#3b82f6", 
         payment_status: "pending",
-        notes: `Reserva Web - WhatsApp: ${clientPhone} - Email: ${clientEmail}`
+        reference_url: referenceUrl, // 🎙️ Guardamos el link de la maqueta
+        notes: `WhatsApp: ${clientPhone}. Referencia: ${referenceUrl ? 'Adjunta' : 'Ninguna'}`
       });
       if (error) throw error;
       setStep(4);
     } catch (error) {
       console.error(error);
-      alert("Error al guardar.");
+      alert("Error al guardar reserva.");
     } finally {
       setIsBooking(false);
     }
   };
 
+  // Fragmento del calendario y lógica de renderizado...
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const endDate = startOfWeek(addDays(monthEnd, 7), { weekStartsOn: 1 });
+  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate });
+
   return (
     <div style={{ minHeight: "100vh", background: "#09090b", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "sans-serif" }}>
       <div style={{ display: "grid", gridTemplateColumns: step === 4 ? "1fr" : "300px 1fr", background: CARD_BG, borderRadius: 24, border: `1px solid ${BORDER}`, boxShadow: "0 20px 50px rgba(0,0,0,0.5)", overflow: "hidden", maxWidth: 950, width: "100%", minHeight: 550 }}>
+        
         {step === 4 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 40, textAlign: "center", color: "white" }}>
-            <div style={{ fontSize: 70, marginBottom: 20 }}>🎉</div>
-            <h2 style={{ fontSize: 32, marginBottom: 10 }}>¡Reserva Confirmada!</h2>
-            <p style={{ color: TEXT_MUTED, maxWidth: 400, marginBottom: 30, lineHeight: 1.5 }}>
-              Listo <b>{clientName}</b>. Tu sesión en <b>{selectedRoom?.name}</b> ha quedado agendada para el <b>{format(selectedDate!, "d 'de' MMMM", { locale: es })}</b> a las <b>{selectedTime}</b>.
-            </p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => window.location.reload()} style={{ padding: "12px 24px", borderRadius: 12, background: "rgba(255,255,255,0.1)", color: "white", border: "none", cursor: "pointer" }}>Volver al inicio</button>
-              <a href={`https://wa.me/?text=Hola, he reservado hora para el ${format(selectedDate!, "dd/MM")} a las ${selectedTime}`} target="_blank" style={{ padding: "12px 24px", borderRadius: 12, background: "#22c55e", color: "white", border: "none", fontWeight: "bold", cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}>📲 Avisar por WhatsApp</a>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 40, textAlign: "center", color: "white" }}>
+              <div style={{ fontSize: 70, marginBottom: 20 }}>🎉</div>
+              <h2 style={{ fontSize: 32, marginBottom: 10 }}>¡Reserva Confirmada!</h2>
+              <p style={{ color: TEXT_MUTED, maxWidth: 400, marginBottom: 30 }}>Tu sesión en <b>{selectedRoom?.name}</b> está lista.</p>
+              <button onClick={() => window.location.reload()} style={{ padding: "12px 24px", borderRadius: 12, background: "rgba(255,255,255,0.1)", color: "white", border: "none", cursor: "pointer" }}>Cerrar</button>
             </div>
-          </div>
         ) : (
           <>
-            <div style={{ padding: 30, borderRight: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.02)", display: "flex", flexDirection: "column" }}>
-              <div style={{ width: 50, height: 50, borderRadius: 14, background: "linear-gradient(135deg, #f59e0b, #ea580c)", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>💈</div>
-              <h2 style={{ color: TEXT_MAIN, margin: "0 0 5px 0", fontSize: 20 }}>Turno Aquí</h2>
-              <p style={{ color: TEXT_MUTED, fontSize: 13, margin: 0 }}>Agenda profesional</p>
-              <div style={{ marginTop: 40, flex: 1 }}>
-                <div style={{ marginBottom: 20 }}><div style={{ fontSize: 11, fontWeight: 900, color: TEXT_MUTED, textTransform: "uppercase", marginBottom: 5 }}>ESPACIO SELECCIONADO</div><div style={{ color: TEXT_MAIN, fontSize: 16, fontWeight: 600 }}>{selectedRoom ? selectedRoom.name : "Cargando..."}</div></div>
-                {selectedDate && (<div style={{ marginBottom: 20 }}><div style={{ fontSize: 11, fontWeight: 900, color: TEXT_MUTED, textTransform: "uppercase", marginBottom: 5 }}>FECHA</div><div style={{ color: TEXT_MAIN, fontSize: 16 }}>{format(selectedDate, "EEEE d 'de' MMMM", { locale: es })}</div></div>)}
-                {selectedTime && (<div><div style={{ fontSize: 11, fontWeight: 900, color: TEXT_MUTED, textTransform: "uppercase", marginBottom: 5 }}>HORA</div><div style={{ color: ACCENT, fontSize: 24, fontWeight: "bold" }}>{selectedTime}</div></div>)}
+            {/* COLUMNA IZQUIERDA */}
+            <div style={{ padding: 30, borderRight: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.02)", color: "white" }}>
+              <div style={{ fontSize: 24, marginBottom: 20 }}>🎙️</div>
+              <h2 style={{ fontSize: 20, marginBottom: 5 }}>StudioManager</h2>
+              <p style={{ color: TEXT_MUTED, fontSize: 13 }}>Reserva tu sesión profesional</p>
+              <div style={{ marginTop: 40 }}>
+                <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 5 }}>SALA</div>
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>{selectedRoom?.name || '---'}</div>
+                {selectedDate && <div style={{ fontSize: 16, marginBottom: 20 }}>{format(selectedDate, "PPP", { locale: es })}</div>}
+                {selectedTime && <div style={{ fontSize: 24, fontWeight: "bold", color: ACCENT }}>{selectedTime}</div>}
               </div>
             </div>
 
+            {/* COLUMNA DERECHA */}
             <div style={{ padding: 30 }}>
               {step === 1 && (
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 30 }}>
                   <div>
-                    <div style={{ marginBottom: 20 }}>
-                      <label style={{ display: "block", color: TEXT_MUTED, fontSize: 12, marginBottom: 8 }}>¿Dónde quieres agendar?</label>
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                        {rooms.map(room => (
-                          <button key={room.id} onClick={() => setSelectedRoom(room)} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${selectedRoom?.id === room.id ? ACCENT : BORDER}`, background: selectedRoom?.id === room.id ? "rgba(59, 130, 246, 0.1)" : "transparent", color: selectedRoom?.id === room.id ? ACCENT : TEXT_MUTED, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>{room.name}</button>
-                        ))}
-                      </div>
+                    {/* Selector Salas y Calendario */}
+                    <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+                      {rooms.map(r => (
+                        <button key={r.id} onClick={() => setSelectedRoom(r)} style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${selectedRoom?.id === r.id ? ACCENT : BORDER}`, background: selectedRoom?.id === r.id ? "rgba(59,130,246,0.1)" : "transparent", color: selectedRoom?.id === r.id ? ACCENT : TEXT_MUTED, cursor: "pointer", fontSize: 12 }}>{r.name}</button>
+                      ))}
                     </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 15, color: TEXT_MAIN, alignItems: "center" }}>
-                      <span style={{ fontWeight: 600, textTransform: "capitalize" }}>{format(currentMonth, "MMMM yyyy", { locale: es })}</span>
-                      <div style={{ display: "flex", gap: 10 }}>
-                        <button onClick={() => setCurrentMonth(addMonths(currentMonth, -1))} style={{ background: "none", border: "none", color: TEXT_MUTED, cursor: "pointer" }}>◀</button>
-                        <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} style={{ background: "none", border: "none", color: TEXT_MUTED, cursor: "pointer" }}>▶</button>
-                      </div>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 5, textAlign: "center", fontSize: 11, color: TEXT_MUTED, marginBottom: 10 }}>
-                      {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => <div key={i}>{d}</div>)}
-                    </div>
+                    {/* Grid de días */}
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 5 }}>
                       {calendarDays.map((day, i) => {
                         const isSelected = selectedDate && isSameDay(day, selectedDate);
-                        const isCurrentMonth = isSameMonth(day, currentMonth);
-                        // 🟢 BLOQUEO DE DÍAS PASADOS
                         const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
                         return (
-                          <button
-                            key={i}
-                            onClick={() => { if(!isPast) { setSelectedDate(day); setSelectedTime(null); } }}
-                            disabled={!isCurrentMonth || isPast}
-                            style={{
-                              aspectRatio: "1/1", borderRadius: 8, border: "none",
-                              background: isSelected ? ACCENT : isToday(day) ? "rgba(255,255,255,0.05)" : "transparent",
-                              color: isSelected ? "white" : isPast ? "#333" : isCurrentMonth ? TEXT_MAIN : "#333",
-                              cursor: (isCurrentMonth && !isPast) ? "pointer" : "default", opacity: isPast ? 0.4 : 1, fontSize: 13
-                            }}
-                          >
-                            {format(day, "d")}
-                          </button>
+                          <button key={i} onClick={() => !isPast && setSelectedDate(day)} disabled={isPast} style={{ aspectRatio: "1/1", borderRadius: 8, border: "none", background: isSelected ? ACCENT : "transparent", color: isPast ? "#333" : "white", cursor: isPast ? "default" : "pointer", opacity: isPast ? 0.3 : 1 }}>{format(day, "d")}</button>
                         );
                       })}
                     </div>
                   </div>
+                  {/* Horas */}
                   <div style={{ borderLeft: `1px solid ${BORDER}`, paddingLeft: 20 }}>
-                     <div style={{ color: TEXT_MAIN, fontSize: 14, marginBottom: 15, fontWeight: 600 }}>Horarios</div>
-                     {loadingHours ? (
-                       <div style={{ color: TEXT_MUTED, fontSize: 12 }}>Buscando espacios...</div>
-                     ) : availableSlots.length > 0 ? (
-                       <div style={{ display: "flex", flexDirection: "column", gap: 8, height: 350, overflowY: "auto", paddingRight: 5 }}>
-                         {availableSlots.map(time => (
-                           <button key={time} onClick={() => setSelectedTime(time)} style={{ padding: "10px", borderRadius: 8, border: `1px solid ${selectedTime === time ? ACCENT : BORDER}`, background: selectedTime === time ? ACCENT : "rgba(255,255,255,0.03)", color: "white", cursor: "pointer", fontWeight: 600, fontSize: 13, textAlign: "center" }}>{time}</button>
-                         ))}
-                       </div>
-                     ) : (
-                       <div style={{ color: TEXT_MUTED, fontSize: 12, fontStyle: "italic" }}>No hay horas libres para hoy.</div>
-                     )}
-                     {selectedTime && (
-                       <button onClick={() => setStep(2)} style={{ width: "100%", marginTop: 20, padding: 12, borderRadius: 8, background: "white", color: "black", fontWeight: 900, border: "none", cursor: "pointer" }}>Continuar →</button>
-                     )}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, height: 350, overflowY: "auto" }}>
+                      {availableSlots.map(t => (
+                        <button key={t} onClick={() => setSelectedTime(t)} style={{ padding: "10px", borderRadius: 8, border: `1px solid ${selectedTime === t ? ACCENT : BORDER}`, background: selectedTime === t ? ACCENT : "transparent", color: "white", cursor: "pointer" }}>{t}</button>
+                      ))}
+                    </div>
+                    {selectedTime && <button onClick={() => setStep(2)} style={{ width: "100%", marginTop: 20, padding: 12, borderRadius: 8, background: "white", color: "black", fontWeight: "bold", border: "none", cursor: "pointer" }}>Siguiente</button>}
                   </div>
                 </div>
               )}
 
               {step === 2 && (
-                <div style={{ maxWidth: 400, margin: "0 auto", color: "white" }}>
-                  <button onClick={() => setStep(1)} style={{ background: "none", border: "none", color: TEXT_MUTED, cursor: "pointer", marginBottom: 20, fontSize: 14 }}>← Volver a elegir hora</button>
-                  <h3 style={{ margin: "0 0 25px 0", fontSize: 24 }}>Casi listo...</h3>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                    <div><label style={{ fontSize: 12, color: TEXT_MUTED, display: "block", marginBottom: 8 }}>Tu Nombre</label><input type="text" value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Ej: Cristóbal Vergara" style={{ width: "100%", padding: 14, borderRadius: 12, border: `1px solid ${BORDER}`, background: "rgba(0,0,0,0.3)", color: "white", fontSize: 16 }} /></div>
-                    <div><label style={{ fontSize: 12, color: TEXT_MUTED, display: "block", marginBottom: 8 }}>WhatsApp (para confirmarte)</label><input type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="+569..." style={{ width: "100%", padding: 14, borderRadius: 12, border: `1px solid ${BORDER}`, background: "rgba(0,0,0,0.3)", color: "white", fontSize: 16 }} /></div>
-                    <div><label style={{ fontSize: 12, color: TEXT_MUTED, display: "block", marginBottom: 8 }}>Email (opcional)</label><input type="email" value={clientEmail} onChange={e => setClientEmail(e.target.value)} placeholder="correo@ejemplo.com" style={{ width: "100%", padding: 14, borderRadius: 12, border: `1px solid ${BORDER}`, background: "rgba(0,0,0,0.3)", color: "white", fontSize: 16 }} /></div>
-                    <button onClick={handleBooking} disabled={isBooking} style={{ marginTop: 10, padding: 16, borderRadius: 12, background: ACCENT, color: "white", fontWeight: 900, border: "none", cursor: isBooking ? "wait" : "pointer", fontSize: 16, display: "flex", justifyContent: "center", alignItems: "center", gap: 10 }}>{isBooking ? "Guardando..." : "✅ Confirmar Reserva"}</button>
+                <div style={{ maxWidth: 400, margin: "0 auto" }}>
+                  <h3 style={{ color: "white", fontSize: 24, marginBottom: 20 }}>Tus datos</h3>
+                  <input type="text" value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Nombre completo" style={{ width: "100%", padding: 12, borderRadius: 10, background: "#000", border: `1px solid ${BORDER}`, color: "white", marginBottom: 15 }} />
+                  <input type="tel" value={clientPhone} onChange={e => setClientPhone(e.target.value)} placeholder="WhatsApp" style={{ width: "100%", padding: 12, borderRadius: 10, background: "#000", border: `1px solid ${BORDER}`, color: "white", marginBottom: 15 }} />
+                  
+                  {/* 🎙️ CARGADOR DE AUDIO FIRST */}
+                  <div style={{ padding: 20, border: `2px dashed ${referenceUrl ? ACCENT : BORDER}`, borderRadius: 12, textAlign: "center", marginBottom: 20, background: "rgba(255,255,255,0.02)" }}>
+                    {uploading ? <Loader2 style={{ margin: "0 auto" }} className="animate-spin text-white" /> : 
+                     referenceUrl ? <div style={{ color: ACCENT }}><CheckCircle2 style={{ margin: "0 auto 10px" }} /> <span style={{ fontSize: 12 }}>¡Maqueta cargada!</span></div> :
+                     <label style={{ cursor: "pointer" }}>
+                        <Upload style={{ margin: "0 auto 10px", color: TEXT_MUTED }} />
+                        <div style={{ fontSize: 12, color: TEXT_MUTED }}>Sube tu maqueta o referencia (MP3/WAV)</div>
+                        <input type="file" onChange={handleFileUpload} style={{ display: "none" }} accept="audio/*" />
+                     </label>
+                    }
                   </div>
+
+                  <button onClick={handleBooking} disabled={isBooking || uploading} style={{ width: "100%", padding: 16, borderRadius: 12, background: ACCENT, color: "white", fontWeight: "bold", border: "none", cursor: "pointer" }}>
+                    {isBooking ? "Confirmando..." : "Finalizar Reserva"}
+                  </button>
                 </div>
               )}
             </div>
