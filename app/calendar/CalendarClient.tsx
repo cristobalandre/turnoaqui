@@ -15,31 +15,24 @@ import {
 import { es } from "date-fns/locale";
 import { supabase as sb } from "@/lib/supabaseClient";
 
-// --- IMPORTACIÓN DE COMPONENTES ATOMIZADOS ---
+// --- COMPONENTES ATOMIZADOS ---
 import { Logo } from "@/components/ui/Logo";
 import { SessionModal } from "@/components/calendar/SessionModal";
 import { QuickCreatePanel } from "@/components/calendar/QuickCreatePanel";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { ClientModal } from "@/components/calendar/ClientModal";
 
-// --- CONFIGURACIÓN FIJA ---
+// --- UTILIDADES ---
+import { isPastDateTime, DATE_ERROR_MSG } from "@/lib/validations";
+
 const ORG_ID = "a573aa05-d62b-44c7-a878-b9138902a094";
 const START_HOUR = 0;
 const END_HOUR = 28;
 const SLOT_MIN = 30;
 const PX_PER_HOUR = 60;
 
-// --- HELPERS LÓGICOS ---
 function dayKey(date: Date) { return format(date, "yyyy-MM-dd"); }
 function snapMinutes(mins: number) { return Math.round(mins / SLOT_MIN) * SLOT_MIN; }
-
-function clampToBounds(date: Date) {
-  const min = new Date(date); min.setHours(START_HOUR, 0, 0, 0);
-  const max = new Date(date); max.setHours(END_HOUR, 0, 0, 0);
-  if (date < min) return min;
-  if (date > max) return max;
-  return date;
-}
 
 export default function CalendarClient() {
   const [isMounted, setIsMounted] = useState(false);
@@ -48,18 +41,14 @@ export default function CalendarClient() {
   const [services, setServices] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // Estados de Vista
+  
   const [viewMode, setViewMode] = useState<"day" | "two" | "week">("day");
   const [viewStart, setViewStart] = useState<Date>(() => startOfDay(new Date()));
   const [roomFilter, setRoomFilter] = useState<string>("all");
 
-  // Estados de Formulario / Modales
   const [roomId, setRoomId] = useState("");
   const [staffId, setStaffId] = useState("");
   const [serviceId, setServiceId] = useState("");
-  const [clientId, setClientId] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [clientEmail, setClientEmail] = useState("");
@@ -75,16 +64,9 @@ export default function CalendarClient() {
   const [newClientName, setNewClientName] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
 
-  // Resize Refs
-  const [isResizing, setIsResizing] = useState(false);
-  const [resizeBookingId, setResizeBookingId] = useState<string | null>(null);
-  const resizeStartYRef = useRef(0);
-  const resizeOriginalEndRef = useRef<Date | null>(null);
-  const resizePreviewEndRef = useRef<string | null>(null);
-
   useEffect(() => { setIsMounted(true); }, []);
 
-  // --- LÓGICA DE DATOS (SUPABASE) ---
+  // --- DATOS ---
   const loadAll = useCallback(async () => {
     if (!sb) return;
     const [roomsRes, staffRes, servicesRes, clientsRes] = await Promise.all([
@@ -110,18 +92,19 @@ export default function CalendarClient() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
   useEffect(() => {
-    const start = viewMode === "week" ? startOfWeek(viewStart, { weekStartsOn: 1 }) : viewStart;
     const days = viewMode === "week" ? 7 : viewMode === "two" ? 2 : 1;
-    loadBookingsForRange(start, days);
+    loadBookingsForRange(viewStart, days);
   }, [viewMode, viewStart, loadBookingsForRange]);
 
-  // --- HANDLERS LÓGICOS ---
+  // --- LÓGICA ---
   const checkOverlap = (targetRoomId: string, start: Date, end: Date, ignoreId?: string) => {
     return bookings.find(b => b.room_id === targetRoomId && b.id !== ignoreId && start < new Date(b.end_at) && end > new Date(b.start_at));
   };
 
   const createBooking = async () => {
     if (!roomId || !serviceId || !clientName.trim() || !startAt) return alert("Faltan datos.");
+    if (isPastDateTime(startAt)) return alert(DATE_ERROR_MSG);
+
     const duration = services.find(s => s.id === serviceId)?.duration_minutes || 60;
     const start = new Date(startAt);
     const end = new Date(start.getTime() + duration * 60000);
@@ -131,7 +114,7 @@ export default function CalendarClient() {
       org_id: ORG_ID, room_id: roomId, service_id: serviceId, staff_id: staffId || null,
       client_name: clientName, start_at: start.toISOString(), end_at: end.toISOString(), color, payment_status: "pending"
     }]);
-    loadBookingsForRange(viewStart, viewMode === "week" ? 7 : 1);
+    loadBookingsForRange(viewStart, 1);
   };
 
   const onDragEnd = async (event: any) => {
@@ -141,6 +124,9 @@ export default function CalendarClient() {
     const [newRoomId, dayIdx] = String(over.id).split("|");
     const newStart = new Date(viewDays[Number(dayIdx)]);
     newStart.setHours(new Date(booking.start_at).getHours(), new Date(booking.start_at).getMinutes() + snapMinutes(delta.y));
+    
+    if (isPastDateTime(newStart)) return alert(DATE_ERROR_MSG);
+
     const duration = differenceInMinutes(new Date(booking.end_at), new Date(booking.start_at));
     const newEnd = new Date(newStart.getTime() + duration * 60000);
     
@@ -149,17 +135,12 @@ export default function CalendarClient() {
     loadBookingsForRange(viewStart, 1);
   };
 
-  // --- MEMOS LÓGICOS ---
+  // --- MEMOS ---
   const hours = useMemo(() => {
     const arr: number[] = [];
     for (let h = START_HOUR; h <= END_HOUR; h++) arr.push(h);
     return arr;
   }, []);
-
-  const viewDays = useMemo(() => {
-    const start = viewMode === "week" ? startOfWeek(viewStart, { weekStartsOn: 1 }) : startOfDay(viewStart);
-    return Array.from({ length: viewMode === "week" ? 7 : viewMode === "two" ? 2 : 1 }).map((_, i) => addDays(start, i));
-  }, [viewMode, viewStart]);
 
   const viewDays = useMemo(() => {
     const start = viewMode === "week" ? startOfWeek(viewStart, { weekStartsOn: 1 }) : startOfDay(viewStart);
@@ -179,8 +160,8 @@ export default function CalendarClient() {
   const stats = useMemo(() => {
     const collected = bookings.reduce((acc, b) => acc + (b.payment_status === "paid" ? (services.find(s => s.id === b.service_id)?.price || 0) : 0), 0);
     const estimated = bookings.reduce((acc, b) => acc + (services.find(s => s.id === b.service_id)?.price || 0), 0);
-    const hours = bookings.reduce((acc, b) => acc + differenceInMinutes(new Date(b.end_at), new Date(b.start_at)), 0) / 60;
-    return { collectedRevenue: collected, estimatedRevenue: estimated, totalHours: hours.toFixed(1), totalCount: bookings.length };
+    const hrs = bookings.reduce((acc, b) => acc + differenceInMinutes(new Date(b.end_at), new Date(b.start_at)), 0) / 60;
+    return { collectedRevenue: collected, estimatedRevenue: estimated, totalHours: hrs.toFixed(1), totalCount: bookings.length };
   }, [bookings, services]);
 
   const visibleRooms = useMemo(() => roomFilter === "all" ? rooms : rooms.filter(r => r.id === roomFilter), [rooms, roomFilter]);
@@ -193,49 +174,59 @@ export default function CalendarClient() {
       <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/5 blur-[140px] rounded-full pointer-events-none z-0" />
       
       <div className="relative z-10 max-w-[1600px] mx-auto">
-        {/* --- CABECERA --- */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div><Logo size="text-4xl" /><p className="text-[10px] uppercase tracking-[0.4em] text-zinc-600 mt-1 font-black">Consola de Operaciones de Audio</p></div>
           <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800/50 backdrop-blur-md">
-            <button onClick={() => setViewStart(d => addDays(d, -1))} className="p-2 text-zinc-400"> ◀ </button>
-            <div className="px-6 text-center border-x border-zinc-800/50"><span className="text-[9px] block text-zinc-600 font-bold mb-0.5 uppercase">Timeline</span><span className="text-sm font-bold">{headerRangeLabel}</span></div>
-            <button onClick={() => setViewStart(d => addDays(d, 1))} className="p-2 text-zinc-400"> ▶ </button>
+            <button onClick={() => setViewStart(d => addDays(d, -1))} className="p-2 text-zinc-400 hover:text-white transition-all"> ◀ </button>
+            <div className="px-6 text-center border-x border-zinc-800/50"><span className="text-[9px] block text-zinc-600 font-bold mb-0.5 uppercase tracking-widest">Timeline</span><span className="text-sm font-bold">{headerRangeLabel}</span></div>
+            <button onClick={() => setViewStart(d => addDays(d, 1))} className="p-2 text-zinc-400 hover:text-white transition-all"> ▶ </button>
           </div>
-          <button onClick={() => setStartAt(new Date().toISOString().slice(0, 16))} className="bg-emerald-500 text-black px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest">+ Nueva Reserva</button>
+          <button onClick={() => setStartAt(new Date().toISOString().slice(0, 16))} className="bg-emerald-500 text-black px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all">+ Nueva Reserva</button>
         </div>
 
-        {/* --- BARRA TÉCNICA Y STATS --- */}
         <div className="flex flex-wrap items-center gap-4 mb-6 bg-zinc-900/30 p-3 rounded-[28px] border border-zinc-800/50 backdrop-blur-sm">
           <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30">
-            <span className="text-[9px] font-black text-zinc-500 uppercase">Estudio:</span>
-            <select value={roomFilter} onChange={e => setRoomFilter(e.target.value)} className="bg-transparent text-xs font-bold text-zinc-200 outline-none">
+            <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Estudio:</span>
+            <select value={roomFilter} onChange={e => setRoomFilter(e.target.value)} className="bg-transparent text-xs font-bold text-zinc-200 outline-none cursor-pointer">
               <option value="all" className="bg-[#0c0c0e]">TODOS</option>
-              {rooms.map(r => <option key={r.id} value={r.id} className="bg-[#0c0c0e]">{r.name}</option>)}
+              {rooms.map(r => <option key={r.id} value={r.id} className="bg-[#0c0c0e]">{r.name.toUpperCase()}</option>)}
             </select>
           </div>
+          <div className="flex items-center gap-1 bg-zinc-800/40 p-1 rounded-xl border border-zinc-700/30">
+            {(['day', 'two', 'week'] as const).map(mode => (
+              <button key={mode} onClick={() => setViewMode(mode)} className={`px-4 py-2 rounded-lg text-[9px] font-black transition-all ${viewMode === mode ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                {mode === 'day' ? '1 D' : mode === 'two' ? '2 D' : '7 D'}
+              </button>
+            ))}
+          </div>
           <div className="flex-1" />
-          <button onClick={() => setShowStats(!showStats)} className="p-3 bg-zinc-800/40 rounded-xl">📊</button>
-          <button onClick={() => setShowClientModal(true)} className="p-3 bg-zinc-800/40 rounded-xl">👤</button>
+          <button onClick={() => setShowStats(!showStats)} className={`p-3 rounded-xl border transition-all ${showStats ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'bg-zinc-800/40 border-zinc-700/30 text-zinc-500'}`}>📊</button>
+          <button onClick={() => setShowClientModal(true)} className="p-3 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 hover:text-white rounded-xl transition-all">👤</button>
+          <button className="px-5 py-3 bg-zinc-800/20 border border-zinc-700/20 text-zinc-500 text-[9px] font-black tracking-widest uppercase rounded-2xl hover:border-zinc-500 transition-all">CSV</button>
         </div>
 
         {showStats && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px]">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
               <p className="text-[10px] uppercase text-zinc-600 font-black mb-1">Caja Real</p>
-              <h4 className="text-3xl font-light text-emerald-400">${stats.collectedRevenue.toLocaleString('es-CL')}</h4>
+              <h4 className="text-3xl font-light text-emerald-400 tracking-tighter">${stats.collectedRevenue.toLocaleString('es-CL')}</h4>
             </div>
-            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px]">
+            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
               <p className="text-[10px] uppercase text-zinc-600 font-black mb-1">Ocupación</p>
-              <h4 className="text-3xl font-light text-white">{stats.totalHours} Horas</h4>
+              <h4 className="text-3xl font-light text-white tracking-tighter">{stats.totalHours} <span className="text-sm">Hrs</span></h4>
             </div>
-            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px]">
-               <p className="text-[10px] uppercase text-zinc-600 font-black mb-1">Estado de Cobros</p>
-               <h4 className="text-3xl font-light text-white">{stats.estimatedRevenue > 0 ? Math.round((stats.collectedRevenue / stats.estimatedRevenue) * 100) : 0}%</h4>
+            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
+              <p className="text-[10px] uppercase text-zinc-600 font-black mb-2">Salud de Cobros</p>
+              <div className="flex items-center gap-4">
+                <h4 className="text-3xl font-light text-white">{stats.estimatedRevenue > 0 ? Math.round((stats.collectedRevenue / stats.estimatedRevenue) * 100) : 0}%</h4>
+                <div className="flex-1 h-2 bg-zinc-800/80 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${(stats.collectedRevenue / stats.estimatedRevenue) * 100}%` }} />
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* --- COMPONENTES ATOMIZADOS --- */}
         <QuickCreatePanel 
           roomId={roomId} setRoomId={setRoomId} serviceId={serviceId} setServiceId={setServiceId} staffId={staffId} setStaffId={setStaffId}
           startAt={startAt} setStartAt={setStartAt} clientName={clientName} handleClientNameChange={setClientName}
@@ -247,22 +238,22 @@ export default function CalendarClient() {
           clientMap={new Map(clients.map(c => [c.id, c]))} serviceMap={new Map(services.map(s => [s.id, s]))}
           onDragEnd={onDragEnd} onEdit={setSelectedBooking} onResize={() => {}} dayKey={dayKey}
         />
-
-        {selectedBooking && (
-          <SessionModal 
-            booking={selectedBooking} clientMap={new Map(clients.map(c => [c.id, c]))} rooms={rooms} editRoomId={editRoomId} editColor={editColor}
-            onClose={() => setSelectedBooking(null)} onDelete={() => {}} onSave={() => {}} onTogglePayment={() => {}} 
-            onStartSession={() => {}} onStopSession={() => {}} setEditRoomId={setEditRoomId} setEditColor={setEditColor}
-          />
-        )}
-
-        {showClientModal && (
-          <ClientModal 
-            onClose={() => setShowClientModal(false)} name={newClientName} setName={setNewClientName}
-            phone={newClientPhone} setPhone={setNewClientPhone} onCreate={() => {}}
-          />
-        )}
       </div>
+
+      {selectedBooking && (
+        <SessionModal 
+          booking={selectedBooking} clientMap={new Map(clients.map(c => [c.id, c]))} rooms={rooms} editRoomId={editRoomId} editColor={editColor}
+          onClose={() => setSelectedBooking(null)} onDelete={() => {}} onSave={() => {}} onTogglePayment={() => {}} 
+          onStartSession={() => {}} onStopSession={() => {}} setEditRoomId={setEditRoomId} setEditColor={setEditColor}
+        />
+      )}
+
+      {showClientModal && (
+        <ClientModal 
+          onClose={() => setShowClientModal(false)} name={newClientName} setName={setNewClientName}
+          phone={newClientPhone} setPhone={setNewClientPhone} onCreate={() => {}}
+        />
+      )}
     </div>
   );
 }
