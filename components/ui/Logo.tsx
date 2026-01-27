@@ -1,31 +1,30 @@
 import React from 'react';
 
-// ⚡ Componente interno para la "í" con rayo
+// 📐 Gráfico geométrico: Acento superior + Cuerpo de rayo con base recta
 const LightningI = () => (
   <svg
-    // Un viewBox alto para que quepa el acento
-    viewBox="0 0 16 36" 
+    viewBox="0 0 20 42" 
     fill="currentColor"
-    // Ajustes finos de posición para que se alinee con el texto itálico
-    className="h-[1.1em] w-auto inline-block -translate-y-[0.1em] -ml-[0.05em]"
-    style={{ transform: 'skewX(-10deg)' }} // Un extra de inclinación para el rayo
+    // Alineación óptica para que encaje con la tipografía bold italic
+    className="h-[1.2em] w-auto inline-block -translate-y-[0.18em] -ml-[0.05em]"
+    style={{ transform: 'skewX(-11deg)' }} 
     aria-hidden="true"
   >
-    {/* La parte del RAYO (el acento) */}
-    <path d="M8.5 0L1.5 11H6.5L3.5 20L14.5 9H8.5L11.5 0H8.5Z" />
-    {/* La base de la letra 'i' */}
-    <path d="M4 24L6 13H12L10 24H4Z" />
+    {/* 1. ACENTO SUPERIOR (Diamante preciso) */}
+    <path d="M10 0L15 5L10 10L5 5L10 0Z" />
+    
+    {/* 2. CUERPO DE RAYO (Base recta y punta final) */}
+    {/* M7 13 (Base recta arriba) -> H13 (Ancho) -> L11 24 (Quiebre) -> H16 (Extensión) -> L4 42 (Punta final) -> L7 28 (Retorno) -> H3 (Cierre) */}
+    <path d="M6 13H14L11 25H17L4 42L8 28H3L6 13Z" />
   </svg>
 );
 
 export const Logo = ({ size = "text-4xl" }: { size?: string }) => {
   return (
-    <h1 className={`${size} font-light tracking-tighter text-white select-none flex items-baseline justify-center`}>
+    <h1 className={`${size} font-light tracking-tighter text-white select-none flex items-baseline`}>
       Turno
-      {/* Usamos inline-flex para alinear perfectamente el SVG con el texto */}
       <span className="text-emerald-500 font-bold italic ml-0.5 inline-flex items-baseline">
         Aqu
-        {/* Reemplazamos la 'í' de texto por nuestro gráfico */}
         <LightningI />
       </span>
     </h1>
