@@ -1033,7 +1033,7 @@ const headerRangeLabel = useMemo(() => {
           <div className="flex gap-3">
             <button onClick={onToday} className="px-4 py-2 rounded-xl bg-zinc-800/40 text-zinc-500 border border-zinc-700/30 hover:text-white transition-all text-[10px] font-bold tracking-widest uppercase">Hoy</button>
             <button 
-              onClick={() => { setSelectedBooking(null); /* El panel de creación ya está visible abajo */ }}
+              onClick={() => { setSelectedBooking(null); }}
               className="bg-white text-black px-6 py-3 rounded-xl text-xs font-black hover:bg-emerald-400 transition-all shadow-xl shadow-emerald-500/10"
             >
               + NUEVA RESERVA
@@ -1065,34 +1065,10 @@ const headerRangeLabel = useMemo(() => {
           <button onClick={exportToExcel} className="px-4 py-2.5 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 text-[9px] font-black tracking-widest uppercase rounded-xl">Exportar</button>
         </div>
 
-        {/* --- PANEL DE CREACIÓN RÁPIDA --- */}
-        <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-3xl p-6 mb-8 backdrop-blur-sm shadow-2xl">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 bg-zinc-800/10 p-4 rounded-2xl border border-zinc-700/10">
-              <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none">
-                <option value="">SALA / ESTUDIO</option>
-                {rooms.map(r => <option key={r.id} value={r.id} className="bg-zinc-900 text-white">{r.name}</option>)}
-              </select>
-              <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none">
-                <option value="">SERVICIO</option>
-                {services.map(s => <option key={s.id} value={s.id} className="bg-zinc-900 text-white">{s.name}</option>)}
-              </select>
-              <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-2.5 text-[11px] text-white outline-none" />
-            </div>
-            <div className="bg-emerald-500/5 border border-emerald-500/20 p-4 rounded-2xl flex flex-col justify-center">
-              <input list="client-suggestions" placeholder="BUSCAR CLIENTE..." value={clientName} onChange={(e) => setClientName(e.target.value)} className="bg-transparent border-none text-sm text-white font-bold focus:ring-0" />
-            </div>
-          </div>
-          <div className="flex flex-col md:flex-row items-center gap-4 mt-4">
-            <input placeholder="NOTAS TÉCNICAS..." value={notes} onChange={(e) => setNotes(e.target.value)} className="flex-1 bg-zinc-800/10 border border-zinc-700/10 rounded-xl px-6 py-3 text-xs text-zinc-500 outline-none" />
-            <button onClick={() => void createBooking()} className="px-8 py-3 bg-white text-black text-[10px] font-black tracking-widest rounded-xl hover:bg-emerald-400 transition-all shadow-xl">CONFIRMAR OPERACIÓN</button>
-          </div>
-        </div>
-
         {/* --- GRID DE CALENDARIO --- */}
         <DndContext onDragEnd={onDragEnd}>
           <div className="bg-zinc-900/20 border border-zinc-800/50 rounded-[32px] overflow-hidden backdrop-blur-md shadow-2xl relative">
-            <div className="overflow-auto max-h-[70vh] custom-scrollbar">
+            <div className="overflow-auto max-h-[75vh] custom-scrollbar">
               <div className="grid relative" style={{ gridTemplateColumns: `100px repeat(${viewDays.length}, minmax(200px, 1fr))`, width: '100%' }}>
                 
                 {/* Timeline Lateral */}
@@ -1102,7 +1078,9 @@ const headerRangeLabel = useMemo(() => {
                   </div>
                   {hours.map((h) => (
                     <div key={h} className="h-[120px] border-b border-zinc-800/10 flex items-start justify-center pt-3">
-                      <span className="text-[10px] font-mono font-bold text-zinc-600">{String(h >= 24 ? h - 24 : h).padStart(2, \"0\")}:00</span>
+                      <span className="text-[10px] font-mono font-bold text-zinc-600">
+                        {String(h >= 24 ? h - 24 : h).padStart(2, '0')}:00
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -1113,13 +1091,13 @@ const headerRangeLabel = useMemo(() => {
                   return (
                     <div key={day.toISOString()} className={`relative border-r border-zinc-800/20 ${isToday ? 'bg-emerald-500/5' : ''}`}>
                       <div className="sticky top-0 z-30 h-16 border-b border-zinc-800/50 flex flex-col items-center justify-center bg-[#0c0c0e]/95 backdrop-blur-md">
-                        <span className={`text-[9px] font-black tracking-[0.2em] uppercase ${isToday ? 'text-emerald-400' : 'text-zinc-500'}`}>{format(day, \"EEEE\", { locale: es })}</span>
-                        <span className={`text-xl font-light ${isToday ? 'text-white' : 'text-zinc-300'}`}>{format(day, \"dd\")}</span>
+                        <span className={`text-[9px] font-black tracking-[0.2em] uppercase ${isToday ? 'text-emerald-400' : 'text-zinc-500'}`}>{format(day, "EEEE", { locale: es })}</span>
+                        <span className={`text-xl font-light ${isToday ? 'text-white' : 'text-zinc-300'}`}>{format(day, "dd")}</span>
                       </div>
 
                       <div className="relative" style={{ height: hours.length * 120 }}>
                         {rooms.map((room) => (
-                          <div key={room.id} className=\"absolute inset-0\">
+                          <div key={room.id} className="absolute inset-0">
                             <DroppableCell id={`${room.id}|${dayIdx}`} />
                             {(bookingsIndex.get(`${room.id}|${dayKey(day)}`) || []).map((b) => (
                               <DraggableBooking
@@ -1127,7 +1105,7 @@ const headerRangeLabel = useMemo(() => {
                                 booking={b}
                                 topPx={(new Date(b.start_at).getHours() - 8) * 120 + (new Date(b.start_at).getMinutes() * 2)}
                                 heightPx={differenceInMinutes(new Date(b.end_at), new Date(b.start_at)) * 2}
-                                label={b.client_name || \"CLIENTE\"}
+                                label={b.client_name || "CLIENTE"}
                                 onDoubleClick={() => setSelectedBooking(b)}
                               />
                             ))}
@@ -1145,27 +1123,27 @@ const headerRangeLabel = useMemo(() => {
 
       {/* --- MODALES --- */}
       {selectedBooking && (
-        <div className=\"fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md bg-black/60\" onClick={() => setSelectedBooking(null)}>
-          <div className=\"bg-[#0c0c0e] border border-zinc-800 w-full max-w-lg rounded-[32px] p-8 shadow-2xl relative\" onClick={e => e.stopPropagation()}>
-            <h2 className=\"text-xl text-white font-light\">Ficha de <span className=\"text-emerald-500 italic\">Sesión</span></h2>
-            <p className=\"text-zinc-500 mb-8 uppercase text-[10px] tracking-widest font-bold\">{selectedBooking.client_name}</p>
-            <div className=\"flex gap-4\">
-              <button onClick={() => { deleteBooking(selectedBooking.id); setSelectedBooking(null); }} className=\"p-4 bg-red-500/10 text-red-500 rounded-2xl flex-1 text-[10px] font-black tracking-widest\">ELIMINAR</button>
-              <button onClick={() => setSelectedBooking(null)} className=\"p-4 bg-zinc-800 text-zinc-400 rounded-2xl flex-1 text-[10px] font-black tracking-widest\">CERRAR</button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md bg-black/60" onClick={() => setSelectedBooking(null)}>
+          <div className="bg-[#0c0c0e] border border-zinc-800 w-full max-w-lg rounded-[32px] p-8 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl text-white font-light">Ficha de <span className="text-emerald-500 italic">Sesión</span></h2>
+            <p className="text-zinc-500 mb-8 uppercase text-[10px] tracking-widest font-bold">{selectedBooking.client_name}</p>
+            <div className="flex gap-4">
+              <button onClick={() => { deleteBooking(selectedBooking.id); setSelectedBooking(null); }} className="p-4 bg-red-500/10 text-red-500 rounded-2xl flex-1 text-[10px] font-black tracking-widest hover:bg-red-500/20 transition-all">ELIMINAR</button>
+              <button onClick={() => setSelectedBooking(null)} className="p-4 bg-zinc-800 text-zinc-400 rounded-2xl flex-1 text-[10px] font-black tracking-widest hover:text-white transition-all">CERRAR</button>
             </div>
           </div>
         </div>
       )}
 
       {showClientModal && (
-        <div className=\"fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4\">
-          <div className=\"bg-zinc-900 border border-zinc-800 p-8 rounded-[32px] w-full max-w-md shadow-2xl\">
-            <h3 className=\"text-white text-lg font-light mb-6\">Nuevo <span className=\"text-emerald-500\">Cliente</span></h3>
-            <div className=\"flex flex-col gap-4\">
-              <input placeholder=\"Nombre Completo\" className=\"bg-zinc-800 border border-zinc-700 p-4 rounded-2xl text-white outline-none\" value={newClientName} onChange={e => setNewClientName(e.target.value)} />
-              <input placeholder=\"WhatsApp\" className=\"bg-zinc-800 border border-zinc-700 p-4 rounded-2xl text-white outline-none\" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} />
-              <button onClick={() => void createClientOnly()} className=\"bg-white text-black p-4 rounded-2xl font-black tracking-widest mt-2 hover:bg-emerald-400\">GUARDAR CLIENTE</button>
-              <button onClick={() => setShowClientModal(false)} className=\"text-zinc-600 text-[10px] font-bold uppercase tracking-widest mt-2\">Cerrar</button>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-[32px] w-full max-w-md shadow-2xl">
+            <h3 className="text-white text-lg font-light mb-6">Nuevo <span className="text-emerald-500">Cliente</span></h3>
+            <div className="flex flex-col gap-4">
+              <input placeholder="Nombre Completo" className="bg-zinc-800 border border-zinc-700 p-4 rounded-2xl text-white outline-none focus:border-emerald-500" value={newClientName} onChange={e => setNewClientName(e.target.value)} />
+              <input placeholder="WhatsApp" className="bg-zinc-800 border border-zinc-700 p-4 rounded-2xl text-white outline-none focus:border-emerald-500" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} />
+              <button onClick={() => void createClientOnly()} className="bg-white text-black p-4 rounded-2xl font-black tracking-widest mt-2 hover:bg-emerald-400 transition-all">GUARDAR CLIENTE</button>
+              <button onClick={() => setShowClientModal(false)} className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest mt-2">Cerrar</button>
             </div>
           </div>
         </div>
