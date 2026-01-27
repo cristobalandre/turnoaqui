@@ -1008,7 +1008,6 @@ const headerRangeLabel = useMemo(() => {
      ========================================= */
   return (
     <div className="min-h-screen bg-[#09090b] text-[#fafafa] p-5 font-sans relative overflow-hidden">
-      {/* AURA ESMERALDA DE FONDO */}
       <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/5 blur-[140px] rounded-full pointer-events-none z-0" />
       
       <div className="relative z-10 max-w-[1600px] mx-auto">
@@ -1018,136 +1017,118 @@ const headerRangeLabel = useMemo(() => {
             <h1 className="text-4xl font-light tracking-tighter text-white">
               Turno<span className="text-emerald-500 font-bold italic">Aquí</span>
             </h1>
-            <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 font-black mt-1">Control de Sesiones Pro</p>
+            <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 font-black mt-1">Consola de Operaciones</p>
           </div>
 
           <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800/50 backdrop-blur-md">
-            <button onClick={onPrev} className="p-2 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400"> ← </button>
+            <button onClick={onPrev} className="p-2 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-white"> ← </button>
             <div className="px-4 py-1 text-center min-w-[150px]">
-              <span className="text-[10px] block uppercase tracking-widest text-zinc-600 font-bold">Agenda</span>
+              <span className="text-[10px] block uppercase tracking-widest text-zinc-600 font-bold font-mono">Control Temporal</span>
               <span className="text-sm font-medium text-zinc-200">{headerRangeLabel}</span>
             </div>
-            <button onClick={onNext} className="p-2 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400"> → </button>
+            <button onClick={onNext} className="p-2 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-white"> → </button>
           </div>
 
-          <div className="flex gap-3">
-            <button onClick={onToday} className="px-4 py-2 rounded-xl bg-zinc-800/40 text-zinc-500 border border-zinc-700/30 hover:text-white transition-all text-[10px] font-bold tracking-widest uppercase">Hoy</button>
-            {/* BOTÓN REHABILITADO: Abre modal de creación rápida */}
-            <button 
-              onClick={() => { setSelectedBooking(null); setStartAt(new Date().toISOString().slice(0, 16)); }}
-              className="bg-emerald-500 text-black px-6 py-3 rounded-xl text-xs font-black hover:bg-emerald-400 transition-all shadow-xl shadow-emerald-500/20"
-            >
-              + NUEVA RESERVA
-            </button>
-          </div>
+          <button 
+            onClick={() => { setSelectedBooking(null); setStartAt(new Date().toISOString().slice(0, 16)); }}
+            className="bg-emerald-500 text-black px-8 py-3 rounded-2xl text-xs font-black hover:bg-emerald-400 transition-all shadow-xl shadow-emerald-500/20"
+          >
+            + NUEVA RESERVA
+          </button>
         </div>
 
-        {/* --- BARRA DE HERRAMIENTAS RECOBRADA --- */}
-        <div className="flex flex-wrap items-center gap-4 mb-6 bg-zinc-900/30 p-3 rounded-2xl border border-zinc-800/50 backdrop-blur-sm">
-          <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30">
-            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Estudio:</span>
-            <select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)} className="bg-transparent border-none text-xs font-bold text-zinc-200 outline-none cursor-pointer">
-              <option value="all" className="bg-zinc-900">TODOS LOS ESTUDIOS</option>
-              {rooms.map(r => <option key={r.id} value={r.id} className="bg-zinc-900">{r.name.toUpperCase()}</option>)}
+        {/* --- MÉTRICAS Y HERRAMIENTAS --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
+          <div className="lg:col-span-3 flex flex-wrap items-center gap-4 bg-zinc-900/30 p-3 rounded-3xl border border-zinc-800/50 backdrop-blur-sm">
+            <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30">
+              <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Estudio:</span>
+              <select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)} className="bg-transparent border-none text-xs font-bold text-zinc-200 outline-none cursor-pointer appearance-none pr-4">
+                <option value="all" className="bg-zinc-900">TODOS</option>
+                {rooms.map(r => <option key={r.id} value={r.id} className="bg-zinc-900">{r.name.toUpperCase()}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-1 bg-zinc-800/40 p-1 rounded-xl border border-zinc-700/30">
+              {(['day', 'two', 'week'] as const).map((mode) => (
+                <button key={mode} onClick={() => setViewMode(mode)} className={`px-4 py-2 rounded-lg text-[9px] font-black transition-all ${viewMode === mode ? 'bg-white text-black' : 'text-zinc-500'}`}>
+                  {mode === 'day' ? '1 D' : mode === 'two' ? '2 D' : '7 D'}
+                </button>
+              ))}
+            </div>
+            <div className="flex-1" />
+            <div className="flex items-center gap-2 px-4 border-l border-zinc-800">
+               <span className="text-[10px] font-black text-emerald-500/80 uppercase">Total:</span>
+               <span className="text-sm font-bold text-white">${stats.collectedRevenue.toLocaleString('es-CL')}</span>
+            </div>
+            <button onClick={() => setShowClientModal(true)} className="p-3 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 rounded-xl hover:text-white">👤</button>
+          </div>
+          <button onClick={exportToExcel} className="h-full bg-zinc-800/20 border border-zinc-700/20 text-zinc-500 text-[10px] font-black tracking-widest uppercase rounded-3xl hover:border-zinc-500 transition-all">Exportar Datos</button>
+        </div>
+
+        {/* --- PANEL DE CREACIÓN RÁPIDA --- */}
+        <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-[32px] p-6 mb-8 backdrop-blur-sm shadow-2xl">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xs text-white outline-none focus:border-emerald-500/50 transition-all">
+              <option value="">ESTUDIO</option>
+              {rooms.map(r => <option key={r.id} value={r.id} className="bg-zinc-900">{r.name}</option>)}
             </select>
-          </div>
-
-          <div className="flex items-center gap-1 bg-zinc-800/40 p-1 rounded-xl border border-zinc-700/30">
-            {(['day', 'two', 'week'] as const).map((mode) => (
-              <button key={mode} onClick={() => setViewMode(mode)} className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${viewMode === mode ? 'bg-white text-black' : 'text-zinc-500'}`}>
-                {mode === 'day' ? '1 DÍA' : mode === 'two' ? '2 DÍAS' : 'SEMANA'}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex-1" />
-          {/* BOTÓN ESTADÍSTICAS REHABILITADO */}
-          <button onClick={() => setShowStats(!showStats)} className={`p-2.5 rounded-xl border transition-all ${showStats ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'bg-zinc-800/40 border-zinc-700/30 text-zinc-500'}`}>📊</button>
-          <button onClick={() => setShowClientModal(true)} className="p-2.5 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 rounded-xl hover:text-white">👤</button>
-          <button onClick={exportToExcel} className="px-4 py-2.5 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 text-[9px] font-black tracking-widest uppercase rounded-xl hover:text-white">Exportar CSV</button>
-        </div>
-
-        {/* --- PANEL DE MÉTRICAS (MOSTRAR SI showStats ES TRUE) --- */}
-        {showStats && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-in fade-in slide-in-from-top-4 duration-300">
-            <div className="bg-zinc-900/40 border border-zinc-800/50 p-5 rounded-3xl">
-              <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1">Ingresos Cobrados</p>
-              <h4 className="text-2xl font-light text-emerald-400">${stats.collectedRevenue.toLocaleString('es-CL')}</h4>
+            <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xs text-white outline-none focus:border-emerald-500/50 transition-all">
+              <option value="">SERVICIO</option>
+              {services.map(s => <option key={s.id} value={s.id} className="bg-zinc-900">{s.name}</option>)}
+            </select>
+            <select value={staffId} onChange={(e) => setStaffId(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-xs text-white outline-none focus:border-emerald-500/50 transition-all">
+              <option value="">PRODUCTOR</option>
+              {staff.map(s => <option key={s.id} value={s.id} className="bg-zinc-900">{s.name}</option>)}
+            </select>
+            <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-2xl px-4 py-4 text-[11px] text-white outline-none" />
+            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl flex items-center px-4">
+              <input list="client-suggestions" placeholder="ARTISTA / CLIENTE..." value={clientName} onChange={(e) => handleClientNameChange(e.target.value)} className="bg-transparent border-none text-sm text-white font-bold focus:ring-0 w-full" />
             </div>
-            <div className="bg-zinc-900/40 border border-zinc-800/50 p-5 rounded-3xl">
-              <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1">Horas de Uso</p>
-              <h4 className="text-2xl font-light text-white">{stats.totalHours}h</h4>
-            </div>
-            <div className="bg-zinc-900/40 border border-zinc-800/50 p-5 rounded-3xl">
-              <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mb-1">Salud de Pagos</p>
-              <div className="flex items-center gap-3">
-                <h4 className="text-2xl font-light text-white">{stats.estimatedRevenue > 0 ? Math.round((stats.collectedRevenue / stats.estimatedRevenue) * 100) : 0}%</h4>
-                <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500" style={{ width: `${(stats.collectedRevenue / stats.estimatedRevenue) * 100}%` }} />
-                </div>
+          </div>
+          <div className="flex items-center gap-4 mt-4">
+            <input placeholder="NOTAS DE LA OPERACIÓN..." value={notes} onChange={(e) => setNotes(e.target.value)} className="flex-1 bg-zinc-800/10 border border-zinc-700/10 rounded-2xl px-6 py-4 text-xs text-zinc-500 focus:text-white outline-none" />
+            <div className="relative group">
+              <div className="w-10 h-10 rounded-full border-2 border-zinc-700 transition-all group-hover:scale-110 overflow-hidden" style={{ backgroundColor: color }}>
+                <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
               </div>
             </div>
-          </div>
-        )}
-
-        {/* --- PANEL DE CREACIÓN RÁPIDA (TODO RECUPERADO) --- */}
-        <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-3xl p-6 mb-8 backdrop-blur-sm shadow-2xl relative">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-emerald-500/50">
-              <option value="">SALA / ESTUDIO</option>
-              {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-            <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-emerald-500/50">
-              <option value="">SERVICIO</option>
-              {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-            {/* SELECTOR DE STAFF RECUPERADO */}
-            <select value={staffId} onChange={(e) => setStaffId(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-emerald-500/50">
-              <option value="">STAFF / PROD.</option>
-              {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-            <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-3 text-[11px] text-white outline-none focus:border-emerald-500/50" />
-            <div className="bg-emerald-500/5 border border-emerald-500/20 p-1 rounded-xl flex items-center px-3">
-              <input list="client-suggestions" placeholder="BUSCAR CLIENTE..." value={clientName} onChange={(e) => handleClientNameChange(e.target.value)} className="bg-transparent border-none text-sm text-white font-bold focus:ring-0 w-full placeholder:text-emerald-900/50" />
-            </div>
-          </div>
-          <div className="flex flex-col md:flex-row items-center gap-4 mt-4">
-            <input placeholder="NOTAS DE LA SESIÓN..." value={notes} onChange={(e) => setNotes(e.target.value)} className="flex-1 bg-zinc-800/10 border border-zinc-700/10 rounded-xl px-6 py-3.5 text-xs text-zinc-500 focus:text-white outline-none" />
-            {/* SELECTOR DE COLOR RECUPERADO */}
-            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-12 h-12 bg-transparent border-none cursor-pointer" title="Color de la tarjeta" />
-            <button onClick={() => void createBooking()} className="px-8 py-4 bg-white text-black text-[10px] font-black tracking-widest rounded-xl hover:bg-emerald-400 transition-all shadow-xl">CONFIRMAR OPERACIÓN</button>
+            <button onClick={() => void createBooking()} className="px-10 py-4 bg-white text-black text-[10px] font-black tracking-[0.2em] rounded-2xl hover:bg-emerald-400 transition-all shadow-xl">CONFIRMAR</button>
           </div>
         </div>
 
-        {/* --- GRID DE CALENDARIO (CON FOTOS DE CLIENTES) --- */}
+        {/* --- GRID (AJUSTADO: 60px por hora) --- */}
         <DndContext onDragEnd={onDragEnd}>
-          <div className="bg-zinc-900/20 border border-zinc-800/50 rounded-[32px] overflow-hidden backdrop-blur-md shadow-2xl relative">
-            <div className="overflow-auto max-h-[70vh] custom-scrollbar">
-              <div className="grid relative" style={{ gridTemplateColumns: `100px repeat(${viewDays.length}, minmax(200px, 1fr))`, width: '100%' }}>
+          <div className="bg-zinc-900/20 border border-zinc-800/50 rounded-[40px] overflow-hidden backdrop-blur-md shadow-2xl relative">
+            <div className="overflow-auto max-h-[65vh] custom-scrollbar">
+              <div className="grid relative" style={{ gridTemplateColumns: `80px repeat(${viewDays.length}, minmax(220px, 1fr))`, width: '100%' }}>
                 
-                {/* Timeline Lateral */}
-                <div className="sticky left-0 z-40 bg-[#09090b] border-r border-zinc-800/60 shadow-xl">
-                  <div className="h-16 border-b border-zinc-800/50 flex items-center justify-center bg-[#0c0c0e]">
-                    <span className="text-[9px] font-black text-zinc-700 tracking-[0.3em] uppercase">Time</span>
+                {/* Time Rail */}
+                <div className="sticky left-0 z-40 bg-[#09090b] border-r border-zinc-800/60 shadow-2xl">
+                  <div className="h-14 border-b border-zinc-800/50 flex items-center justify-center bg-[#0c0c0e]">
+                    <span className="text-[8px] font-black text-zinc-700 tracking-widest uppercase font-mono">UTC-3</span>
                   </div>
                   {hours.map((h) => (
-                    <div key={h} className="h-[120px] border-b border-zinc-800/10 flex items-start justify-center pt-3">
-                      <span className="text-[10px] font-mono font-bold text-zinc-600">{String(h >= 24 ? h - 24 : h).padStart(2, '0')}:00</span>
+                    <div key={h} className="h-[60px] border-b border-zinc-800/10 flex items-center justify-center">
+                      <span className="text-[10px] font-mono font-bold text-zinc-600">{String(h >= 24 ? h-24 : h).padStart(2, '0')}:00</span>
                     </div>
                   ))}
                 </div>
 
-                {/* Columnas de Días */}
+                {/* Days Columns */}
                 {viewDays.map((day, dayIdx) => {
                   const isToday = isSameDay(day, new Date());
                   return (
-                    <div key={day.toISOString()} className={`relative border-r border-zinc-800/20 ${isToday ? 'bg-emerald-500/5' : ''}`}>
-                      <div className="sticky top-0 z-30 h-16 border-b border-zinc-800/50 flex flex-col items-center justify-center bg-[#0c0c0e]/95 backdrop-blur-md">
-                        <span className={`text-[9px] font-black tracking-[0.2em] uppercase ${isToday ? 'text-emerald-400' : 'text-zinc-500'}`}>{format(day, "EEEE", { locale: es })}</span>
-                        <span className={`text-xl font-light ${isToday ? 'text-white' : 'text-zinc-300'}`}>{format(day, "dd")}</span>
+                    <div key={day.toISOString()} className={`relative border-r border-zinc-800/20 ${isToday ? 'bg-emerald-500/[0.02]' : ''}`}>
+                      <div className={`sticky top-0 z-30 h-14 border-b border-zinc-800/50 flex flex-col items-center justify-center backdrop-blur-xl ${isToday ? 'bg-emerald-500/10' : 'bg-[#0c0c0e]/95'}`}>
+                        <span className={`text-[9px] font-black tracking-widest uppercase ${isToday ? 'text-emerald-400' : 'text-zinc-500'}`}>{format(day, "EEEE", { locale: es })}</span>
+                        <span className={`text-lg font-light ${isToday ? 'text-white' : 'text-zinc-400'}`}>{format(day, "dd")}</span>
                       </div>
 
-                      <div className="relative" style={{ height: hours.length * 120 }}>
+                      <div className="relative" style={{ height: hours.length * 60 }}>
+                        {/* EFECTO CELDAS HORIZONTALES ILUMINADAS */}
+                        {hours.map((h) => (
+                          <div key={h} className="absolute w-full border-t border-zinc-800/10 group/row hover:bg-emerald-500/[0.03] transition-colors pointer-events-none" style={{ top: (h - START_HOUR) * 60, height: 60 }} />
+                        ))}
+                        
                         {visibleRooms.map((room) => (
                           <div key={room.id} className="absolute inset-0">
                             <DroppableCell id={`${room.id}|${dayIdx}`} />
@@ -1155,14 +1136,14 @@ const headerRangeLabel = useMemo(() => {
                               <DraggableBooking
                                 key={b.id}
                                 booking={b}
-                                topPx={calcTopPx(new Date(b.start_at))}
-                                heightPx={calcHeightPx(new Date(b.start_at), new Date(b.end_at))}
+                                topPx={(new Date(b.start_at).getHours() - START_HOUR) * 60 + (new Date(b.start_at).getMinutes())}
+                                heightPx={differenceInMinutes(new Date(b.end_at), new Date(b.start_at))}
                                 label={b.client_name || "CLIENTE"}
                                 subLabel={b.service_id ? serviceMap.get(b.service_id)?.name || "Sesión" : "Sesión"}
-                                avatarUrl={b.client_id ? clientMap.get(b.client_id)?.avatar_url : null} // FOTO RECUPERADA
+                                avatarUrl={b.client_id ? clientMap.get(b.client_id)?.avatar_url : null}
                                 isRunning={Boolean(b.started_at) && !b.ended_at}
-                                elapsedMin={b.started_at ? differenceInMinutes(new Date(), new Date(b.started_at)) : 0}
-                                paymentStatus={b.payment_status} // ESTADO PAGO RECUPERADO
+                                elapsedMin={b.started_at ? Math.max(0, differenceInMinutes(new Date(), new Date(b.started_at))) : 0}
+                                paymentStatus={b.payment_status}
                                 onDoubleClick={() => openEdit(b)}
                                 onResizeStart={(e) => startResize(b, e)}
                               />
@@ -1179,59 +1160,66 @@ const headerRangeLabel = useMemo(() => {
         </DndContext>
       </div>
 
-      {/* --- MODAL: FICHA DE SESIÓN COMPLETA --- */}
+      {/* --- FICHA DE SESIÓN (REHABILITADA TOTALMENTE) --- */}
       {selectedBooking && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md bg-black/60" onClick={() => setSelectedBooking(null)}>
-          <div className="bg-[#0c0c0e] border border-zinc-800 w-full max-w-lg rounded-[32px] p-8 shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500/20" />
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h2 className="text-xl text-white font-light tracking-tight">Ficha de <span className="text-emerald-500 italic">Sesión</span></h2>
-                <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 mt-1 font-bold">{selectedBooking.client_name}</p>
-              </div>
-              {/* BOTÓN PAGO RECUPERADO */}
-              <button onClick={togglePayment} className={`px-4 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all ${selectedBooking.payment_status === 'paid' ? 'bg-emerald-500 text-white' : 'bg-zinc-800 text-zinc-500 border border-zinc-700/30'}`}>
-                {selectedBooking.payment_status === 'paid' ? '✓ PAGADO' : 'PENDIENTE'}
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md bg-black/70" onClick={() => setSelectedBooking(null)}>
+          <div className="bg-[#0c0c0e] border border-zinc-800 w-full max-w-lg rounded-[40px] p-8 shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500/30" />
+            
+            <div className="flex items-center gap-6 mb-8">
+               <div className="w-16 h-16 rounded-full bg-zinc-800 border-2 border-zinc-700 overflow-hidden flex-shrink-0">
+                  {selectedBooking.client_id && clientMap.get(selectedBooking.client_id)?.avatar_url ? (
+                    <img src={clientMap.get(selectedBooking.client_id)!.avatar_url!} className="w-full h-full object-cover" />
+                  ) : <span className="w-full h-full flex items-center justify-center text-2xl opacity-30">👤</span>}
+               </div>
+               <div className="flex-1">
+                 <h2 className="text-2xl text-white font-light tracking-tight">{selectedBooking.client_name}</h2>
+                 <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold">Registro de Actividad</p>
+               </div>
+               <button onClick={togglePayment} className={`px-5 py-2.5 rounded-2xl text-[10px] font-black tracking-widest transition-all ${selectedBooking.payment_status === 'paid' ? 'bg-emerald-500 text-black' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
+                {selectedBooking.payment_status === 'paid' ? '✓ COBRADO' : 'PENDIENTE'}
               </button>
             </div>
 
-            <div className="space-y-4 mb-8">
-              <div className="grid grid-cols-2 gap-4">
-                <button onClick={startSession} className="py-3 bg-zinc-800/40 border border-zinc-700/30 text-white rounded-xl text-[10px] font-bold hover:bg-emerald-500/10 transition-all">▶ INICIAR</button>
-                <button onClick={stopSession} className="py-3 bg-zinc-800/40 border border-zinc-700/30 text-white rounded-xl text-[10px] font-bold hover:bg-red-500/10 transition-all">■ FINALIZAR</button>
-              </div>
-              {/* SELECTOR COLOR MODAL RECUPERADO */}
-              <div className="p-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl">
-                <label className="text-[9px] uppercase tracking-widest text-zinc-600 block mb-2 font-bold">Personalizar Tarjeta</label>
-                <input type="color" value={editColor} onChange={e => setEditColor(e.target.value)} className="w-full h-10 rounded-lg bg-transparent cursor-pointer" />
-              </div>
-              {/* MOVER SALA RECUPERADO */}
-              <div className="p-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl">
-                <label className="text-[9px] uppercase tracking-widest text-zinc-600 block mb-2 font-bold">Cambiar Estudio</label>
-                <select value={editRoomId || selectedBooking.room_id} onChange={e => setEditRoomId(e.target.value)} className="w-full bg-zinc-800 border-none text-white text-xs p-2 rounded-lg">
-                   {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-              </div>
+            <div className="grid grid-cols-2 gap-4 mb-8">
+               <button onClick={startSession} className="py-4 bg-zinc-800/40 border border-zinc-700/30 text-white rounded-2xl text-[10px] font-bold hover:bg-emerald-500/10 transition-all flex flex-col items-center gap-1">
+                 <span className="text-lg">▶</span> INICIAR SESIÓN
+               </button>
+               <button onClick={stopSession} className="py-4 bg-zinc-800/40 border border-zinc-700/30 text-white rounded-2xl text-[10px] font-bold hover:bg-red-500/10 transition-all flex flex-col items-center gap-1">
+                 <span className="text-lg">■</span> FINALIZAR
+               </button>
             </div>
 
-            <div className="flex gap-3 pt-4 border-t border-zinc-800/50">
-              <button onClick={() => { deleteBooking(); setSelectedBooking(null); }} className="p-4 bg-red-500/10 text-red-500 rounded-2xl flex-1 text-[10px] font-black tracking-widest hover:bg-red-500/20 transition-all">ELIMINAR</button>
-              <button onClick={saveColor} className="p-4 bg-white text-black rounded-2xl flex-[2] text-[10px] font-black tracking-widest hover:bg-emerald-400 transition-all">GUARDAR CAMBIOS</button>
+            <div className="space-y-4 bg-zinc-900/50 p-6 rounded-3xl border border-zinc-800/50 mb-8">
+               <div className="flex justify-between items-center border-b border-zinc-800 pb-3">
+                 <span className="text-[10px] font-black text-zinc-600 uppercase">Estudio Asignado:</span>
+                 <select value={editRoomId || selectedBooking.room_id} onChange={e => setEditRoomId(e.target.value)} className="bg-transparent text-white text-xs font-bold outline-none">
+                    {rooms.map(r => <option key={r.id} value={r.id} className="bg-zinc-900">{r.name}</option>)}
+                 </select>
+               </div>
+               <div className="flex justify-between items-center">
+                 <span className="text-[10px] font-black text-zinc-600 uppercase">Color de Identidad:</span>
+                 <input type="color" value={editColor} onChange={e => setEditColor(e.target.value)} className="w-8 h-8 rounded-full bg-transparent cursor-pointer border-none" />
+               </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button onClick={() => { deleteBooking(); setSelectedBooking(null); }} className="p-5 bg-red-500/10 text-red-500 rounded-2xl flex-shrink-0 hover:bg-red-500/20 transition-all">🗑️</button>
+              <button onClick={saveColor} className="flex-1 py-5 bg-white text-black text-[10px] font-black tracking-widest rounded-2xl hover:bg-emerald-400 transition-all">GUARDAR CAMBIOS</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* --- MODAL: CLIENTE NUEVO (MANTENIDO) --- */}
+      {/* --- REGISTRO CLIENTE (RE-ESTILIZADO) --- */}
       {showClientModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
-          <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-[32px] w-full max-w-md shadow-2xl">
-            <h3 className="text-white text-lg font-light mb-6">Nuevo <span className="text-emerald-500">Cliente</span></h3>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4" onClick={() => setShowClientModal(false)}>
+          <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-[40px] w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-white text-xl font-light mb-6 tracking-tight">Nuevo <span className="text-emerald-500">Perfil de Artista</span></h3>
             <div className="flex flex-col gap-4">
-              <input placeholder="Nombre Completo" className="bg-zinc-800 border border-zinc-700 p-4 rounded-2xl text-white outline-none focus:border-emerald-500" value={newClientName} onChange={e => setNewClientName(e.target.value)} />
-              <input placeholder="WhatsApp" className="bg-zinc-800 border border-zinc-700 p-4 rounded-2xl text-white outline-none focus:border-emerald-500" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} />
-              <button onClick={() => void createClientOnly()} className="bg-white text-black p-4 rounded-2xl font-black tracking-widest mt-2 hover:bg-emerald-400 transition-all">GUARDAR CLIENTE</button>
-              <button onClick={() => setShowClientModal(false)} className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest mt-2">Cerrar</button>
+              <input placeholder="Nombre Completo" className="bg-zinc-800/50 border border-zinc-700/50 p-5 rounded-2xl text-white outline-none focus:border-emerald-500 transition-all" value={newClientName} onChange={e => setNewClientName(e.target.value)} />
+              <input placeholder="WhatsApp" className="bg-zinc-800/50 border border-zinc-700/50 p-5 rounded-2xl text-white outline-none focus:border-emerald-500 transition-all" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} />
+              <button onClick={() => void createClientOnly()} className="bg-white text-black p-5 rounded-2xl font-black tracking-widest mt-2 hover:bg-emerald-400 transition-all">REGISTRAR EN BASE DE DATOS</button>
             </div>
           </div>
         </div>
