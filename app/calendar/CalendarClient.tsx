@@ -149,7 +149,18 @@ export default function CalendarClient() {
     loadBookingsForRange(viewStart, 1);
   };
 
-  // --- MEMOS ---
+  // --- MEMOS LÓGICOS ---
+  const hours = useMemo(() => {
+    const arr: number[] = [];
+    for (let h = START_HOUR; h <= END_HOUR; h++) arr.push(h);
+    return arr;
+  }, []);
+
+  const viewDays = useMemo(() => {
+    const start = viewMode === "week" ? startOfWeek(viewStart, { weekStartsOn: 1 }) : startOfDay(viewStart);
+    return Array.from({ length: viewMode === "week" ? 7 : viewMode === "two" ? 2 : 1 }).map((_, i) => addDays(start, i));
+  }, [viewMode, viewStart]);
+
   const viewDays = useMemo(() => {
     const start = viewMode === "week" ? startOfWeek(viewStart, { weekStartsOn: 1 }) : startOfDay(viewStart);
     return Array.from({ length: viewMode === "week" ? 7 : viewMode === "two" ? 2 : 1 }).map((_, i) => addDays(start, i));
