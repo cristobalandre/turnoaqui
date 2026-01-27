@@ -1046,8 +1046,8 @@ const headerRangeLabel = useMemo(() => {
           <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30">
             <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Recurso:</span>
             <select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)} className="bg-transparent border-none text-xs font-bold text-zinc-200 outline-none">
-              <option value="all" className="bg-zinc-900">TODOS LOS ESTUDIOS</option>
-              {rooms.map(r => <option key={r.id} value={r.id} className="bg-zinc-900">{r.name.toUpperCase()}</option>)}
+              <option value="all" className="bg-zinc-900 text-white">TODOS LOS ESTUDIOS</option>
+              {rooms.map(r => <option key={r.id} value={r.id} className="bg-zinc-900 text-white">{r.name.toUpperCase()}</option>)}
             </select>
           </div>
 
@@ -1068,7 +1068,7 @@ const headerRangeLabel = useMemo(() => {
         {/* --- GRID DE CALENDARIO --- */}
         <DndContext onDragEnd={onDragEnd}>
           <div className="bg-zinc-900/20 border border-zinc-800/50 rounded-[32px] overflow-hidden backdrop-blur-md shadow-2xl relative">
-            <div className="overflow-auto max-h-[75vh] custom-scrollbar">
+            <div className="overflow-auto max-h-[75vh] custom-scrollbar relative">
               <div className="grid relative" style={{ gridTemplateColumns: `100px repeat(${viewDays.length}, minmax(200px, 1fr))`, width: '100%' }}>
                 
                 {/* Timeline Lateral */}
@@ -1106,7 +1106,11 @@ const headerRangeLabel = useMemo(() => {
                                 topPx={(new Date(b.start_at).getHours() - 8) * 120 + (new Date(b.start_at).getMinutes() * 2)}
                                 heightPx={differenceInMinutes(new Date(b.end_at), new Date(b.start_at)) * 2}
                                 label={b.client_name || "CLIENTE"}
+                                subLabel={b.service_id ? "Servicio" : "Sesión"}
+                                isRunning={Boolean(b.started_at) && !b.ended_at}
+                                elapsedMin={0}
                                 onDoubleClick={() => setSelectedBooking(b)}
+                                onResizeStart={() => {}}
                               />
                             ))}
                           </div>
