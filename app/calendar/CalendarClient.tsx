@@ -302,13 +302,11 @@ export default function CalendarClient() {
     }
   }, [theme, isMounted]);
 
-  // Variables de estilo (se calcularán pero no se mostrarán si no está montado)
-  const GRID_BG = theme === "dark" ? GRID_BG_DARK : GRID_BG_LIGHT;
-  const GRID_LINE = theme === "dark" ? GRID_LINE_DARK : GRID_LINE_LIGHT;
-  const CARD_BG = theme === "dark" ? CARD_BG_DARK : CARD_BG_LIGHT;
-  const CARD_BORDER = theme === "dark" ? CARD_BORDER_DARK : CARD_BORDER_LIGHT;
-  const TEXT = theme === "dark" ? TEXT_DARK : TEXT_LIGHT;
-  const MUTED = theme === "dark" ? MUTED_DARK : MUTED_LIGHT;
+ // 🟢 VARIABLES DE ESTILO GEMINI PRO
+const BG_DARK = "#09090b";
+const ACCENT_EMERALD = "#10b981";
+const CARD_BG = "rgba(18, 18, 20, 0.4)";
+const BORDER_COLOR = "rgba(39, 39, 42, 0.5)";
 
   // Estados de datos (Deben estar SIEMPRE aquí, antes de cualquier return)
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -1009,941 +1007,152 @@ const headerRangeLabel = useMemo(() => {
      3. RENDER (HTML)
      ========================================= */
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background:
-          theme === "dark"
-            ? `radial-gradient(1000px 700px at 30% 20%, rgba(34,197,94,0.18), transparent 60%),
-               radial-gradient(900px 600px at 70% 60%, rgba(168,85,247,0.16), transparent 55%),
-               ${GRID_BG}`
-            : GRID_BG,
-        color: TEXT,
-        padding: 18,
-      }}
-    >
-
-    {/* 🎨 ESTILO SCROLLBAR (GEMINI STYLE) - Colocado en zona segura */}
-      <style dangerouslySetInnerHTML={{__html: `
-        /* Barra completa (el carril) */
-        ::-webkit-scrollbar {
-          width: 10px; /* Más fina y elegante */
-          height: 10px;
-        }
-        
-        /* Fondo del carril (Invisible) */
-        ::-webkit-scrollbar-track {
-          background: transparent; 
-        }
-        
-        /* El "dedo" o barra que se mueve */
-        ::-webkit-scrollbar-thumb {
-          background-color: rgba(120, 120, 120, 0.2); /* Muy sutil */
-          border-radius: 10px;       /* Redondeado total */
-        }
-
-        /* Al pasar el mouse se oscurece un poco */
-        ::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(120, 120, 120, 0.5); 
-        }
-      `}} />
-
-      {/* Header */}
-      <div
-        style={{
-          height: HEADER_H,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          borderRadius: 18,
-          padding: "0 14px",
-          border: `1px solid ${CARD_BORDER}`,
-          background: CARD_BG,
-          backdropFilter: "blur(14px)",
-          boxShadow: "0 10px 26px rgba(0,0,0,0.14)",
-          marginBottom: 16,
-        }}
-      >
-
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <div style={{ fontSize: 16, fontWeight: 900 }}>Calendario</div>
-          <div style={{ fontSize: 12, color: MUTED }}>{headerRangeLabel}</div>
-
-          {loading ? <div style={{ marginLeft: 10, fontSize: 12, color: MUTED }}>Cargando...</div> : null}
-        </div>
-
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        
-          <select 
-            value={roomFilter} 
-            onChange={(e) => setRoomFilter(e.target.value)}
-            style={{
-              padding: "6px 10px", borderRadius: 10, 
-              border: `1px solid ${CARD_BORDER}`, background: "rgba(0,0,0,0.15)", 
-              color: TEXT, fontSize: 13, cursor: "pointer", fontWeight: 600
-            }}
-          >
-            <option value="all" style={{ color: "black" }}>🏢 Todos los Estudios</option>
-            {rooms.map(r => <option key={r.id} value={r.id} style={{ color: "black" }}>
-                 {r.name}
-               </option>
-            )}
-          </select>
-
-          {/* Divisor (Solo uno) */}
-          <div style={{ width: 1, height: 20, background: CARD_BORDER, margin: "0 4px" }} />
-
-          {/* Botón Estadísticas (Solo uno) */}
-          <button
-            onClick={() => setShowStats((s) => !s)}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(0,0,0,0.0)",
-              color: TEXT,
-              cursor: "pointer",
-              fontWeight: 900,
-            }}
-            title="Estadísticas"
-          >
-            📊
-          </button>
-
-          {/* ✅ BOTÓN NUEVO CLIENTE */}
-          <button
-            onClick={() => setShowClientModal(true)}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(0,0,0,0.0)",
-              color: TEXT,
-              cursor: "pointer",
-              fontWeight: 900,
-              marginLeft: 4
-            }}
-            title="Nuevo Cliente Rápido"
-          >
-            👤+
-          </button>
-
-          <select
-            value={viewMode}
-            onChange={(e) => setViewMode(e.target.value as any)}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(0,0,0,0.0)",
-              color: TEXT,
-              cursor: "pointer",
-              fontWeight: 900,
-            }}
-            title="Vista"
-          >
-            <option value="day" style={{ color: "black" }}>1 día</option>
-            <option value="two" style={{ color: "black" }}>2 días</option>
-            <option value="week" style={{ color: "black" }}>Semana</option>
-          </select>
-
-          <button
-            onClick={onPrev}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(0,0,0,0.0)",
-              color: TEXT,
-              cursor: "pointer",
-            }}
-          >
-            ◀
-          </button>
-
-          <button
-            onClick={onToday}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(0,0,0,0.0)",
-              color: TEXT,
-              cursor: "pointer",
-              fontWeight: 900,
-            }}
-          >
-            Hoy
-          </button>
-
-          <button
-            onClick={onNext}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(0,0,0,0.0)",
-              color: TEXT,
-              cursor: "pointer",
-            }}
-          >
-            ▶
-          </button>
-
-          <button
-            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-            style={{
-              marginLeft: 4,
-              padding: "8px 10px",
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(0,0,0,0.0)",
-              color: TEXT,
-              cursor: "pointer",
-              fontWeight: 900,
-            }}
-            title="Fondo blanco / azul"
-          >
-            {theme === "dark" ? "🌙" : "☀️"}
-          </button>
-        </div>
-      </div>
-
-      {showStats ? (
-        <div style={{ marginBottom: 20 }}>
-          {/* Título y Botón de Exportar */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-             <div style={{ fontSize: 14, fontWeight: 900, color: TEXT }}>📊 Resumen de Rendimiento</div>
-             <button 
-               onClick={exportToExcel}
-               style={{
-                 padding: "8px 16px", borderRadius: 12, background: "#22c55e", 
-                 color: "white", border: "none", cursor: "pointer", fontWeight: "900", 
-                 fontSize: 12, display: "flex", alignItems: "center", gap: 6,
-                 boxShadow: "0 4px 12px rgba(34,197,94,0.3)"
-               }}
-             >
-               📥 Exportar a Excel
-             </button>
-          </div>
-
-          {/* 1. TARJETAS DE ESTADÍSTICAS */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-              gap: 12,
-              marginBottom: 16,
-            }}
-          >
-            {/* Tarjeta: Dinero */}
-            <div style={{ borderRadius: 18, border: `1px solid ${CARD_BORDER}`, padding: 16, background: "linear-gradient(135deg, rgba(34,197,94,0.15), transparent)", backdropFilter: "blur(10px)" }}>
-              <div style={{ fontSize: 11, color: MUTED, fontWeight: 800 }}>💵 INGRESOS COBRADOS</div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: "#22c55e", margin: "4px 0" }}>
-                ${stats.collectedRevenue.toLocaleString('es-CL')}
-              </div>
-              <div style={{ fontSize: 10, color: MUTED }}>Proyectado: ${stats.estimatedRevenue.toLocaleString('es-CL')}</div>
-            </div>
-
-            {/* Tarjeta: Horas */}
-            <div style={{ borderRadius: 18, border: `1px solid ${CARD_BORDER}`, padding: 16, background: CARD_BG }}>
-              <div style={{ fontSize: 11, color: MUTED, fontWeight: 800 }}>🎙️ HORAS DE USO</div>
-              <div style={{ fontSize: 24, fontWeight: 900, margin: "4px 0" }}>{stats.totalHours}h</div>
-              <div style={{ fontSize: 10, color: MUTED }}>En {stats.totalCount} sesiones</div>
-            </div>
-
-            {/* Tarjeta: Salud de Pagos */}
-            <div style={{ borderRadius: 18, border: `1px solid ${CARD_BORDER}`, padding: 16, background: CARD_BG }}>
-              <div style={{ fontSize: 11, color: MUTED, fontWeight: 800 }}>📉 SALUD DE PAGOS</div>
-              <div style={{ fontSize: 24, fontWeight: 900, margin: "4px 0" }}>
-                {stats.estimatedRevenue > 0 ? Math.round((stats.collectedRevenue / stats.estimatedRevenue) * 100) : 0}%
-              </div>
-              <div style={{ height: 6, background: "rgba(255,255,255,0.1)", borderRadius: 3, marginTop: 8, overflow: "hidden" }}>
-                 <div style={{ height: "100%", width: `${(stats.collectedRevenue / stats.estimatedRevenue) * 100}%`, background: "#3b82f6" }} />
-              </div>
-            </div>
-          </div>
-
-          {/* 2. LISTA DE PAGOS PENDIENTES */}
-          <div style={{ borderRadius: 18, border: `1px solid ${CARD_BORDER}`, background: CARD_BG, padding: 16, backdropFilter: "blur(10px)" }}>
-            <div style={{ fontSize: 12, fontWeight: 900, marginBottom: 12 }}>⚠️ Pagos Pendientes</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {bookings.filter(b => b.payment_status !== "paid").length === 0 ? (
-                <div style={{ fontSize: 11, color: MUTED, textAlign: "center" }}>✅ Todo al día.</div>
-              ) : (
-                bookings
-                  .filter(b => b.payment_status !== "paid")
-                  .map(b => {
-                    const s = b.service_id ? serviceMap.get(b.service_id) : null;
-                    return (
-                      <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px", borderRadius: 12, background: "rgba(255,255,255,0.02)", border: `1px solid ${CARD_BORDER}` }}>
-                        <div style={{ fontSize: 12 }}><b>{b.client_name}</b> <br/> <span style={{fontSize: 10, color: MUTED}}>{s?.name}</span></div>
-                        <div style={{ fontSize: 12, fontWeight: 900, color: "#fbbf24" }}>${(s?.price || 0).toLocaleString('es-CL')}</div>
-                      </div>
-                    );
-                  })
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-     {/* Formulario Crear Reserva */}
-      <div
-        style={{
-          borderRadius: 18,
-          border: `1px solid ${CARD_BORDER}`,
-          background: CARD_BG,
-          backdropFilter: "blur(14px)",
-          padding: 14,
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 900 }}>Crear reserva</div>
-          <div style={{ fontSize: 12, color: MUTED }}>Tip: arrastra el bloque para cambiar hora/día/sala</div>
-        </div>
-
-        {/* Fila 1: Sala, Servicio, Staff, Fecha */}
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
-          {/* Sala */}
-          <select
-            value={roomId}
-            onChange={(e) => setRoomId(e.target.value)}
-            style={{
-              padding: 10,
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(0,0,0,0.0)",
-              color: TEXT,
-            }}
-          >
-            <option value="" style={{ color: "black" }}>Sala / Recurso</option>
-            {rooms.map((r) => (
-              <option key={r.id} value={r.id} style={{ color: "black" }}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Servicio */}
-          <select
-            value={serviceId}
-            onChange={(e) => setServiceId(e.target.value)}
-            style={{
-              padding: 10,
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(0,0,0,0.0)",
-              color: TEXT,
-            }}
-          >
-            <option value="" style={{ color: "black" }}>Servicio</option>
-            {services.map((s) => (
-              <option key={s.id} value={s.id} style={{ color: "black" }}>
-                {s.name} · {s.duration_minutes}m
-              </option>
-            ))}
-          </select>
-
-          {/* Staff */}
-          <select
-            value={staffId}
-            onChange={(e) => setStaffId(e.target.value)}
-            style={{
-              padding: 10,
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(0,0,0,0.0)",
-              color: TEXT,
-            }}
-          >
-            <option value="" style={{ color: "black" }}>Staff (opcional)</option>
-            {staff.map((s) => (
-              <option key={s.id} value={s.id} style={{ color: "black" }}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-
-          {/* Fecha */}
-          <input
-            type="datetime-local"
-            value={startAt}
-            onChange={(e) => setStartAt(e.target.value)}
-            style={{
-              padding: 10,
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(0,0,0,0.0)",
-              color: TEXT,
-            }}
-          />
-        </div>
-
-        {/* Fila 2: Nombre (con buscador inteligente), Teléfono, Email */}
-    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginTop: 10 }}>
+    <div className="min-h-screen bg-[#09090b] text-[#fafafa] p-5 font-sans">
       
-      {/* 1. CAMPO FUSIONADO: NOMBRE + BUSCADOR */}
-      <div style={{ position: "relative" }}>
-        <input
-          list="client-suggestions" 
-          placeholder="Nombre del cliente (o buscar...)"
-          value={clientName}
-          onChange={(e) => handleClientNameChange(e.target.value)} // 👈 Usa la nueva función
-          style={{
-            width: "100%",
-            padding: 10,
-            borderRadius: 14,
-            border: `1px solid ${CARD_BORDER}`,
-            background: "rgba(0,0,0,0.0)",
-            color: TEXT,
-            fontWeight: clientId ? "bold" : "normal" // Negrita si ya lo encontró
-          }}
-        />
-        
-        {/* Icono de confirmación si es un cliente registrado */}
-        {clientId && (
-           <div style={{ position: "absolute", right: 12, top: 12, fontSize: 14, pointerEvents: "none" }} title="Cliente registrado">
-             ✅
-           </div>
-        )}
-        
-        {/* Lista invisible de sugerencias */}
-        <datalist id="client-suggestions">
-          {clients.map(c => (
-            <option key={c.id} value={c.name} />
-          ))}
-        </datalist>
+      {/* --- CABECERA --- */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-4xl font-light tracking-tighter text-white">
+            Turno<span className="text-emerald-500 font-bold italic">Aquí</span>
+          </h1>
+          <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 font-black mt-1">Control de Sesiones Pro</p>
+        </div>
+
+        <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800/50 backdrop-blur-md">
+          <button onClick={prevWeek} className="p-2 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400"> ← </button>
+          <div className="px-4 py-1 text-center">
+            <span className="text-[10px] block uppercase tracking-widest text-zinc-600 font-bold">Semana Actual</span>
+            <span className="text-sm font-medium text-zinc-200">
+              {viewDays.length > 0 && `${format(viewDays[0], "dd MMM")} - ${format(viewDays[6], "dd MMM", { locale: es })}`}
+            </span>
+          </div>
+          <button onClick={nextWeek} className="p-2 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400"> → </button>
+        </div>
       </div>
 
-      {/* 2. CAMPO TELÉFONO (Igual que antes) */}
-      <input
-        placeholder="WhatsApp / Teléfono"
-        value={clientPhone}
-        onChange={(e) => setClientPhone(e.target.value)}
-        style={{
-          padding: 10,
-          borderRadius: 14,
-          border: `1px solid ${CARD_BORDER}`,
-          background: "rgba(0,0,0,0.0)",
-          color: TEXT,
-        }}
-      />
-
-      {/* 3. CAMPO EMAIL (Igual que antes) */}
-      <input
-        placeholder="Correo (opcional)"
-        value={clientEmail}
-        onChange={(e) => setClientEmail(e.target.value)}
-        style={{
-          padding: 10,
-          borderRadius: 14,
-          border: `1px solid ${CARD_BORDER}`,
-          background: "rgba(0,0,0,0.0)",
-          color: TEXT,
-        }}
-      />
-    </div>
-
-        {/* Fila 3: Notas, Color, Botón Crear */}
-        <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
-          <input
-            placeholder="Notas"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            style={{
-              padding: 10,
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(0,0,0,0.0)",
-              color: TEXT,
-            }}
-          />
-
-         {/* Selector de Color Circular Funcional */}
-          {/* Selector de Color - Círculo Perfecto */}
-          <div style={{ position: "relative", width: 44, height: 44 }}>
-            
-            {/* 1. La "Máscara" Visual (El círculo bonito) */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                borderRadius: "50%",
-                background: color, // Aquí se muestra el color elegido
-                border: `2px solid ${CARD_BORDER}`,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                transition: "background 0.2s"
-              }}
-            />
-
-            {/* 2. El Input "Invisible" (Detecta el clic) */}
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              title="Toca para cambiar el color"
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                opacity: 0, // 👈 Esto lo hace invisible, pero sigue funcionando
-                cursor: "pointer",
-                padding: 0,
-                border: "none"
-              }}
-            />
-          </div>
-
-          <button
-            onClick={() => void createBooking()}
-            style={{
-              gridColumn: "span 2",
-              padding: "10px 12px",
-              borderRadius: 14,
-              border: `1px solid ${CARD_BORDER}`,
-              background: "rgba(34,197,94,0.22)",
-              color: TEXT,
-              cursor: "pointer",
-              fontWeight: 900,
-            }}
+      {/* --- PANEL DE CREACIÓN RÁPIDA --- */}
+      <div className="mb-8 grid grid-cols-1 lg:grid-cols-4 gap-4 bg-[#0c0c0e] border border-zinc-800/50 p-6 rounded-[32px] shadow-2xl relative overflow-hidden">
+        <div className="space-y-1">
+          <label className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black ml-2">¿Quién atiende?</label>
+          <select 
+            className="w-full bg-zinc-900/80 border border-zinc-800 text-white rounded-2xl p-4 text-sm outline-none appearance-none"
+            value={selectedStaffId}
+            onChange={(e) => setSelectedStaffId(e.target.value)}
           >
-            ➕ Crear reserva
+            <option value="">Seleccionar Staff</option>
+            {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black ml-2">Servicio</label>
+          <select 
+            className="w-full bg-zinc-900/80 border border-zinc-800 text-white rounded-2xl p-4 text-sm outline-none appearance-none"
+            value={selectedServiceId}
+            onChange={(e) => setSelectedServiceId(e.target.value)}
+          >
+            <option value="">¿Qué haremos?</option>
+            {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black ml-2">Cliente</label>
+          <input 
+            className="w-full bg-zinc-900/80 border border-zinc-800 text-white rounded-2xl p-4 text-sm outline-none"
+            placeholder="Nombre del cliente..."
+            value={clientSearch}
+            onChange={(e) => setClientSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="flex items-end">
+          <button 
+            onClick={createBookingFromTop}
+            className="w-full bg-white text-black h-[58px] rounded-2xl font-black text-[10px] tracking-[0.2em] hover:bg-emerald-400 transition-all shadow-lg"
+          >
+            AGENDAR AHORA
           </button>
         </div>
       </div>
 
-      {/* Drag context global */}
+      {/* --- GRID DEL CALENDARIO --- */}
       <DndContext onDragEnd={onDragEnd}>
-        {/* Grid Unificado: Cabecera Sticky + Cuerpo Scrollable */}
-        {/* Al estar juntos, comparten el ancho exacto y se alinean perfecto */}
-        <div
-          style={{
-            borderRadius: 18,
-            border: `1px solid ${CARD_BORDER}`,
-            background: CARD_BG,
-            backdropFilter: "blur(14px)",
-            height: "75vh",         // Altura fija
-            overflowY: "scroll",      // ✅ El scroll está aquí, en el padre de todos
-            overflowX: "hidden",
-            position: "relative",
-            display: "block"
-          }}
-        >
-          {/* 1. CABECERA PEGAJOSA (Sticky Header) */}
-          <div
-            style={{
-              position: "sticky",   // 👈 La clave: se pega arriba al hacer scroll
-              top: 0,
-              zIndex: 40,           // Por encima de las reservas normales (z=10)
-              display: "grid",
-              gridTemplateColumns: `140px repeat(${viewDays.length}, 1fr)`,
-              borderBottom: `1px solid ${GRID_LINE}`,
-              background: theme === "dark" ? "#0b0f1a" : "#ffffff", // Fondo sólido para que no se trasluzca
-              paddingRight: "10px", 
-            }}
-          >
-            <div style={{ padding: 12, borderRight: `1px solid ${GRID_LINE}`, color: MUTED, fontSize: 12 }}>
-              Horas
-            </div>
-            {viewDays.map((d) => (
-              <div key={d.toISOString()} style={{ padding: 12, borderRight: `1px solid ${GRID_LINE}`, fontWeight: 900 }}>
-                {format(d, "EEEE d", { locale: es })}
-              </div>
-            ))}
-          </div>
-
-          {/* 2. CUERPO DEL CALENDARIO */}
-          <div style={{ position: "relative" }}>
-             <div style={{ display: "grid", gridTemplateColumns: `140px repeat(${viewDays.length}, 1fr)` }}>
+        <div className="bg-zinc-900/20 border border-zinc-800/50 rounded-[32px] overflow-hidden backdrop-blur-md shadow-2xl relative z-10">
+          <div className="overflow-auto max-h-[75vh] custom-scrollbar relative">
+            <div className="grid relative" style={{ gridTemplateColumns: `100px repeat(${viewDays.length}, minmax(200px, 1fr))`, width: '100%' }}>
               
-              {/* Columna Izquierda - HORAS */}
-              <div style={{ position: "relative", height: gridHeightPx, borderRight: `1px solid ${GRID_LINE}` }}>
-                {hours.map((h) => {
-                  const top = (h - START_HOUR) * PX_PER_HOUR;
-                  const displayHour = h >= 24 ? h - 24 : h;
-                  return (
-                    <div key={h} style={{ position: "absolute", top, left: 0, right: 0, borderTop: `1px solid ${GRID_LINE}` }}>
-                      <div style={{ position: "absolute", top: -8, left: 10, fontSize: 11, color: MUTED }}>
-                        {String(displayHour).padStart(2, "0")}:00
-                      </div>
-                    </div>
-                  );
-                })}
+              {/* Eje de Horas */}
+              <div className="sticky left-0 z-40 bg-[#09090b] border-r border-zinc-800/60 shadow-xl">
+                <div className="h-16 border-b border-zinc-800/50 flex items-center justify-center bg-[#0c0c0e]">
+                  <span className="text-[9px] font-black text-zinc-700 tracking-[0.3em] uppercase">Time</span>
+                </div>
+                {hours.map((h) => (
+                  <div key={h} className="h-[120px] border-b border-zinc-800/10 flex items-start justify-center pt-3">
+                    <span className="text-[10px] font-mono font-bold text-zinc-600">{String(h).padStart(2, "0")}:00</span>
+                  </div>
+                ))}
               </div>
 
-              {/* Columnas de DÍAS y SALAS */}
-              {viewDays.map((day, dayIdx) => {
-                return (
-                  <div key={day.toISOString()} style={{ position: "relative", borderRight: `1px solid ${GRID_LINE}` }}>
-                    {visibleRooms.map((room) => {
-                      const cellId = `${room.id}|${dayIdx}`;
-                      const dayBookings = bookingsIndex.get(`${room.id}|${dayKey(day)}`) || [];
-
-                      return (
-                        <div
-                          key={room.id}
-                          style={{
-                            position: "relative",
-                            height: gridHeightPx,
-                            background:
-                              theme === "dark"
-                                ? "linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))"
-                                : "linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.01))",
-                          }}
-                        >
-                          {/* Nombre de sala (Repetido) */}
-                          <div
-                            style={{
-                              position: "absolute", top: 8, left: 10, fontSize: 11,
-                              color: MUTED, fontWeight: 900, pointerEvents: "none", zIndex: 5
-                            }}
-                          >
-                            {room.name}
-                          </div>
-
-                          <DroppableCell id={cellId} />
-
-                          {/* Líneas guía */}
-                          {hours.map((h) => {
-                            const top = (h - START_HOUR) * PX_PER_HOUR;
-                            return (
-                              <div
-                                key={h}
-                                style={{
-                                  position: "absolute", left: 0, right: 0, top,
-                                  borderTop: `1px solid ${GRID_LINE}`, opacity: 0.6, pointerEvents: "none"
-                                }}
-                              />
-                            );
-                          })}
-
-                          {/* RESERVAS */}
-                          {dayBookings.map((b) => {
-                            const start = new Date(b.start_at);
-                            const end = resizeBookingId === b.id && resizePreviewEndRef.current ? new Date(resizePreviewEndRef.current) : new Date(b.end_at);
-                            const topPx = calcTopPx(start);
-                            const heightPx = calcHeightPx(start, end);
-                            const serviceName = b.service_id ? serviceMap.get(b.service_id)?.name || "Servicio" : "Sesión";
-                            const durationMin = Math.max(0, differenceInMinutes(end, start));
-                            const client = b.client_id ? clientMap.get(b.client_id) : undefined;
-                            const avatarUrl = client?.avatar_url || null;
-                            const startedAt = b.started_at ? new Date(b.started_at) : null;
-                            const endedAt = b.ended_at ? new Date(b.ended_at) : null;
-                            const isRunning = Boolean(startedAt) && !endedAt;
-                            const elapsedMin = startedAt ? Math.max(0, differenceInMinutes(endedAt ?? new Date(nowTick), startedAt)) : null;
-                            const label = b.client_name || "Cliente";
-                            const subLabel = `${serviceName} · ${humanDurationMinutes(durationMin)}`;
-
-                            return (
-                              <DraggableBooking
-                                paymentStatus={b.payment_status}
-                                key={b.id}
-                                booking={b}
-                                topPx={topPx}
-                                heightPx={heightPx}
-                                label={label}
-                                subLabel={subLabel}
-                                avatarUrl={avatarUrl}
-                                isRunning={isRunning}
-                                elapsedMin={elapsedMin}
-                                onDoubleClick={() => openEdit(b)}
-                                onResizeStart={(e) => startResize(b, e)}
-                              />
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
+              {/* Días */}
+              {viewDays.map((day, dayIdx) => (
+                <div key={day.toISOString()} className="relative border-r border-zinc-800/20">
+                  <div className="sticky top-0 z-30 h-16 border-b border-zinc-800/50 flex flex-col items-center justify-center bg-[#0c0c0e]/95 backdrop-blur-md">
+                    <span className="text-[9px] font-black tracking-[0.2em] uppercase text-zinc-500">{format(day, "EEEE", { locale: es })}</span>
+                    <span className="text-xl font-light text-zinc-300">{format(day, "dd")}</span>
                   </div>
-                );
-              })}
+
+                  <div className="relative" style={{ height: hours.length * 120 }}>
+                    {rooms.map((room) => (
+                      <div key={room.id} className="absolute inset-0">
+                        <DroppableCell id={`${room.id}|${dayIdx}`} />
+                        {(bookingsIndex.get(`${room.id}|${dayKey(day)}`) || []).map((b) => (
+                          <DraggableBooking
+                            key={b.id}
+                            booking={b}
+                            topPx={(new Date(b.start_at).getHours() - 8) * 120 + (new Date(b.start_at).getMinutes() * 2)}
+                            heightPx={differenceInMinutes(new Date(b.end_at), new Date(b.start_at)) * 2}
+                            label={b.client_name || "CLIENTE"}
+                            onDoubleClick={() => openEdit(b)}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </DndContext>
 
-      {/* Modal - Versión Final Limpia y Completa */}
-      {selectedBooking ? (
-        <div
-          onClick={() => setSelectedBooking(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 18,
-            zIndex: 999,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "min(560px, 96vw)",
-              borderRadius: 18,
-              border: `1px solid ${CARD_BORDER}`,
-              background: theme === "dark" ? "rgba(10,15,26,0.95)" : "rgba(255,255,255,0.98)",
-              backdropFilter: "blur(14px)",
-              padding: 16,
-              color: TEXT,
-              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-            }}
-          >
-            {/* Header del Modal */}
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 16 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>Ficha de sesión</div>
-              <button
-                onClick={() => setSelectedBooking(null)}
-                style={{
-                  border: `1px solid ${CARD_BORDER}`,
-                  borderRadius: 12,
-                  width: 32,
-                  height: 32,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  background: "transparent",
-                  color: TEXT,
-                  fontWeight: 900,
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Info Básica */}
-            <div style={{ fontSize: 13, color: MUTED, marginBottom: 16, padding: "0 4px" }}>
-              <div style={{marginBottom: 4}}><b>Cliente:</b> <span style={{color: TEXT}}>{selectedBooking.client_name || "—"}</span></div>
-              <div style={{marginBottom: 4}}><b>Contacto:</b> {selectedBooking.client_phone || "—"} / {selectedBooking.client_email || "—"}</div>
-              <div style={{ marginTop: 8 }}>
-                <b>Horario:</b> {format(new Date(selectedBooking.start_at), "EEEE d 'de' MMMM", { locale: es })} <br/>
-                de {format(new Date(selectedBooking.start_at), "HH:mm")} a {format(new Date(selectedBooking.end_at), "HH:mm")}
-              </div>
-            </div>
-
-            {/* SECCIÓN DE ACCIONES (Sala, Color, Pago) */}
-            <div style={{ padding: 12, background: "rgba(0,0,0,0.03)", borderRadius: 14, border: `1px solid ${CARD_BORDER}` }}>
-               
-               {/* Fila 1: Color y Guardar */}
-               <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <input
-                    type="color"
-                    value={editColor}
-                    onChange={(e) => setEditColor(e.target.value)}
-                    style={{ width: 40, height: 34, borderRadius: 8, border: "none", cursor: "pointer", padding: 0, background: "none" }}
-                    title="Elegir color"
-                  />
-                  <div style={{fontSize: 12, color: MUTED, flex: 1}}>Color de etiqueta</div>
-                  <button
-                    onClick={() => void saveColor()}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: 10,
-                      border: "none",
-                      background: "#3b82f6",
-                      color: "white",
-                      cursor: "pointer",
-                      fontWeight: 700,
-                      fontSize: 12
-                    }}
-                  >
-                    Guardar Cambios
-                  </button>
-               </div>
-
-               {/* Fila 2: Sala */}
-               <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 11, color: MUTED, display: "block", marginBottom: 4, fontWeight: 700 }}>MOVER A SALA:</label>
-                  <select
-                    value={editRoomId || selectedBooking.room_id} 
-                    onChange={(e) => setEditRoomId(e.target.value)} 
-                    style={{ width: "100%", padding: "8px 10px", borderRadius: 8, background: CARD_BG, color: TEXT, border: `1px solid ${CARD_BORDER}`, outline: "none" }}
-                  >
-                    {rooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  </select>
-               </div>
-
-               {/* Fila 3: Botones Grandes (Pago y Sesión) */}
-               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <button
-                    onClick={() => {
-                       const next = selectedBooking.payment_status === "paid" ? "pending" : "paid";
-                       setSelectedBooking({...selectedBooking, payment_status: next});
-                       sb.from("bookings").update({ payment_status: next }).eq("id", selectedBooking.id).then(() => {
-                          const start = viewMode === "week" ? startOfWeek(viewStart, { weekStartsOn: 1 }) : viewStart;
-                          const count = viewMode === "week" ? 7 : viewMode === "two" ? 2 : 1;
-                          loadBookingsForRange(start, count);
-                       });
-                    }}
-                    style={{
-                      padding: "10px",
-                      borderRadius: 10,
-                      border: `1px solid ${CARD_BORDER}`,
-                      background: selectedBooking.payment_status === "paid" ? "rgba(34,197,94,0.2)" : "rgba(245,158,11,0.15)",
-                      color: selectedBooking.payment_status === "paid" ? "#22c55e" : "#fbbf24",
-                      cursor: "pointer",
-                      fontWeight: 900,
-                      fontSize: 12,
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: 6
-                    }}
-                  >
-                    {selectedBooking.payment_status === "paid" ? "✅ PAGADO" : "⏳ PENDIENTE"}
-                  </button>
-
-                  {selectedBooking.started_at && !selectedBooking.ended_at ? (
-                    <button
-                      onClick={() => void stopSession()}
-                      style={{
-                        padding: "10px",
-                        borderRadius: 10,
-                        border: `1px solid ${CARD_BORDER}`,
-                        background: "rgba(239,68,68,0.15)",
-                        color: "#ef4444",
-                        cursor: "pointer",
-                        fontWeight: 900,
-                        fontSize: 12
-                      }}
-                    >
-                      ⏹ Finalizar
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => void startSession()}
-                      style={{
-                        padding: "10px",
-                        borderRadius: 10,
-                        border: `1px solid ${CARD_BORDER}`,
-                        background: "rgba(59,130,246,0.15)",
-                        color: "#3b82f6",
-                        cursor: "pointer",
-                        fontWeight: 900,
-                        fontSize: 12
-                      }}
-                    >
-                      ▶ Iniciar
-                    </button>
-                  )}
-               </div>
-            </div>
-
-            {/* Notas */}
-            <div style={{ marginTop: 16 }}>
-              <div style={{ fontSize: 11, color: MUTED, marginBottom: 6, fontWeight: 700 }}>NOTAS</div>
-              <div
-                style={{
-                  padding: 12,
-                  borderRadius: 12,
-                  border: `1px solid ${CARD_BORDER}`,
-                  background: "rgba(0,0,0,0.02)",
-                  color: TEXT,
-                  minHeight: 60,
-                  fontSize: 13,
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                {selectedBooking.notes || "Sin notas adicionales."}
-              </div>
-            </div>
-
-            {/* Botón Eliminar */}
-            <div style={{ marginTop: 16 }}>
-              <button
-                onClick={() => void deleteBooking()}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(239,68,68,0.3)",
-                  background: "rgba(239,68,68,0.08)",
-                  color: "#ef4444",
-                  cursor: "pointer",
-                  fontWeight: 900,
-                  fontSize: 13,
-                  transition: "0.2s"
-                }}
-              >
-                🗑 Eliminar Reserva
-              </button>
-            </div>
-
-            <div style={{ marginTop: 12, fontSize: 10, color: MUTED, textAlign: "center", opacity: 0.5 }}>
-              ID: {selectedBooking.id.slice(0, 8)}...
-            </div>
-
-          </div>
-        </div>
-      ) : null}
-
-      {/* ✅ MODAL: CREAR CLIENTE NUEVO */}
-      {showClientModal ? (
-        <div
-          onClick={() => setShowClientModal(false)}
-          style={{
-            position: "fixed", inset: 0, zIndex: 1000,
-            background: "rgba(0,0,0,0.6)",
-            display: "flex", alignItems: "center", justifyContent: "center", padding: 18
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: 360,
-              background: theme === "dark" ? "rgba(10,15,26,0.95)" : "rgba(255,255,255,0.98)",
-              border: `1px solid ${CARD_BORDER}`,
-              backdropFilter: "blur(14px)",
-              borderRadius: 18,
-              padding: 18,
-              color: TEXT,
-              boxShadow: "0 20px 40px rgba(0,0,0,0.4)"
-            }}
-          >
-            <div style={{ fontSize: 16, fontWeight: 900, marginBottom: 14 }}>Registrar Nuevo Cliente</div>
-            
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <input
-                autoFocus
-                placeholder="Nombre completo *"
-                value={newClientName}
-                onChange={(e) => setNewClientName(e.target.value)}
-                style={{ padding: 12, borderRadius: 12, border: `1px solid ${CARD_BORDER}`, background: "rgba(0,0,0,0.05)", color: TEXT }}
-              />
-              <input
-                placeholder="Teléfono / WhatsApp"
-                value={newClientPhone}
-                onChange={(e) => setNewClientPhone(e.target.value)}
-                style={{ padding: 12, borderRadius: 12, border: `1px solid ${CARD_BORDER}`, background: "rgba(0,0,0,0.05)", color: TEXT }}
-              />
-              <input
-                placeholder="Correo electrónico"
-                value={newClientEmail}
-                onChange={(e) => setNewClientEmail(e.target.value)}
-                style={{ padding: 12, borderRadius: 12, border: `1px solid ${CARD_BORDER}`, background: "rgba(0,0,0,0.05)", color: TEXT }}
-              />
-              
-              <button
-                onClick={() => void createClientOnly()}
-                style={{
-                  marginTop: 6,
-                  padding: 12,
-                  borderRadius: 12,
-                  background: "#3b82f6",
-                  color: "white",
-                  fontWeight: "bold",
-                  border: "none",
-                  cursor: "pointer"
-                }}
-              >
-                Guardar Cliente
-              </button>
+      {/* --- MODALES --- */}
+      {selectedBooking && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md bg-black/60" onClick={() => setSelectedBooking(null)}>
+          <div className="bg-[#0c0c0e] border border-zinc-800 w-full max-w-lg rounded-[32px] p-8 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl text-white font-light">Ficha de <span className="text-emerald-500 italic">Sesión</span></h2>
+            <p className="text-zinc-500 mb-6 uppercase text-[10px] tracking-widest">{selectedBooking.client_name}</p>
+            <div className="flex gap-4">
+              <button onClick={deleteBooking} className="p-4 bg-red-500/10 text-red-500 rounded-2xl flex-1">ELIMINAR</button>
+              <button onClick={() => setSelectedBooking(null)} className="p-4 bg-white text-black rounded-2xl flex-1 font-bold">CERRAR</button>
             </div>
           </div>
         </div>
-      ) : null}
+      )}
+
+      {showNewClientModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
+          <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-[32px] w-full max-w-md shadow-2xl">
+            <h3 className="text-white text-lg font-light mb-6">Nuevo <span className="text-emerald-500">Cliente</span></h3>
+            <div className="flex flex-col gap-4">
+              <input placeholder="Nombre" className="bg-zinc-800 border border-zinc-700 p-4 rounded-2xl text-white outline-none focus:border-emerald-500" value={newClientName} onChange={e => setNewClientName(e.target.value)} />
+              <input placeholder="WhatsApp" className="bg-zinc-800 border border-zinc-700 p-4 rounded-2xl text-white outline-none focus:border-emerald-500" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} />
+              <button onClick={() => void createClientOnly()} className="bg-emerald-500 text-white p-4 rounded-2xl font-black tracking-widest mt-2">GUARDAR CLIENTE</button>
+              <button onClick={() => setShowNewClientModal(false)} className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest mt-2">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
