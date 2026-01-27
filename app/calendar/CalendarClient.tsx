@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { Logo } from "@/components/ui/Logo";
 import { SessionModal } from "@/components/calendar/SessionModal";
 import { QuickCreatePanel } from "@/components/calendar/QuickCreatePanel";
@@ -1014,7 +1015,7 @@ const headerRangeLabel = useMemo(() => {
       <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/5 blur-[140px] rounded-full pointer-events-none z-0" />
       
       <div className="relative z-10 max-w-[1600px] mx-auto">
-        {/* --- HEADER CON LOGO NUEVO --- */}
+        {/* --- 1. HEADER --- */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <Logo size="text-4xl" />
@@ -1042,7 +1043,7 @@ const headerRangeLabel = useMemo(() => {
           </button>
         </div>
 
-        {/* --- BARRA TÉCNICA --- */}
+        {/* --- 2. BARRA TÉCNICA --- */}
         <div className="flex flex-wrap items-center gap-4 mb-6 bg-zinc-900/30 p-3 rounded-[28px] border border-zinc-800/50 backdrop-blur-sm">
           <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30 group hover:border-emerald-500/30 transition-all">
             <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Recurso:</span>
@@ -1072,7 +1073,7 @@ const headerRangeLabel = useMemo(() => {
           </div>
         </div>
 
-        {/* --- PANEL DE STATS --- */}
+        {/* --- 3. PANEL DE STATS --- */}
         {showStats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
@@ -1095,7 +1096,7 @@ const headerRangeLabel = useMemo(() => {
           </div>
         )}
 
-        {/* ✅ PANEL DE CREACIÓN RÁPIDA (COMPONENTIZADO) */}
+        {/* --- 4. QUICK CREATE PANEL (ATOMIZADO) --- */}
         <QuickCreatePanel 
           roomId={roomId} setRoomId={setRoomId}
           serviceId={serviceId} setServiceId={setServiceId}
@@ -1108,71 +1109,23 @@ const headerRangeLabel = useMemo(() => {
           onCreate={createBooking}
         />
 
-        {/* --- GRID (1h = 60px) --- */}
-        <DndContext onDragEnd={onDragEnd}>
-          <div className="bg-zinc-900/20 border border-zinc-800/50 rounded-[40px] overflow-hidden backdrop-blur-md shadow-2xl relative">
-            <div className="overflow-auto max-h-[60vh] custom-scrollbar">
-              <div className="grid relative" style={{ gridTemplateColumns: `85px repeat(${viewDays.length}, minmax(240px, 1fr))`, width: '100%' }}>
-                
-                {/* Time Rail */}
-                <div className="sticky left-0 z-40 bg-[#09090b] border-r border-zinc-800/60 shadow-2xl">
-                  <div className="h-14 border-b border-zinc-800/50 flex items-center justify-center bg-[#0c0c0e]">
-                    <span className="text-[8px] font-black text-zinc-700 tracking-widest uppercase font-mono italic">Sync</span>
-                  </div>
-                  {hours.map((h) => (
-                    <div key={h} className="h-[60px] border-b border-zinc-800/10 flex items-center justify-center relative group/hour">
-                      <span className="text-[10px] font-mono font-bold text-zinc-600 group-hover/hour:text-emerald-500 transition-colors">{String(h >= 24 ? h - 24 : h).padStart(2, '0')}:00</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Columnas de Días */}
-                {viewDays.map((day, dayIdx) => {
-                  const isToday = isSameDay(day, new Date());
-                  return (
-                    <div key={day.toISOString()} className={`relative border-r border-zinc-800/20 ${isToday ? 'bg-emerald-500/[0.01]' : ''}`}>
-                      <div className={`sticky top-0 z-30 h-14 border-b border-zinc-800/50 flex flex-col items-center justify-center backdrop-blur-xl ${isToday ? 'bg-emerald-500/10' : 'bg-[#0c0c0e]/95'}`}>
-                        <span className={`text-[9px] font-black tracking-widest uppercase ${isToday ? 'text-emerald-400' : 'text-zinc-600'}`}>{format(day, "EEEE", { locale: es })}</span>
-                        <span className={`text-lg font-light ${isToday ? 'text-white' : 'text-zinc-400'}`}>{format(day, "dd")}</span>
-                      </div>
-
-                      <div className="relative" style={{ height: hours.length * 60 }}>
-                        {hours.map((h) => (
-                          <div key={h} className="absolute w-full border-t border-zinc-800/5 hover:bg-emerald-500/[0.04] transition-all pointer-events-none duration-300" style={{ top: (h - START_HOUR) * 60, height: 60 }} />
-                        ))}
-                        
-                        {visibleRooms.map((room) => (
-                          <div key={room.id} className="absolute inset-0">
-                            <DroppableCell id={`${room.id}|${dayIdx}`} />
-                            {(bookingsIndex.get(`${room.id}|${dayKey(day)}`) || []).map((b) => (
-                              <DraggableBooking
-                                key={b.id}
-                                booking={b}
-                                topPx={(new Date(b.start_at).getHours() - START_HOUR) * 60 + (new Date(b.start_at).getMinutes())}
-                                heightPx={differenceInMinutes(new Date(b.end_at), new Date(b.start_at))}
-                                label={b.client_name || "ARTISTA"}
-                                subLabel={b.service_id ? serviceMap.get(b.service_id)?.name || "Sesión" : "Sesión"}
-                                avatarUrl={b.client_id ? clientMap.get(b.client_id)?.avatar_url : null}
-                                isRunning={Boolean(b.started_at) && !b.ended_at}
-                                elapsedMin={b.started_at ? Math.max(0, differenceInMinutes(new Date(), new Date(b.started_at))) : 0}
-                                paymentStatus={b.payment_status}
-                                onDoubleClick={() => openEdit(b)}
-                                onResizeStart={(e) => startResize(b, e)}
-                              />
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </DndContext>
+        {/* --- 5. GRID DE CALENDARIO (ATOMIZADO FASE 3) --- */}
+        <CalendarGrid 
+          viewDays={viewDays}
+          hours={hours}
+          START_HOUR={START_HOUR}
+          visibleRooms={visibleRooms}
+          bookingsIndex={bookingsIndex}
+          clientMap={clientMap}
+          serviceMap={serviceMap}
+          onDragEnd={onDragEnd}
+          onEdit={openEdit}
+          onResize={startResize}
+          dayKey={dayKey}
+        />
       </div>
 
-      {/* ✅ FICHA DE SESIÓN (COMPONENTIZADO) */}
+      {/* --- 6. MODAL SESIÓN (ATOMIZADO) --- */}
       {selectedBooking && (
         <SessionModal 
           booking={selectedBooking}
@@ -1191,7 +1144,7 @@ const headerRangeLabel = useMemo(() => {
         />
       )}
 
-      {/* --- MODAL CLIENTE NUEVO --- */}
+      {/* --- 7. MODAL CLIENTE NUEVO (Aún en el archivo) --- */}
       {showClientModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4" onClick={() => setShowClientModal(false)}>
           <div className="bg-zinc-900 border border-zinc-800 p-10 rounded-[48px] w-full max-w-md shadow-2xl relative" onClick={e => e.stopPropagation()}>
@@ -1206,4 +1159,4 @@ const headerRangeLabel = useMemo(() => {
       )}
     </div>
   );
-  }
+}
