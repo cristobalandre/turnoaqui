@@ -3,35 +3,24 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { Outfit } from "next/font/google";
 import { 
-  Calendar, Globe, Inbox, Scissors, Users, Package, Lock, Loader2 
+  Calendar, Globe, Inbox, Scissors, Users, Package, 
+  Settings, ChevronRight, Activity, Zap
 } from "lucide-react";
-
-const outfit = Outfit({ subsets: ["latin"] });
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null); // Guardamos datos del perfil (pago)
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
     const getData = async () => {
-      // 1. Obtenemos el usuario de Google/Email
       const { data: { user } } = await supabase.auth.getUser();
-      
       if (user) {
         setUser(user);
-        
-        // 2. Buscamos su "Ficha de Cliente" en la tabla profiles
         const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-          
+          .from('profiles').select('*').eq('id', user.id).single();
         setProfile(profileData);
       }
       setLoading(false);
@@ -39,114 +28,107 @@ export default function DashboardPage() {
     getData();
   }, []);
 
-  // PANTALLA DE CARGA
-  if (loading) return (
-    <div className={`flex min-h-screen items-center justify-center bg-[#0F1112] text-white ${outfit.className}`}>
-      <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-    </div>
-  );
-
-  // ⛔ CANDADO DE SEGURIDAD: Si no existe perfil o el plan no es 'active'
-  if (!profile || profile.plan_status !== 'active') {
-    return (
-      <div className={`min-h-screen flex flex-col items-center justify-center bg-[#0F1112] text-white p-6 text-center ${outfit.className}`}>
-        <div className="h-16 w-16 bg-red-500/10 rounded-full flex items-center justify-center mb-6 border border-red-500/20">
-            <Lock className="h-8 w-8 text-red-500" />
-        </div>
-        <h1 className="text-3xl font-bold mb-2">Acceso Restringido</h1>
-        <p className="text-gray-400 max-w-md mb-8">
-          Hola {user?.email}. Tu cuenta ha sido creada correctamente, pero aún no tienes una suscripción activa para gestionar el estudio.
-        </p>
-        <div className="flex gap-4">
-            <Link href="/" className="px-6 py-3 rounded-xl border border-white/10 hover:bg-white/5 transition-colors text-sm">
-                Volver al inicio
-            </Link>
-            <a href="mailto:soporte@tustudio.com" className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors text-sm shadow-lg shadow-emerald-900/20">
-                Contactar Soporte
-            </a>
-        </div>
-      </div>
-    );
-  }
-
-  // ✅ SI EL PLAN ESTÁ ACTIVO, MOSTRAMOS EL DASHBOARD COMPLETO
   return (
-    <div className={`relative min-h-screen w-full overflow-hidden transition-colors duration-500 bg-gray-100 dark:bg-[#09090b] ${outfit.className}`}>
+    <div className="min-h-screen bg-[#09090b] text-zinc-400 font-sans relative overflow-hidden">
       
-      {/* FONDO DINÁMICO */}
-      <div className="absolute top-0 right-0 w-[85%] h-full bg-cover bg-center opacity-40 pointer-events-none transition-all duration-500
-        bg-[url('/login-bg-light.png')] mix-blend-multiply 
-        dark:bg-[url('/login-bg-dark.png')] dark:mix-blend-screen"
-        style={{
-          maskImage: "linear-gradient(to right, transparent 0%, black 100%)", 
-          WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 100%)",
-        }} 
-      />
+      {/* 🟢 AURA ESMERALDA DE FONDO */}
+      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/5 blur-[140px] rounded-full pointer-events-none z-0" />
 
-      <div className="relative z-10 h-full w-full overflow-y-auto">
-        {/* ENCABEZADO */}
-        <div className="sticky top-0 z-20 border-b border-gray-200/50 bg-white/80 px-6 py-4 backdrop-blur-xl dark:border-white/5 dark:bg-[#09090b]/80">
-          <div className="mx-auto flex max-w-6xl items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                Dashboard
-              </h1>
-              <div className="flex items-center gap-2 mt-1">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-                    Plan Activo
-                  </p>
-              </div>
-            </div>
-            <ThemeToggle />
+      {/* 🖼️ IMAGEN SUTIL A LA DERECHA (Look Minimalista) */}
+      <div className="absolute right-[-5%] bottom-[-5%] w-[600px] h-[600px] opacity-[0.03] pointer-events-none z-0 grayscale contrast-125">
+         <img src="/tu-imagen.png" alt="" className="w-full h-full object-contain" />
+      </div>
+
+      <div className="relative z-10 max-w-6xl mx-auto p-8">
+        
+        {/* HEADER DE BIENVENIDA */}
+        <header className="flex justify-between items-center mb-16">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 mb-2 font-bold">Panel de Control</p>
+            <h1 className="text-4xl font-light text-white tracking-tight">
+              Hola, <span className="text-zinc-500 italic">{user?.user_metadata?.full_name?.split(' ')[0] || 'Studio'}</span>
+            </h1>
+          </div>
+          <div className="flex items-center gap-4">
+             <div className="h-10 w-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+                <Activity className="h-4 w-4 text-emerald-500" />
+             </div>
+          </div>
+        </header>
+
+        {/* SECCIÓN PRINCIPAL: ACCIONES RÁPIDAS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <DashboardCard 
+            href="/requests" 
+            title="Solicitudes" 
+            desc="Gestión de citas web" 
+            icon={<Inbox />} 
+            badge="Nueva"
+          />
+          <DashboardCard 
+            href="/booking" 
+            title="Calendario" 
+            desc="Agenda y horarios" 
+            icon={<Calendar />} 
+          />
+          <DashboardCard 
+            href="/clients" 
+            title="Clientes" 
+            desc="Base de datos Pro" 
+            icon={<Users />} 
+          />
+        </div>
+
+        {/* ADMINISTRACIÓN (Look Gemini) */}
+        <div className="mt-16">
+          <h2 className="text-[10px] uppercase tracking-[0.4em] text-zinc-600 mb-8 font-black flex items-center gap-3">
+             <div className="h-px w-8 bg-zinc-800" /> Administración del Sistema
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <AdminLink href="/services" title="Servicios" icon={<Scissors />} />
+            <スタッフLink href="/staff" title="Staff" icon={<Users />} />
+            <AdminLink href="/resources" title="Recursos" icon={<Package />} />
+            <AdminLink href="/settings" title="Ajustes" icon={<Settings />} />
           </div>
         </div>
 
-        {/* ... AQUÍ SIGUE EL RESTO DE TU CÓDIGO DEL GRID DE TARJETAS (Inbox, Calendar, etc) ... 
-            (El código de las tarjetas es el mismo que ya tenías, ¿quieres que te lo pegue completo o lo tienes?)
-        */}
-        <main className="mx-auto max-w-6xl p-6">
-            {/* aquí va el Grid de tarjetas */}
-             <div className="grid gap-6 md:grid-cols-3">
-              {/* Tarjeta 1 */}
-              <Link href="/requests" className="group relative overflow-hidden rounded-2xl border border-gray-200 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-white/70 backdrop-blur-md dark:bg-zinc-900/60 dark:border-white/10">
-                <div className="absolute left-0 top-0 h-full w-1 bg-yellow-500 transition-all group-hover:w-1.5"></div>
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="p-2.5 bg-yellow-50 rounded-lg dark:bg-yellow-500/10"><Inbox className="h-5 w-5 text-yellow-600 dark:text-yellow-500" /></div>
-                </div>
-                <h3 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Solicitudes Web</h3>
-              </Link>
-              {/* Tarjeta 2 */}
-              <Link href="/calendar" className="group relative overflow-hidden rounded-2xl border border-gray-200 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-white/70 backdrop-blur-md dark:bg-zinc-900/60 dark:border-white/10">
-                <div className="absolute left-0 top-0 h-full w-1 bg-blue-500 transition-all group-hover:w-1.5"></div>
-                <div className="mb-4 flex items-center justify-between">
-                   <div className="p-2.5 bg-blue-50 rounded-lg dark:bg-blue-500/10"><Calendar className="h-5 w-5 text-blue-600 dark:text-blue-500" /></div>
-                </div>
-                <h3 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Agenda Principal</h3>
-              </Link>
-              {/* Tarjeta 3 */}
-              <Link href="/booking" target="_blank" className="group relative overflow-hidden rounded-2xl border border-gray-200 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl bg-white/70 backdrop-blur-md dark:bg-zinc-900/60 dark:border-white/10">
-                <div className="absolute left-0 top-0 h-full w-1 bg-emerald-500 transition-all group-hover:w-1.5"></div>
-                <div className="mb-4 flex items-center justify-between">
-                   <div className="p-2.5 bg-emerald-50 rounded-lg dark:bg-emerald-500/10"><Globe className="h-5 w-5 text-emerald-600 dark:text-emerald-500" /></div>
-                </div>
-                <h3 className="text-xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Ir al Sitio Web</h3>
-              </Link>
-            </div>
-            {/* Links rápidos */}
-             <div className="mt-12">
-                <h2 className="mb-4 text-xs font-bold uppercase tracking-widest text-gray-400 dark:text-zinc-500">Administración</h2>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <Link href="/services" className="flex items-center gap-3 rounded-xl border border-gray-200 shadow-sm p-4 text-sm font-semibold text-gray-600 transition-all bg-white/60 backdrop-blur-sm hover:bg-white hover:text-black dark:border-white/5 dark:bg-zinc-900/40 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"><Scissors className="h-4 w-4" /> Servicios</Link>
-                  <Link href="/staff" className="flex items-center gap-3 rounded-xl border border-gray-200 shadow-sm p-4 text-sm font-semibold text-gray-600 transition-all bg-white/60 backdrop-blur-sm hover:bg-white hover:text-black dark:border-white/5 dark:bg-zinc-900/40 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"><Users className="h-4 w-4" /> Staff</Link>
-                  <Link href="/resources" className="flex items-center gap-3 rounded-xl border border-gray-200 shadow-sm p-4 text-sm font-semibold text-gray-600 transition-all bg-white/60 backdrop-blur-sm hover:bg-white hover:text-black dark:border-white/5 dark:bg-zinc-900/40 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white"><Package className="h-4 w-4" /> Recursos</Link>
-                </div>
-             </div>
-        </main>
       </div>
     </div>
+  );
+}
+
+// Componentes Estilizados Gemini Pro
+function DashboardCard({ href, title, desc, icon, badge }: any) {
+  return (
+    <Link href={href} className="group relative bg-zinc-900/20 border border-zinc-800/50 rounded-3xl p-8 hover:border-emerald-500/30 transition-all duration-500 backdrop-blur-sm overflow-hidden shadow-2xl">
+      <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-20 transition-opacity">
+         {icon}
+      </div>
+      <div className="relative z-10">
+        <div className="h-12 w-12 rounded-2xl bg-zinc-800/40 border border-zinc-700/30 flex items-center justify-center mb-6 group-hover:bg-emerald-500/10 group-hover:border-emerald-500/50 transition-all duration-500">
+          <div className="text-zinc-500 group-hover:text-emerald-400">
+            {icon}
+          </div>
+        </div>
+        <h3 className="text-white text-xl font-medium mb-2 flex items-center gap-2">
+          {title} {badge && <span className="text-[8px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-widest">{badge}</span>}
+        </h3>
+        <p className="text-xs text-zinc-500 leading-relaxed">{desc}</p>
+      </div>
+    </Link>
+  );
+}
+
+function AdminLink({ href, title, icon }: any) {
+  return (
+    <Link href={href} className="flex items-center justify-between p-4 rounded-2xl border border-zinc-800/50 bg-zinc-900/20 hover:bg-zinc-800/40 hover:border-zinc-700 transition-all group">
+      <div className="flex items-center gap-3">
+        <div className="text-zinc-600 group-hover:text-white transition-colors">
+          {icon}
+        </div>
+        <span className="text-sm font-medium text-zinc-400 group-hover:text-white transition-colors">{title}</span>
+      </div>
+      <ChevronRight className="h-3 w-3 text-zinc-700 group-hover:text-emerald-500 transition-all transform group-hover:translate-x-1" />
+    </Link>
   );
 }
