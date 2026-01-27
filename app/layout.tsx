@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+// 👇 1. IMPORTAMOS EL COMPONENTE PROVIDERS (Que debiste crear en app/providers.tsx)
+import { Providers } from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,11 +25,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
+    // 👇 2. AGREGAMOS suppressHydrationWarning (Evita errores de consola por el cambio de tema)
+    <html lang="es" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        {/* 👇 3. ENVOLVEMOS TODO EL CONTENIDO AQUÍ */}
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );
