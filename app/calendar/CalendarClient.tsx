@@ -66,7 +66,7 @@ export default function CalendarClient() {
 
   useEffect(() => { setIsMounted(true); }, []);
 
-  // --- DATOS ---
+  // --- 1. CARGA DE DATOS ---
   const loadAll = useCallback(async () => {
     if (!sb) return;
     const [roomsRes, staffRes, servicesRes, clientsRes] = await Promise.all([
@@ -96,7 +96,7 @@ export default function CalendarClient() {
     loadBookingsForRange(viewStart, days);
   }, [viewMode, viewStart, loadBookingsForRange]);
 
-  // --- LÓGICA ---
+  // --- 2. FUNCIONES DE GESTIÓN (LOS "CABLES") ---
   const checkOverlap = (targetRoomId: string, start: Date, end: Date, ignoreId?: string) => {
     return bookings.find(b => b.room_id === targetRoomId && b.id !== ignoreId && start < new Date(b.end_at) && end > new Date(b.start_at));
   };
@@ -117,6 +117,42 @@ export default function CalendarClient() {
     loadBookingsForRange(viewStart, 1);
   };
 
+  const openEdit = (b: any) => {
+    setSelectedBooking(b);
+    setEditRoomId(b.room_id);
+    setEditColor(b.color || "#10b981");
+  };
+
+  const saveColor = async () => {
+    if (!selectedBooking || !sb) return;
+    const { error } = await sb.from("bookings").update({ color: editColor, room_id: editRoomId }).eq("id", selectedBooking.id);
+    if (error) return alert("Error: " + error.message);
+    setSelectedBooking(null);
+    loadBookingsForRange(viewStart, 1);
+  };
+
+  const deleteBooking = async () => {
+    if (!selectedBooking || !sb || !confirm("¿Eliminar reserva?")) return;
+    await sb.from("bookings").delete().eq("id", selectedBooking.id);
+    setSelectedBooking(null);
+    loadBookingsForRange(viewStart, 1);
+  };
+
+  const togglePayment = async () => {
+    if (!selectedBooking || !sb) return;
+    const nextStatus = selectedBooking.payment_status === "paid" ? "pending" : "paid";
+    await sb.from("bookings").update({ payment_status: nextStatus }).eq("id", selectedBooking.id);
+    setSelectedBooking({ ...selectedBooking, payment_status: nextStatus });
+    loadBookingsForRange(viewStart, 1);
+  };
+
+  const createClientOnly = async () => {
+    if (!newClientName.trim() || !sb) return;
+    await sb.from("clients").insert([{ name: newClientName, phone: newClientPhone }]);
+    setNewClientName(""); setNewClientPhone(""); setShowClientModal(false);
+    loadAll();
+  };
+
   const onDragEnd = async (event: any) => {
     const { active, over, delta } = event;
     if (!over) return;
@@ -135,7 +171,7 @@ export default function CalendarClient() {
     loadBookingsForRange(viewStart, 1);
   };
 
-  // --- MEMOS ---
+  // --- 3. MEMOS LÓGICOS ---
   const hours = useMemo(() => {
     const arr: number[] = [];
     for (let h = START_HOUR; h <= END_HOUR; h++) arr.push(h);
@@ -174,6 +210,7 @@ export default function CalendarClient() {
       <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/5 blur-[140px] rounded-full pointer-events-none z-0" />
       
       <div className="relative z-10 max-w-[1600px] mx-auto">
+        {/* --- CABECERA --- */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div><Logo size="text-4xl" /><p className="text-[10px] uppercase tracking-[0.4em] text-zinc-600 mt-1 font-black">Consola de Operaciones de Audio</p></div>
           <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800/50 backdrop-blur-md">
@@ -184,6 +221,7 @@ export default function CalendarClient() {
           <button onClick={() => setStartAt(new Date().toISOString().slice(0, 16))} className="bg-emerald-500 text-black px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all">+ Nueva Reserva</button>
         </div>
 
+        {/* --- BARRA TÉCNICA --- */}
         <div className="flex flex-wrap items-center gap-4 mb-6 bg-zinc-900/30 p-3 rounded-[28px] border border-zinc-800/50 backdrop-blur-sm">
           <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30">
             <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Estudio:</span>
@@ -200,60 +238,56 @@ export default function CalendarClient() {
             ))}
           </div>
           <div className="flex-1" />
-          <button onClick={() => setShowStats(!showStats)} className={`p-3 rounded-xl border transition-all ${showStats ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'bg-zinc-800/40 border-zinc-700/30 text-zinc-500'}`}>📊</button>
+          <button onClick={() => setShowStats(!showStats)} className={`p-3 rounded-xl border transition-all ${showStats ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-zinc-800/40 border-zinc-700/30 text-zinc-500'}`}>📊</button>
           <button onClick={() => setShowClientModal(true)} className="p-3 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 hover:text-white rounded-xl transition-all">👤</button>
-          <button className="px-5 py-3 bg-zinc-800/20 border border-zinc-700/20 text-zinc-500 text-[9px] font-black tracking-widest uppercase rounded-2xl hover:border-zinc-500 transition-all">CSV</button>
         </div>
 
         {showStats && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
               <p className="text-[10px] uppercase text-zinc-600 font-black mb-1">Caja Real</p>
-              <h4 className="text-3xl font-light text-emerald-400 tracking-tighter">${stats.collectedRevenue.toLocaleString('es-CL')}</h4>
+              <h4 className="text-3xl font-light text-emerald-400">${stats.collectedRevenue.toLocaleString('es-CL')}</h4>
             </div>
             <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
               <p className="text-[10px] uppercase text-zinc-600 font-black mb-1">Ocupación</p>
-              <h4 className="text-3xl font-light text-white tracking-tighter">{stats.totalHours} <span className="text-sm">Hrs</span></h4>
+              <h4 className="text-3xl font-light text-white">{stats.totalHours} Hrs</h4>
             </div>
             <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
-              <p className="text-[10px] uppercase text-zinc-600 font-black mb-2">Salud de Cobros</p>
-              <div className="flex items-center gap-4">
-                <h4 className="text-3xl font-light text-white">{stats.estimatedRevenue > 0 ? Math.round((stats.collectedRevenue / stats.estimatedRevenue) * 100) : 0}%</h4>
-                <div className="flex-1 h-2 bg-zinc-800/80 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 transition-all duration-1000" style={{ width: `${(stats.collectedRevenue / stats.estimatedRevenue) * 100}%` }} />
-                </div>
-              </div>
+              <p className="text-[10px] uppercase text-zinc-600 font-black mb-1">Salud de Cobros</p>
+              <h4 className="text-3xl font-light text-white">{stats.estimatedRevenue > 0 ? Math.round((stats.collectedRevenue / stats.estimatedRevenue) * 100) : 0}%</h4>
             </div>
           </div>
         )}
 
+        {/* --- COMPONENTES ATOMIZADOS Y CONECTADOS --- */}
         <QuickCreatePanel 
           roomId={roomId} setRoomId={setRoomId} serviceId={serviceId} setServiceId={setServiceId} staffId={staffId} setStaffId={setStaffId}
           startAt={startAt} setStartAt={setStartAt} clientName={clientName} handleClientNameChange={setClientName}
-          notes={notes} setNotes={setNotes} color={color} setColor={setColor} rooms={rooms} services={services} staff={staff} onCreate={createBooking}
+          notes={notes} setNotes={setNotes} color={color} setColor={setColor} rooms={rooms} services={services} staff={staff} 
+          onCreate={createBooking}
         />
 
         <CalendarGrid 
           viewDays={viewDays} hours={hours} START_HOUR={START_HOUR} visibleRooms={visibleRooms} bookingsIndex={bookingsIndex}
           clientMap={new Map(clients.map(c => [c.id, c]))} serviceMap={new Map(services.map(s => [s.id, s]))}
-          onDragEnd={onDragEnd} onEdit={setSelectedBooking} onResize={() => {}} dayKey={dayKey}
+          onDragEnd={onDragEnd} onEdit={openEdit} onResize={() => {}} dayKey={dayKey}
         />
+
+        {selectedBooking && (
+          <SessionModal 
+            booking={selectedBooking} clientMap={new Map(clients.map(c => [c.id, c]))} rooms={rooms} editRoomId={editRoomId} editColor={editColor}
+            onClose={() => setSelectedBooking(null)} onDelete={deleteBooking} onSave={saveColor} onTogglePayment={togglePayment} 
+            onStartSession={() => {}} onStopSession={() => {}} setEditRoomId={setEditRoomId} setEditColor={setEditColor}
+          />
+        )}
+
+        {showClientModal && (
+          <ClientModal 
+            onClose={() => setShowClientModal(false)} name={newClientName} setName={setNewClientName}
+            phone={newClientPhone} setPhone={setNewClientPhone} onCreate={createClientOnly}
+          />
+        )}
       </div>
-
-      {selectedBooking && (
-        <SessionModal 
-          booking={selectedBooking} clientMap={new Map(clients.map(c => [c.id, c]))} rooms={rooms} editRoomId={editRoomId} editColor={editColor}
-          onClose={() => setSelectedBooking(null)} onDelete={() => {}} onSave={() => {}} onTogglePayment={() => {}} 
-          onStartSession={() => {}} onStopSession={() => {}} setEditRoomId={setEditRoomId} setEditColor={setEditColor}
-        />
-      )}
-
-      {showClientModal && (
-        <ClientModal 
-          onClose={() => setShowClientModal(false)} name={newClientName} setName={setNewClientName}
-          phone={newClientPhone} setPhone={setNewClientPhone} onCreate={() => {}}
-        />
-      )}
     </div>
   );
 }
