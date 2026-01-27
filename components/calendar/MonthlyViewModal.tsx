@@ -8,7 +8,6 @@ import {
 import { es } from "date-fns/locale";
 import { supabase } from "@/lib/supabaseClient";
 import { Logo } from "@/components/ui/Logo";
-// ✅ IMPORTAMOS LOS ICONOS CORRECTOS
 import { IconArrowLeft, IconArrowRight, IconX, IconUser } from "@/components/ui/VectorIcons";
 
 interface MonthlyViewModalProps {
@@ -22,7 +21,7 @@ export const MonthlyViewModal = ({ onClose, rooms, orgId }: MonthlyViewModalProp
   const [monthlyBookings, setMonthlyBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   
-  // ✅ NUEVO ESTADO: DÍA SELECCIONADO PARA VER DETALLES
+  // Estado para el modal de detalles
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
   // --- CARGA DE DATOS ---
@@ -50,10 +49,38 @@ export const MonthlyViewModal = ({ onClose, rooms, orgId }: MonthlyViewModalProp
     if (orgId) fetchMonthData();
   }, [currentMonth, orgId]);
 
+  // --- LÓGICA DE COBRO RÁPIDO (NUEVO) ---
+  const handleTogglePayment = async (bookingId: string, currentStatus: string | null) => {
+    const isPaid = currentStatus === 'paid';
+    const nextStatus = isPaid ? 'pending' : 'paid';
+
+    // ⚠️ ADVERTENCIA DE SEGURIDAD
+    if (!isPaid) {
+        const confirmPayment = window.confirm("⚠️ ¿Confirmas que recibiste el dinero?\n\nCuidado, revisa bien si el cliente ha pagado antes de marcarlo.");
+        if (!confirmPayment) return; // Si cancela, no hacemos nada
+    }
+
+    // Actualizamos en Supabase
+    const { error } = await supabase
+      .from('bookings')
+      .update({ payment_status: nextStatus })
+      .eq('id', bookingId);
+
+    if (error) {
+      alert("Error al actualizar: " + error.message);
+      return;
+    }
+
+    // Actualizamos el estado local instantáneamente para ver el cambio de color
+    setMonthlyBookings(prev => prev.map(b => 
+      b.id === bookingId ? { ...b, payment_status: nextStatus } : b
+    ));
+  };
+
   // --- CÁLCULOS DE LA GRILLA ---
   const { days, headerMonth } = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
-    const monthEnd = endOfMonth(monthStart);
+    const monthEnd = endOfMonth(currentMonth);
     const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
     const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
@@ -81,7 +108,7 @@ export const MonthlyViewModal = ({ onClose, rooms, orgId }: MonthlyViewModalProp
     return monthlyBookings.filter(b => isSameDay(new Date(b.start_at), date));
   };
 
-  // --- FILTRAR RESERVAS PARA EL DÍA SELECCIONADO (DETALLE) ---
+  // --- FILTRAR RESERVAS (DETALLE) ---
   const selectedDayBookings = useMemo(() => {
     if (!selectedDay) return [];
     return getBookingsForDay(selectedDay).sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
@@ -102,7 +129,6 @@ export const MonthlyViewModal = ({ onClose, rooms, orgId }: MonthlyViewModalProp
           
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-4 bg-zinc-900/50 p-2 rounded-2xl border border-zinc-800/50 shadow-lg">
-                {/* ✅ FLECHAS CORREGIDAS (Minimalistas) */}
                 <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-2 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-white"> 
                   <IconArrowLeft size={20} /> 
                 </button>
@@ -134,12 +160,11 @@ export const MonthlyViewModal = ({ onClose, rooms, orgId }: MonthlyViewModalProp
               <React.Fragment key={i}>
                 {row.map((dayObj, j) => {
                   const dayBookings = getBookingsForDay(dayObj.date);
-                  const isPaidCount = dayBookings.filter(b => b.payment_status === 'paid').length;
                   
                   return (
                     <div 
                       key={j} 
-                      onClick={() => setSelectedDay(dayObj.date)} // ✅ CLICK PARA ABRIR DETALLE
+                      onClick={() => setSelectedDay(dayObj.date)}
                       className={`
                         rounded-2xl border p-3 flex flex-col gap-2 transition-all relative overflow-hidden min-h-[100px] cursor-pointer group
                         ${!dayObj.isCurrentMonth ? 'bg-zinc-900/20 border-zinc-800/20 opacity-30' : 'bg-zinc-900/40 border-zinc-800/60 hover:border-emerald-500/50 hover:bg-zinc-900/80'} 
@@ -175,7 +200,7 @@ export const MonthlyViewModal = ({ onClose, rooms, orgId }: MonthlyViewModalProp
         </div>
       </div>
 
-      {/* ✅ MODAL DE DETALLE DEL DÍA (OVERLAY) */}
+      {/* --- MODAL DE DETALLE DEL DÍA --- */}
       {selectedDay && (
         <div className="absolute inset-0 z-[160] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in zoom-in-95 duration-200" onClick={() => setSelectedDay(null)}>
           <div className="bg-[#0c0c0e] border border-zinc-800 w-full max-w-lg rounded-[32px] p-8 shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -198,7 +223,7 @@ export const MonthlyViewModal = ({ onClose, rooms, orgId }: MonthlyViewModalProp
                   
                   return (
                     <div key={b.id} className="bg-zinc-900/50 border border-zinc-800/50 rounded-2xl p-4 hover:border-zinc-700 transition-all">
-                      <div className="flex justify-between items-start mb-2">
+                      <div className="flex justify-between items-start mb-3">
                         <div className="flex items-center gap-3">
                            <div className="p-2 bg-zinc-800 rounded-full text-zinc-400"><IconUser size={16} /></div>
                            <div>
@@ -206,9 +231,20 @@ export const MonthlyViewModal = ({ onClose, rooms, orgId }: MonthlyViewModalProp
                              <span className="text-[10px] text-zinc-500">{roomName}</span>
                            </div>
                         </div>
-                        <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${isPaid ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                          {isPaid ? 'Pagado' : 'Pendiente'}
-                        </div>
+                        
+                        {/* ✅ BOTÓN DE PAGO INTERACTIVO */}
+                        <button 
+                          onClick={() => handleTogglePayment(b.id, b.payment_status)}
+                          className={`
+                            px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all active:scale-95
+                            ${isPaid 
+                                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' 
+                                : 'bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500/20 hover:border-red-500/40'}
+                          `}
+                          title={isPaid ? "Marcar como pendiente" : "Marcar como PAGADO"}
+                        >
+                          {isPaid ? '✓ PAGADO' : 'PENDIENTE'}
+                        </button>
                       </div>
                       
                       <div className="flex items-center gap-4 text-[10px] font-mono text-zinc-400 bg-black/20 p-2 rounded-lg mb-2">
