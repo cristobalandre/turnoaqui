@@ -21,7 +21,9 @@ import { SessionModal } from "@/components/calendar/SessionModal";
 import { QuickCreatePanel } from "@/components/calendar/QuickCreatePanel";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { ClientModal } from "@/components/calendar/ClientModal";
-import { MonthlyViewModal } from "@/components/calendar/MonthlyViewModal"; // ✅ NUEVO IMPORT
+import { MonthlyViewModal } from "@/components/calendar/MonthlyViewModal";
+// ✅ IMPORTAMOS LOS NUEVOS ICONOS VECTORIALES
+import { IconArrowLeft, IconArrowRight, IconCalendarAudit, IconChart, IconPlus, IconUser } from "@/components/ui/Icons";
 
 // --- UTILIDADES ---
 import { isPastDateTime, DATE_ERROR_MSG } from "@/lib/validations";
@@ -67,7 +69,7 @@ export default function CalendarClient() {
   const [editColor, setEditColor] = useState("");
   const [showStats, setShowStats] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
-  const [showMonthlyModal, setShowMonthlyModal] = useState(false); // ✅ ESTADO PARA MODAL MENSUAL
+  const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const [newClientName, setNewClientName] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
 
@@ -278,14 +280,15 @@ export default function CalendarClient() {
           <div><Logo size="text-4xl" /><p className="text-[10px] uppercase tracking-[0.4em] text-zinc-600 mt-1 font-black">Consola de Operaciones de Audio</p></div>
           
           <div className="flex items-center gap-4">
-             {/* ✅ BOTÓN AURA: Abre la Vista Mensual */}
+             {/* BOTÓN AURA: Vista Mensual con NUEVO ICONO */}
             <button 
                 onClick={() => setShowMonthlyModal(true)}
                 className="relative group bg-zinc-900 border border-zinc-800 px-6 py-2 rounded-2xl overflow-hidden transition-all hover:border-emerald-500/50 hover:scale-105 active:scale-95 shadow-xl"
             >
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className="relative flex items-center gap-2">
-                    <span className="text-xl">📅</span>
+                <div className="relative flex items-center gap-3">
+                    {/* ✅ ICONO AUDITORÍA */}
+                    <IconCalendarAudit className="text-emerald-400 group-hover:text-emerald-300 transition-colors" size={28} />
                     <div className="flex flex-col text-left">
                         <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Auditoría</span>
                         <span className="text-xs font-bold text-white">Vista Mensual</span>
@@ -294,15 +297,22 @@ export default function CalendarClient() {
             </button>
 
             <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800/50 backdrop-blur-md">
-                <button onClick={() => setViewStart(d => addDays(d, -1))} className="p-2 text-zinc-400 hover:text-white transition-all"> ◀ </button>
+                {/* ✅ ICONOS FLECHAS */}
+                <button onClick={() => setViewStart(d => addDays(d, -1))} className="p-2 text-zinc-400 hover:text-white transition-all"> <IconArrowLeft size={18} /> </button>
                 <div className="px-6 text-center border-x border-zinc-800/50"><span className="text-[9px] block text-zinc-600 font-bold mb-0.5 uppercase tracking-widest">Timeline</span><span className="text-sm font-bold">{headerRangeLabel}</span></div>
-                <button onClick={() => setViewStart(d => addDays(d, 1))} className="p-2 text-zinc-400 hover:text-white transition-all"> ▶ </button>
+                <button onClick={() => setViewStart(d => addDays(d, 1))} className="p-2 text-zinc-400 hover:text-white transition-all"> <IconArrowRight size={18} /> </button>
             </div>
-            <button onClick={() => setStartAt(new Date().toISOString().slice(0, 16))} className="bg-emerald-500 text-black px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all">+ Nueva Reserva</button>
+            {/* ✅ ICONO PLUS EN BOTÓN NUEVA RESERVA */}
+            <button 
+              onClick={() => setStartAt(new Date().toISOString().slice(0, 16))} 
+              className="bg-emerald-500 text-black px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2"
+            >
+              <IconPlus size={16} strokeWidth={3} /> Nueva Reserva
+            </button>
           </div>
         </div>
 
-        {/* BARRA TÉCNICA (RESTURADA) */}
+        {/* BARRA TÉCNICA */}
         <div className="flex flex-wrap items-center gap-4 mb-6 bg-zinc-900/30 p-3 rounded-[28px] border border-zinc-800/50 backdrop-blur-sm">
           <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30">
             <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Estudio:</span>
@@ -312,7 +322,6 @@ export default function CalendarClient() {
             </select>
           </div>
           
-          {/* ✅ BOTONES DE VISTA RESTAURADOS */}
           <div className="flex items-center gap-1 bg-zinc-800/40 p-1 rounded-xl border border-zinc-700/30">
             {(['day', 'two', 'week'] as const).map(mode => (
               <button key={mode} onClick={() => setViewMode(mode)} className={`px-4 py-2 rounded-lg text-[9px] font-black transition-all ${viewMode === mode ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}>
@@ -322,13 +331,18 @@ export default function CalendarClient() {
           </div>
 
           <div className="flex-1" />
-          <button onClick={() => setShowStats(!showStats)} className={`p-3 rounded-xl border transition-all ${showStats ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-zinc-800/40 border-zinc-700/30 text-zinc-500'}`}>📊</button>
-          <button onClick={() => setShowClientModal(true)} className="p-3 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 hover:text-white rounded-xl transition-all">👤</button>
+          {/* ✅ ICONOS STATS Y USER */}
+          <button onClick={() => setShowStats(!showStats)} className={`p-3 rounded-xl border transition-all ${showStats ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-zinc-800/40 border-zinc-700/30 text-zinc-500 hover:text-white'}`}>
+            <IconChart size={20} />
+          </button>
+          <button onClick={() => setShowClientModal(true)} className="p-3 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 hover:text-white rounded-xl transition-all">
+            <IconUser size={20} />
+          </button>
           
-          {/* ✅ BOTÓN EXPORTAR RESTAURADO */}
           <button onClick={exportToExcel} className="px-5 py-3 bg-zinc-800/20 border border-zinc-700/20 text-zinc-500 text-[9px] font-black tracking-widest uppercase rounded-2xl hover:border-zinc-500 transition-all">CSV</button>
         </div>
 
+        {/* ... (STATS, PANELS, GRID IGUAL QUE ANTES) ... */}
         {showStats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
@@ -374,7 +388,6 @@ export default function CalendarClient() {
           />
         )}
 
-        {/* ✅ INTEGRACIÓN DEL MODAL MENSUAL */}
         {showMonthlyModal && (
           <MonthlyViewModal 
             onClose={() => setShowMonthlyModal(false)}
