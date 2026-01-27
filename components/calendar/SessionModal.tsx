@@ -4,7 +4,7 @@ import React from 'react';
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 // ✅ IMPORTAMOS LOS NUEVOS ICONOS
-import { IconPlay, IconStop, IconTrash, IconUser } from "@/components/ui/Icons";
+import { IconPlay, IconStop, IconTrash, IconUser } from "@/components/ui/VectorIcons";
 
 interface SessionModalProps {
   booking: any;

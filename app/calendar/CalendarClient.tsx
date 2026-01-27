@@ -23,7 +23,7 @@ import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { ClientModal } from "@/components/calendar/ClientModal";
 import { MonthlyViewModal } from "@/components/calendar/MonthlyViewModal";
 // ✅ IMPORTAMOS LOS NUEVOS ICONOS VECTORIALES
-import { IconArrowLeft, IconArrowRight, IconCalendarAudit, IconChart, IconPlus, IconUser } from "@/components/ui/Icons";
+import { IconArrowLeft, IconArrowRight, IconCalendarAudit, IconChart, IconPlus, IconUser } from "@/components/ui/VectorIcons";
 
 // --- UTILIDADES ---
 import { isPastDateTime, DATE_ERROR_MSG } from "@/lib/validations";
