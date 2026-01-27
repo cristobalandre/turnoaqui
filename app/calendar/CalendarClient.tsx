@@ -1046,8 +1046,8 @@ const headerRangeLabel = useMemo(() => {
           <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30">
             <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Recurso:</span>
             <select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)} className="bg-transparent border-none text-xs font-bold text-zinc-200 outline-none">
-              <option value="all" className="bg-zinc-900 text-white">TODOS LOS ESTUDIOS</option>
-              {rooms.map(r => <option key={r.id} value={r.id} className="bg-zinc-900 text-white">{r.name.toUpperCase()}</option>)}
+              <option value="all" className="bg-zinc-900">TODOS LOS ESTUDIOS</option>
+              {rooms.map(r => <option key={r.id} value={r.id} className="bg-zinc-900">{r.name.toUpperCase()}</option>)}
             </select>
           </div>
 
@@ -1129,10 +1129,16 @@ const headerRangeLabel = useMemo(() => {
       {selectedBooking && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md bg-black/60" onClick={() => setSelectedBooking(null)}>
           <div className="bg-[#0c0c0e] border border-zinc-800 w-full max-w-lg rounded-[32px] p-8 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500/20" />
             <h2 className="text-xl text-white font-light">Ficha de <span className="text-emerald-500 italic">Sesión</span></h2>
             <p className="text-zinc-500 mb-8 uppercase text-[10px] tracking-widest font-bold">{selectedBooking.client_name}</p>
             <div className="flex gap-4">
-              <button onClick={() => { deleteBooking(selectedBooking.id); setSelectedBooking(null); }} className="p-4 bg-red-500/10 text-red-500 rounded-2xl flex-1 text-[10px] font-black tracking-widest hover:bg-red-500/20 transition-all">ELIMINAR</button>
+              <button 
+                onClick={() => { deleteBooking(); setSelectedBooking(null); }} 
+                className="p-4 bg-red-500/10 text-red-500 rounded-2xl flex-1 text-[10px] font-black tracking-widest hover:bg-red-500/20 transition-all"
+              >
+                ELIMINAR
+              </button>
               <button onClick={() => setSelectedBooking(null)} className="p-4 bg-zinc-800 text-zinc-400 rounded-2xl flex-1 text-[10px] font-black tracking-widest hover:text-white transition-all">CERRAR</button>
             </div>
           </div>
