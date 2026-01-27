@@ -86,7 +86,7 @@ export default function DashboardPage() {
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <AdminLink href="/services" title="Servicios" icon={<Scissors />} />
-            <スタッフLink href="/staff" title="Staff" icon={<Users />} />
+            <AdminLink href="/staff" title="Staff" icon={<Users />} />
             <AdminLink href="/resources" title="Recursos" icon={<Package />} />
             <AdminLink href="/settings" title="Ajustes" icon={<Settings />} />
           </div>
