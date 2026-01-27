@@ -8,7 +8,7 @@ interface LogoProps {
 export const Logo = ({ size = "text-5xl", className = "" }: LogoProps) => {
   return (
     <div className={`flex w-full justify-center items-baseline font-sans select-none ${size} ${className}`}>
-      {/* Contenedor relativo para poder posicionar la línea debajo de TURNO */}
+      {/* Contenedor relativo para la línea debajo de TURNO */}
       <div className="relative flex items-baseline">
         
         {/* Parte 1: TURNO (Blanco, peso medio) */}
@@ -16,17 +16,17 @@ export const Logo = ({ size = "text-5xl", className = "" }: LogoProps) => {
           Turno
         </span>
 
-        {/* ✅ LA "PARTE DE ABAJO" RESTAURADA (Línea degradada) */}
+        {/* Línea verde degradada debajo de Turno */}
         <div className="absolute -bottom-2 left-0 w-full h-[0.1em] bg-gradient-to-r from-emerald-500 to-transparent opacity-80 rounded-full" />
       </div>
       
-      {/* Parte 2: AQU (Esmeralda, peso Black potente) */}
+      {/* Parte 2: AQU (Esmeralda, peso Black) */}
       <span className="text-emerald-500 font-black tracking-tighter flex items-baseline ml-[1px]">
         Aqu
         
-        {/* Parte 3: La 'i' Rayo */}
-        {/* Bajamos el rayo (translate-y) para que corte la línea base y se vea la cola */}
-        <div className="relative w-[0.35em] h-[1.1em] ml-[0.05em] translate-y-[0.1em]">
+        {/* Parte 3: La 'i' Rayo (Ajustado: Más grande y con descender) */}
+        {/* Aumentamos w y h para agrandarlo. Ajustamos translate-y para que la cola baje como una 'q' */}
+        <div className="relative w-[0.5em] h-[1.3em] -ml-[0.05em] translate-y-[0.25em]">
            <svg
             viewBox="0 0 135 240"
             fill="none"
@@ -39,7 +39,7 @@ export const Logo = ({ size = "text-5xl", className = "" }: LogoProps) => {
               fill="currentColor" 
             />
             
-            {/* CUERPO: Rayo Vectorizado con cola larga */}
+            {/* CUERPO: Rayo Vectorizado */}
             <path 
               fill="currentColor" 
               d="
