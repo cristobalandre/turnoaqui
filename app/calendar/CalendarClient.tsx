@@ -36,25 +36,31 @@ function snapMinutes(mins: number) { return Math.round(mins / SLOT_MIN) * SLOT_M
 
 export default function CalendarClient() {
   const [isMounted, setIsMounted] = useState(false);
+  
+  // Datos
   const [rooms, setRooms] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   
+  // Estados de Vista
   const [viewMode, setViewMode] = useState<"day" | "two" | "week">("day");
   const [viewStart, setViewStart] = useState<Date>(() => startOfDay(new Date()));
   const [roomFilter, setRoomFilter] = useState<string>("all");
 
+  // Formulario
   const [roomId, setRoomId] = useState("");
   const [staffId, setStaffId] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [clientName, setClientName] = useState("");
+  const [clientId, setClientId] = useState(""); // ID para autocompletado
   const [clientPhone, setClientPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [startAt, setStartAt] = useState("");
   const [color, setColor] = useState("#10b981");
 
+  // Modales
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [editRoomId, setEditRoomId] = useState("");
   const [editColor, setEditColor] = useState("");
@@ -95,7 +101,20 @@ export default function CalendarClient() {
     loadBookingsForRange(viewStart, days);
   }, [viewMode, viewStart, loadBookingsForRange]);
 
-  // --- 2. FUNCIONES DE CONEXIÓN (LOS CABLES) ---
+  // --- 2. FUNCIONES LÓGICAS (Conexiones) ---
+  
+  // Búsqueda inteligente de cliente (Restaura funcionalidad perdida)
+  const handleClientNameChange = (val: string) => {
+    setClientName(val);
+    const found = clients.find(c => c.name.toLowerCase() === val.toLowerCase());
+    if (found) {
+       setClientId(found.id);
+       setClientPhone(found.phone || "");
+    } else {
+       setClientId(""); 
+    }
+  };
+
   const checkOverlap = (targetRoomId: string, start: Date, end: Date, ignoreId?: string) => {
     return bookings.find(b => b.room_id === targetRoomId && b.id !== ignoreId && start < new Date(b.end_at) && end > new Date(b.start_at));
   };
@@ -109,10 +128,18 @@ export default function CalendarClient() {
     const end = new Date(start.getTime() + duration * 60000);
     if (checkOverlap(roomId, start, end)) return alert("¡Sala ocupada!");
     
+    // Si es cliente nuevo (no tiene ID), lo creamos al vuelo o usamos NULL si quieres
+    let finalClientId = clientId || null;
+
     await sb.from("bookings").insert([{
       org_id: ORG_ID, room_id: roomId, service_id: serviceId, staff_id: staffId || null,
-      client_name: clientName, start_at: start.toISOString(), end_at: end.toISOString(), color, payment_status: "pending"
+      client_id: finalClientId,
+      client_name: clientName, client_phone: clientPhone || null,
+      start_at: start.toISOString(), end_at: end.toISOString(), color, payment_status: "pending", notes
     }]);
+    
+    // Limpieza post-creación
+    setClientName(""); setClientPhone(""); setNotes(""); setStartAt(""); setClientId("");
     loadBookingsForRange(viewStart, viewMode === "week" ? 7 : 1);
   };
 
@@ -164,7 +191,32 @@ export default function CalendarClient() {
     if (!newClientName.trim() || !sb) return;
     await sb.from("clients").insert([{ name: newClientName, phone: newClientPhone }]);
     setNewClientName(""); setNewClientPhone(""); setShowClientModal(false);
-    loadAll();
+    loadAll(); // Recargar clientes
+  };
+
+  // Exportar CSV (Restaurado)
+  const exportToExcel = () => {
+    const headers = ["Cliente", "Servicio", "Sala", "Fecha", "Inicio", "Fin", "Precio", "Estado"];
+    const rows = bookings.map(b => {
+      const s = services.find(x => x.id === b.service_id);
+      const r = rooms.find(x => x.id === b.room_id);
+      return [
+        b.client_name, s?.name, r?.name,
+        format(new Date(b.start_at), "dd/MM/yyyy"),
+        format(new Date(b.start_at), "HH:mm"),
+        format(new Date(b.end_at), "HH:mm"),
+        s?.price, b.payment_status
+      ].join(";");
+    });
+    const csvContent = [headers.join(";"), ...rows].join("\n");
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Reporte_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const onDragEnd = async (event: any) => {
@@ -174,15 +226,18 @@ export default function CalendarClient() {
     const [newRoomId, dayIdx] = String(over.id).split("|");
     const newStart = new Date(viewDays[Number(dayIdx)]);
     newStart.setHours(new Date(booking.start_at).getHours(), new Date(booking.start_at).getMinutes() + snapMinutes(delta.y));
+    
     if (isPastDateTime(newStart)) return alert(DATE_ERROR_MSG);
+
     const duration = differenceInMinutes(new Date(booking.end_at), new Date(booking.start_at));
     const newEnd = new Date(newStart.getTime() + duration * 60000);
+    
     if (checkOverlap(newRoomId, newStart, newEnd, booking.id)) return alert("Espacio ocupado");
     await sb.from("bookings").update({ room_id: newRoomId, start_at: newStart.toISOString(), end_at: newEnd.toISOString() }).eq("id", booking.id);
     loadBookingsForRange(viewStart, 1);
   };
 
-  // --- 3. MEMOS ---
+  // --- MEMOS ---
   const hours = useMemo(() => {
     const arr: number[] = [];
     for (let h = START_HOUR; h <= END_HOUR; h++) arr.push(h);
@@ -228,7 +283,6 @@ export default function CalendarClient() {
             <div className="px-6 text-center border-x border-zinc-800/50"><span className="text-[9px] block text-zinc-600 font-bold mb-0.5 uppercase tracking-widest">Timeline</span><span className="text-sm font-bold">{headerRangeLabel}</span></div>
             <button onClick={() => setViewStart(d => addDays(d, 1))} className="p-2 text-zinc-400"> ▶ </button>
           </div>
-          {/* ✅ BOTÓN +NUEVA RESERVA REHABILITADO */}
           <button 
             onClick={() => { 
               setRoomId(""); setServiceId(""); setStaffId(""); setClientName("");
@@ -249,17 +303,48 @@ export default function CalendarClient() {
               {rooms.map(r => <option key={r.id} value={r.id} className="bg-[#0c0c0e]">{r.name.toUpperCase()}</option>)}
             </select>
           </div>
+
+          {/* ✅ BOTONES DE VISTA (RESTAURADOS) */}
+          <div className="flex items-center gap-1 bg-zinc-800/40 p-1 rounded-xl border border-zinc-700/30">
+            {(['day', 'two', 'week'] as const).map(mode => (
+              <button key={mode} onClick={() => setViewMode(mode)} className={`px-4 py-2 rounded-lg text-[9px] font-black transition-all ${viewMode === mode ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                {mode === 'day' ? '1 D' : mode === 'two' ? '2 D' : '7 D'}
+              </button>
+            ))}
+          </div>
+
           <div className="flex-1" />
-          <button onClick={() => setShowStats(!showStats)} className="p-3 bg-zinc-800/40 rounded-xl text-zinc-500">📊</button>
-          <button onClick={() => setShowClientModal(true)} className="p-3 bg-zinc-800/40 rounded-xl text-zinc-500 hover:text-white">👤</button>
+          <button onClick={() => setShowStats(!showStats)} className="p-3 bg-zinc-800/40 rounded-xl text-zinc-500 hover:text-white transition-all">📊</button>
+          <button onClick={() => setShowClientModal(true)} className="p-3 bg-zinc-800/40 rounded-xl text-zinc-500 hover:text-white transition-all">👤</button>
+          
+          {/* ✅ BOTÓN EXPORTAR (RESTAURADO) */}
+          <button onClick={exportToExcel} className="px-5 py-3 bg-zinc-800/20 border border-zinc-700/20 text-zinc-500 text-[9px] font-black tracking-widest uppercase rounded-2xl hover:border-zinc-500 transition-all">CSV</button>
         </div>
+
+        {showStats && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
+              <p className="text-[10px] uppercase text-zinc-600 font-black mb-1">Caja Real</p>
+              <h4 className="text-3xl font-light text-emerald-400">${stats.collectedRevenue.toLocaleString('es-CL')}</h4>
+            </div>
+            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
+              <p className="text-[10px] uppercase text-zinc-600 font-black mb-1">Ocupación</p>
+              <h4 className="text-3xl font-light text-white">{stats.totalHours} Hrs</h4>
+            </div>
+            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
+              <p className="text-[10px] uppercase text-zinc-600 font-black mb-1">Salud de Cobros</p>
+              <h4 className="text-3xl font-light text-white">{stats.estimatedRevenue > 0 ? Math.round((stats.collectedRevenue / stats.estimatedRevenue) * 100) : 0}%</h4>
+            </div>
+          </div>
+        )}
 
         {/* --- COMPONENTES ATOMIZADOS --- */}
         <QuickCreatePanel 
           roomId={roomId} setRoomId={setRoomId} serviceId={serviceId} setServiceId={setServiceId} staffId={staffId} setStaffId={setStaffId}
-          startAt={startAt} setStartAt={setStartAt} clientName={clientName} handleClientNameChange={setClientName}
+          startAt={startAt} setStartAt={setStartAt} 
+          clientName={clientName} handleClientNameChange={handleClientNameChange} // ✅ BUSQUEDA INTELIGENTE
           notes={notes} setNotes={setNotes} color={color} setColor={setColor} rooms={rooms} services={services} staff={staff} 
-          onCreate={createBooking} // ✅ CONECTADO
+          onCreate={createBooking} 
         />
 
         <CalendarGrid 
@@ -272,11 +357,11 @@ export default function CalendarClient() {
           <SessionModal 
             booking={selectedBooking} clientMap={new Map(clients.map(c => [c.id, c]))} rooms={rooms} editRoomId={editRoomId} editColor={editColor}
             onClose={() => setSelectedBooking(null)} 
-            onDelete={deleteBooking} // ✅ CONECTADO
-            onSave={saveColor} // ✅ CONECTADO
-            onTogglePayment={togglePayment} // ✅ CONECTADO
-            onStartSession={startSession} // ✅ CONECTADO
-            onStopSession={stopSession} // ✅ CONECTADO
+            onDelete={deleteBooking} 
+            onSave={saveColor} 
+            onTogglePayment={togglePayment} 
+            onStartSession={startSession} 
+            onStopSession={stopSession} 
             setEditRoomId={setEditRoomId} setEditColor={setEditColor}
           />
         )}
@@ -284,8 +369,7 @@ export default function CalendarClient() {
         {showClientModal && (
           <ClientModal 
             onClose={() => setShowClientModal(false)} name={newClientName} setName={setNewClientName}
-            phone={newClientPhone} setPhone={setNewClientPhone} 
-            onCreate={createClientOnly} // ✅ CONECTADO
+            phone={newClientPhone} setPhone={setNewClientPhone} onCreate={createClientOnly}
           />
         )}
       </div>
