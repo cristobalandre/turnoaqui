@@ -1007,148 +1007,169 @@ const headerRangeLabel = useMemo(() => {
      3. RENDER (HTML)
      ========================================= */
   return (
-    <div className="min-h-screen bg-[#09090b] text-[#fafafa] p-5 font-sans">
+    <div className="min-h-screen bg-[#09090b] text-[#fafafa] p-5 font-sans relative overflow-hidden">
+      {/* AURA ESMERALDA DE FONDO */}
+      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/5 blur-[140px] rounded-full pointer-events-none z-0" />
       
-      {/* --- CABECERA --- */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-4xl font-light tracking-tighter text-white">
-            Turno<span className="text-emerald-500 font-bold italic">Aquí</span>
-          </h1>
-          <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 font-black mt-1">Control de Sesiones Pro</p>
-        </div>
-
-        <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800/50 backdrop-blur-md">
-          <button onClick={prevWeek} className="p-2 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400"> ← </button>
-          <div className="px-4 py-1 text-center">
-            <span className="text-[10px] block uppercase tracking-widest text-zinc-600 font-bold">Semana Actual</span>
-            <span className="text-sm font-medium text-zinc-200">
-              {viewDays.length > 0 && `${format(viewDays[0], "dd MMM")} - ${format(viewDays[6], "dd MMM", { locale: es })}`}
-            </span>
+      <div className="relative z-10 max-w-[1600px] mx-auto">
+        {/* --- CABECERA --- */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-4xl font-light tracking-tighter text-white">
+              Turno<span className="text-emerald-500 font-bold italic">Aquí</span>
+            </h1>
+            <p className="text-[10px] uppercase tracking-[0.4em] text-zinc-500 font-black mt-1">Control de Sesiones Pro</p>
           </div>
-          <button onClick={nextWeek} className="p-2 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400"> → </button>
-        </div>
-      </div>
 
-      {/* --- PANEL DE CREACIÓN RÁPIDA --- */}
-      <div className="mb-8 grid grid-cols-1 lg:grid-cols-4 gap-4 bg-[#0c0c0e] border border-zinc-800/50 p-6 rounded-[32px] shadow-2xl relative overflow-hidden">
-        <div className="space-y-1">
-          <label className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black ml-2">¿Quién atiende?</label>
-          <select 
-            className="w-full bg-zinc-900/80 border border-zinc-800 text-white rounded-2xl p-4 text-sm outline-none appearance-none"
-            value={selectedStaffId}
-            onChange={(e) => setSelectedStaffId(e.target.value)}
-          >
-            <option value="">Seleccionar Staff</option>
-            {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </div>
+          <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800/50 backdrop-blur-md">
+            <button onClick={onPrev} className="p-2 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-white"> ← </button>
+            <div className="px-4 py-1 text-center min-w-[150px]">
+              <span className="text-[10px] block uppercase tracking-widest text-zinc-600 font-bold">Agenda</span>
+              <span className="text-sm font-medium text-zinc-200">
+                {headerRangeLabel}
+              </span>
+            </div>
+            <button onClick={onNext} className="p-2 hover:bg-zinc-800 rounded-xl transition-all text-zinc-400 hover:text-white"> → </button>
+          </div>
 
-        <div className="space-y-1">
-          <label className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black ml-2">Servicio</label>
-          <select 
-            className="w-full bg-zinc-900/80 border border-zinc-800 text-white rounded-2xl p-4 text-sm outline-none appearance-none"
-            value={selectedServiceId}
-            onChange={(e) => setSelectedServiceId(e.target.value)}
-          >
-            <option value="">¿Qué haremos?</option>
-            {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+          <div className="flex gap-3">
+            <button onClick={onToday} className="px-4 py-2 rounded-xl bg-zinc-800/40 text-zinc-500 border border-zinc-700/30 hover:text-white transition-all text-[10px] font-bold tracking-widest uppercase">Hoy</button>
+            <button 
+              onClick={() => { setEditingBooking(null); setShowModal(true); }}
+              className="bg-white text-black px-6 py-3 rounded-xl text-xs font-black hover:bg-emerald-400 transition-all shadow-xl shadow-emerald-500/10"
+            >
+              + NUEVA RESERVA
+            </button>
+          </div>
         </div>
 
-        <div className="space-y-1">
-          <label className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-black ml-2">Cliente</label>
-          <input 
-            className="w-full bg-zinc-900/80 border border-zinc-800 text-white rounded-2xl p-4 text-sm outline-none"
-            placeholder="Nombre del cliente..."
-            value={clientSearch}
-            onChange={(e) => setClientSearch(e.target.value)}
-          />
+        {/* --- BARRA DE HERRAMIENTAS TÉCNICA --- */}
+        <div className="flex flex-wrap items-center gap-4 mb-6 bg-zinc-900/30 p-3 rounded-2xl border border-zinc-800/50 backdrop-blur-sm">
+          <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30">
+            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Recurso:</span>
+            <select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)} className="bg-transparent border-none text-xs font-bold text-zinc-200 outline-none appearance-none">
+              <option value="all" className="bg-zinc-900">TODOS LOS ESTUDIOS</option>
+              {rooms.map(r => <option key={r.id} value={r.id} className="bg-zinc-900">{r.name.toUpperCase()}</option>)}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1 bg-zinc-800/40 p-1 rounded-xl border border-zinc-700/30">
+            {(['day', 'two', 'week'] as const).map((mode) => (
+              <button key={mode} onClick={() => setViewMode(mode)} className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all ${viewMode === mode ? 'bg-white text-black' : 'text-zinc-500'}`}>
+                {mode === 'day' ? '1 DÍA' : mode === 'two' ? '2 DÍAS' : 'SEMANA'}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex-1" />
+          
+          <button onClick={() => setShowStats(!showStats)} className={`p-2.5 rounded-xl border transition-all ${showStats ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-zinc-800/40 border-zinc-700/30 text-zinc-500 hover:text-white'}`}>📊</button>
+          <button onClick={() => setShowClientModal(true)} className="p-2.5 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 hover:text-white rounded-xl">👤</button>
+          <button onClick={exportToExcel} className="px-4 py-2.5 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 text-[9px] font-black tracking-widest uppercase rounded-xl">Exportar</button>
         </div>
 
-        <div className="flex items-end">
-          <button 
-            onClick={createBookingFromTop}
-            className="w-full bg-white text-black h-[58px] rounded-2xl font-black text-[10px] tracking-[0.2em] hover:bg-emerald-400 transition-all shadow-lg"
-          >
-            AGENDAR AHORA
-          </button>
-        </div>
-      </div>
-
-      {/* --- GRID DEL CALENDARIO --- */}
-      <DndContext onDragEnd={onDragEnd}>
-        <div className="bg-zinc-900/20 border border-zinc-800/50 rounded-[32px] overflow-hidden backdrop-blur-md shadow-2xl relative z-10">
-          <div className="overflow-auto max-h-[75vh] custom-scrollbar relative">
-            <div className="grid relative" style={{ gridTemplateColumns: `100px repeat(${viewDays.length}, minmax(200px, 1fr))`, width: '100%' }}>
-              
-              {/* Eje de Horas */}
-              <div className="sticky left-0 z-40 bg-[#09090b] border-r border-zinc-800/60 shadow-xl">
-                <div className="h-16 border-b border-zinc-800/50 flex items-center justify-center bg-[#0c0c0e]">
-                  <span className="text-[9px] font-black text-zinc-700 tracking-[0.3em] uppercase">Time</span>
-                </div>
-                {hours.map((h) => (
-                  <div key={h} className="h-[120px] border-b border-zinc-800/10 flex items-start justify-center pt-3">
-                    <span className="text-[10px] font-mono font-bold text-zinc-600">{String(h).padStart(2, "0")}:00</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Días */}
-              {viewDays.map((day, dayIdx) => (
-                <div key={day.toISOString()} className="relative border-r border-zinc-800/20">
-                  <div className="sticky top-0 z-30 h-16 border-b border-zinc-800/50 flex flex-col items-center justify-center bg-[#0c0c0e]/95 backdrop-blur-md">
-                    <span className="text-[9px] font-black tracking-[0.2em] uppercase text-zinc-500">{format(day, "EEEE", { locale: es })}</span>
-                    <span className="text-xl font-light text-zinc-300">{format(day, "dd")}</span>
-                  </div>
-
-                  <div className="relative" style={{ height: hours.length * 120 }}>
-                    {rooms.map((room) => (
-                      <div key={room.id} className="absolute inset-0">
-                        <DroppableCell id={`${room.id}|${dayIdx}`} />
-                        {(bookingsIndex.get(`${room.id}|${dayKey(day)}`) || []).map((b) => (
-                          <DraggableBooking
-                            key={b.id}
-                            booking={b}
-                            topPx={(new Date(b.start_at).getHours() - 8) * 120 + (new Date(b.start_at).getMinutes() * 2)}
-                            heightPx={differenceInMinutes(new Date(b.end_at), new Date(b.start_at)) * 2}
-                            label={b.client_name || "CLIENTE"}
-                            onDoubleClick={() => openEdit(b)}
-                          />
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+        {/* --- PANEL DE CREACIÓN RÁPIDA --- */}
+        <div className="bg-zinc-900/40 border border-zinc-800/50 rounded-3xl p-6 mb-8 backdrop-blur-sm shadow-2xl">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 bg-zinc-800/10 p-4 rounded-2xl border border-zinc-700/10">
+              <select value={roomId} onChange={(e) => setRoomId(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-emerald-500/50">
+                <option value="">SALA / ESTUDIO</option>
+                {rooms.map(r => <option key={r.id} value={r.id} className="bg-zinc-900 text-white">{r.name}</option>)}
+              </select>
+              <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-emerald-500/50">
+                <option value="">SERVICIO</option>
+                {services.map(s => <option key={s.id} value={s.id} className="bg-zinc-900 text-white">{s.name}</option>)}
+              </select>
+              <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className="bg-zinc-900/50 border border-zinc-800 rounded-xl px-4 py-2.5 text-[11px] text-white outline-none focus:border-emerald-500/50" />
+            </div>
+            <div className="bg-emerald-500/5 border border-emerald-500/20 p-4 rounded-2xl flex flex-col justify-center">
+              <input list="client-suggestions" placeholder="BUSCAR CLIENTE..." value={clientName} onChange={(e) => setClientName(e.target.value)} className="bg-transparent border-none text-sm text-white font-bold focus:ring-0" />
             </div>
           </div>
+          <div className="flex flex-col md:flex-row items-center gap-4 mt-4">
+            <input placeholder="NOTAS TÉCNICAS..." value={notes} onChange={(e) => setNotes(e.target.value)} className="flex-1 bg-zinc-800/10 border border-zinc-700/10 rounded-xl px-6 py-3 text-xs text-zinc-500 focus:text-white outline-none" />
+            <button onClick={() => void createBooking()} className="px-8 py-3 bg-white text-black text-[10px] font-black tracking-widest rounded-xl hover:bg-emerald-400 transition-all shadow-xl">CONFIRMAR OPERACIÓN</button>
+          </div>
         </div>
-      </DndContext>
+
+        {/* --- GRID DE CALENDARIO --- */}
+        <DndContext onDragEnd={onDragEnd}>
+          <div className="bg-zinc-900/20 border border-zinc-800/50 rounded-[32px] overflow-hidden backdrop-blur-md shadow-2xl relative">
+            <div className="overflow-auto max-h-[70vh] custom-scrollbar">
+              <div className="grid relative" style={{ gridTemplateColumns: `100px repeat(${viewDays.length}, minmax(200px, 1fr))`, width: '100%' }}>
+                
+                {/* Eje de Horas */}
+                <div className="sticky left-0 z-40 bg-[#09090b] border-r border-zinc-800/60 shadow-xl">
+                  <div className="h-16 border-b border-zinc-800/50 flex items-center justify-center bg-[#0c0c0e]">
+                    <span className="text-[9px] font-black text-zinc-700 tracking-[0.3em] uppercase">Time</span>
+                  </div>
+                  {hours.map((h) => (
+                    <div key={h} className="h-[120px] border-b border-zinc-800/10 flex items-start justify-center pt-3">
+                      <span className="text-[10px] font-mono font-bold text-zinc-600">{String(h >= 24 ? h - 24 : h).padStart(2, "0")}:00</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Columnas de Días */}
+                {viewDays.map((day, dayIdx) => {
+                  const isToday = isSameDay(day, new Date());
+                  return (
+                    <div key={day.toISOString()} className={`relative border-r border-zinc-800/20 ${isToday ? 'bg-emerald-500/5' : ''}`}>
+                      <div className="sticky top-0 z-30 h-16 border-b border-zinc-800/50 flex flex-col items-center justify-center bg-[#0c0c0e]/95 backdrop-blur-md">
+                        <span className={`text-[9px] font-black tracking-[0.2em] uppercase ${isToday ? 'text-emerald-400' : 'text-zinc-500'}`}>{format(day, "EEEE", { locale: es })}</span>
+                        <span className={`text-xl font-light ${isToday ? 'text-white' : 'text-zinc-300'}`}>{format(day, "dd")}</span>
+                      </div>
+
+                      <div className="relative" style={{ height: hours.length * 120 }}>
+                        {rooms.map((room) => (
+                          <div key={room.id} className="absolute inset-0">
+                            <DroppableCell id={`${room.id}|${dayIdx}`} />
+                            {(bookingsIndex.get(`${room.id}|${dayKey(day)}`) || []).map((b) => (
+                              <DraggableBooking
+                                key={b.id}
+                                booking={b}
+                                topPx={(new Date(b.start_at).getHours() - 8) * 120 + (new Date(b.start_at).getMinutes() * 2)}
+                                heightPx={differenceInMinutes(new Date(b.end_at), new Date(b.start_at)) * 2}
+                                label={b.client_name || "CLIENTE"}
+                                onDoubleClick={() => setSelectedBooking(b)}
+                              />
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </DndContext>
+      </div>
 
       {/* --- MODALES --- */}
       {selectedBooking && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md bg-black/60" onClick={() => setSelectedBooking(null)}>
-          <div className="bg-[#0c0c0e] border border-zinc-800 w-full max-w-lg rounded-[32px] p-8 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+          <div className="bg-[#0c0c0e] border border-zinc-800 w-full max-w-lg rounded-[32px] p-8 shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500/20" />
             <h2 className="text-xl text-white font-light">Ficha de <span className="text-emerald-500 italic">Sesión</span></h2>
-            <p className="text-zinc-500 mb-6 uppercase text-[10px] tracking-widest">{selectedBooking.client_name}</p>
+            <p className="text-zinc-500 mb-8 uppercase text-[10px] tracking-widest font-bold">{selectedBooking.client_name}</p>
             <div className="flex gap-4">
-              <button onClick={deleteBooking} className="p-4 bg-red-500/10 text-red-500 rounded-2xl flex-1">ELIMINAR</button>
-              <button onClick={() => setSelectedBooking(null)} className="p-4 bg-white text-black rounded-2xl flex-1 font-bold">CERRAR</button>
+              <button onClick={() => { deleteBooking(selectedBooking.id); setSelectedBooking(null); }} className="p-4 bg-red-500/10 text-red-500 rounded-2xl flex-1 text-[10px] font-black tracking-widest hover:bg-red-500/20 transition-all">ELIMINAR</button>
+              <button onClick={() => setSelectedBooking(null)} className="p-4 bg-zinc-800 text-zinc-400 rounded-2xl flex-1 text-[10px] font-black tracking-widest hover:text-white transition-all">CERRAR</button>
             </div>
           </div>
         </div>
       )}
 
-      {showNewClientModal && (
+      {showClientModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4">
           <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-[32px] w-full max-w-md shadow-2xl">
             <h3 className="text-white text-lg font-light mb-6">Nuevo <span className="text-emerald-500">Cliente</span></h3>
             <div className="flex flex-col gap-4">
-              <input placeholder="Nombre" className="bg-zinc-800 border border-zinc-700 p-4 rounded-2xl text-white outline-none focus:border-emerald-500" value={newClientName} onChange={e => setNewClientName(e.target.value)} />
+              <input placeholder="Nombre Completo" className="bg-zinc-800 border border-zinc-700 p-4 rounded-2xl text-white outline-none focus:border-emerald-500" value={newClientName} onChange={e => setNewClientName(e.target.value)} />
               <input placeholder="WhatsApp" className="bg-zinc-800 border border-zinc-700 p-4 rounded-2xl text-white outline-none focus:border-emerald-500" value={newClientPhone} onChange={e => setNewClientPhone(e.target.value)} />
-              <button onClick={() => void createClientOnly()} className="bg-emerald-500 text-white p-4 rounded-2xl font-black tracking-widest mt-2">GUARDAR CLIENTE</button>
-              <button onClick={() => setShowNewClientModal(false)} className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest mt-2">Cerrar</button>
+              <button onClick={() => void createClientOnly()} className="bg-white text-black p-4 rounded-2xl font-black tracking-widest mt-2 hover:bg-emerald-400 transition-all">GUARDAR CLIENTE</button>
+              <button onClick={() => setShowClientModal(false)} className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest mt-2 hover:text-zinc-400">Cancelar</button>
             </div>
           </div>
         </div>
@@ -1156,4 +1177,3 @@ const headerRangeLabel = useMemo(() => {
 
     </div>
   );
-}
