@@ -21,6 +21,7 @@ import { SessionModal } from "@/components/calendar/SessionModal";
 import { QuickCreatePanel } from "@/components/calendar/QuickCreatePanel";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { ClientModal } from "@/components/calendar/ClientModal";
+import { MonthlyViewModal } from "@/components/calendar/MonthlyViewModal"; // ✅ NUEVO IMPORT
 
 // --- UTILIDADES ---
 import { isPastDateTime, DATE_ERROR_MSG } from "@/lib/validations";
@@ -54,7 +55,7 @@ export default function CalendarClient() {
   const [staffId, setStaffId] = useState("");
   const [serviceId, setServiceId] = useState("");
   const [clientName, setClientName] = useState("");
-  const [clientId, setClientId] = useState(""); // ID para autocompletado
+  const [clientId, setClientId] = useState(""); 
   const [clientPhone, setClientPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [startAt, setStartAt] = useState("");
@@ -66,12 +67,13 @@ export default function CalendarClient() {
   const [editColor, setEditColor] = useState("");
   const [showStats, setShowStats] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
+  const [showMonthlyModal, setShowMonthlyModal] = useState(false); // ✅ ESTADO PARA MODAL MENSUAL
   const [newClientName, setNewClientName] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
 
   useEffect(() => { setIsMounted(true); }, []);
 
-  // --- 1. CARGA DE DATOS ---
+  // --- CARGA DE DATOS ---
   const loadAll = useCallback(async () => {
     if (!sb) return;
     const [roomsRes, staffRes, servicesRes, clientsRes] = await Promise.all([
@@ -101,9 +103,7 @@ export default function CalendarClient() {
     loadBookingsForRange(viewStart, days);
   }, [viewMode, viewStart, loadBookingsForRange]);
 
-  // --- 2. FUNCIONES LÓGICAS (Conexiones) ---
-  
-  // Búsqueda inteligente de cliente (Restaura funcionalidad perdida)
+  // --- FUNCIONES (Conectadas) ---
   const handleClientNameChange = (val: string) => {
     setClientName(val);
     const found = clients.find(c => c.name.toLowerCase() === val.toLowerCase());
@@ -128,7 +128,6 @@ export default function CalendarClient() {
     const end = new Date(start.getTime() + duration * 60000);
     if (checkOverlap(roomId, start, end)) return alert("¡Sala ocupada!");
     
-    // Si es cliente nuevo (no tiene ID), lo creamos al vuelo o usamos NULL si quieres
     let finalClientId = clientId || null;
 
     await sb.from("bookings").insert([{
@@ -138,7 +137,6 @@ export default function CalendarClient() {
       start_at: start.toISOString(), end_at: end.toISOString(), color, payment_status: "pending", notes
     }]);
     
-    // Limpieza post-creación
     setClientName(""); setClientPhone(""); setNotes(""); setStartAt(""); setClientId("");
     loadBookingsForRange(viewStart, viewMode === "week" ? 7 : 1);
   };
@@ -191,10 +189,9 @@ export default function CalendarClient() {
     if (!newClientName.trim() || !sb) return;
     await sb.from("clients").insert([{ name: newClientName, phone: newClientPhone }]);
     setNewClientName(""); setNewClientPhone(""); setShowClientModal(false);
-    loadAll(); // Recargar clientes
+    loadAll();
   };
 
-  // Exportar CSV (Restaurado)
   const exportToExcel = () => {
     const headers = ["Cliente", "Servicio", "Sala", "Fecha", "Inicio", "Fin", "Precio", "Estado"];
     const rows = bookings.map(b => {
@@ -276,25 +273,36 @@ export default function CalendarClient() {
       <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/5 blur-[140px] rounded-full pointer-events-none z-0" />
       
       <div className="relative z-10 max-w-[1600px] mx-auto">
+        {/* HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div><Logo size="text-4xl" /><p className="text-[10px] uppercase tracking-[0.4em] text-zinc-600 mt-1 font-black">Consola de Operaciones de Audio</p></div>
-          <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800/50 backdrop-blur-md">
-            <button onClick={() => setViewStart(d => addDays(d, -1))} className="p-2 text-zinc-400"> ◀ </button>
-            <div className="px-6 text-center border-x border-zinc-800/50"><span className="text-[9px] block text-zinc-600 font-bold mb-0.5 uppercase tracking-widest">Timeline</span><span className="text-sm font-bold">{headerRangeLabel}</span></div>
-            <button onClick={() => setViewStart(d => addDays(d, 1))} className="p-2 text-zinc-400"> ▶ </button>
+          
+          <div className="flex items-center gap-4">
+             {/* ✅ BOTÓN AURA: Abre la Vista Mensual */}
+            <button 
+                onClick={() => setShowMonthlyModal(true)}
+                className="relative group bg-zinc-900 border border-zinc-800 px-6 py-2 rounded-2xl overflow-hidden transition-all hover:border-emerald-500/50 hover:scale-105 active:scale-95 shadow-xl"
+            >
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative flex items-center gap-2">
+                    <span className="text-xl">📅</span>
+                    <div className="flex flex-col text-left">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Auditoría</span>
+                        <span className="text-xs font-bold text-white">Vista Mensual</span>
+                    </div>
+                </div>
+            </button>
+
+            <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800/50 backdrop-blur-md">
+                <button onClick={() => setViewStart(d => addDays(d, -1))} className="p-2 text-zinc-400 hover:text-white transition-all"> ◀ </button>
+                <div className="px-6 text-center border-x border-zinc-800/50"><span className="text-[9px] block text-zinc-600 font-bold mb-0.5 uppercase tracking-widest">Timeline</span><span className="text-sm font-bold">{headerRangeLabel}</span></div>
+                <button onClick={() => setViewStart(d => addDays(d, 1))} className="p-2 text-zinc-400 hover:text-white transition-all"> ▶ </button>
+            </div>
+            <button onClick={() => setStartAt(new Date().toISOString().slice(0, 16))} className="bg-emerald-500 text-black px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all">+ Nueva Reserva</button>
           </div>
-          <button 
-            onClick={() => { 
-              setRoomId(""); setServiceId(""); setStaffId(""); setClientName("");
-              setStartAt(new Date().toISOString().slice(0, 16));
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            className="bg-emerald-500 text-black px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all"
-          >
-            + Nueva Reserva
-          </button>
         </div>
 
+        {/* BARRA TÉCNICA (RESTURADA) */}
         <div className="flex flex-wrap items-center gap-4 mb-6 bg-zinc-900/30 p-3 rounded-[28px] border border-zinc-800/50 backdrop-blur-sm">
           <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30">
             <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Estudio:</span>
@@ -303,8 +311,8 @@ export default function CalendarClient() {
               {rooms.map(r => <option key={r.id} value={r.id} className="bg-[#0c0c0e]">{r.name.toUpperCase()}</option>)}
             </select>
           </div>
-
-          {/* ✅ BOTONES DE VISTA (RESTAURADOS) */}
+          
+          {/* ✅ BOTONES DE VISTA RESTAURADOS */}
           <div className="flex items-center gap-1 bg-zinc-800/40 p-1 rounded-xl border border-zinc-700/30">
             {(['day', 'two', 'week'] as const).map(mode => (
               <button key={mode} onClick={() => setViewMode(mode)} className={`px-4 py-2 rounded-lg text-[9px] font-black transition-all ${viewMode === mode ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}>
@@ -314,10 +322,10 @@ export default function CalendarClient() {
           </div>
 
           <div className="flex-1" />
-          <button onClick={() => setShowStats(!showStats)} className="p-3 bg-zinc-800/40 rounded-xl text-zinc-500 hover:text-white transition-all">📊</button>
-          <button onClick={() => setShowClientModal(true)} className="p-3 bg-zinc-800/40 rounded-xl text-zinc-500 hover:text-white transition-all">👤</button>
+          <button onClick={() => setShowStats(!showStats)} className={`p-3 rounded-xl border transition-all ${showStats ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-zinc-800/40 border-zinc-700/30 text-zinc-500'}`}>📊</button>
+          <button onClick={() => setShowClientModal(true)} className="p-3 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 hover:text-white rounded-xl transition-all">👤</button>
           
-          {/* ✅ BOTÓN EXPORTAR (RESTAURADO) */}
+          {/* ✅ BOTÓN EXPORTAR RESTAURADO */}
           <button onClick={exportToExcel} className="px-5 py-3 bg-zinc-800/20 border border-zinc-700/20 text-zinc-500 text-[9px] font-black tracking-widest uppercase rounded-2xl hover:border-zinc-500 transition-all">CSV</button>
         </div>
 
@@ -338,11 +346,9 @@ export default function CalendarClient() {
           </div>
         )}
 
-        {/* --- COMPONENTES ATOMIZADOS --- */}
         <QuickCreatePanel 
           roomId={roomId} setRoomId={setRoomId} serviceId={serviceId} setServiceId={setServiceId} staffId={staffId} setStaffId={setStaffId}
-          startAt={startAt} setStartAt={setStartAt} 
-          clientName={clientName} handleClientNameChange={handleClientNameChange} // ✅ BUSQUEDA INTELIGENTE
+          startAt={startAt} setStartAt={setStartAt} clientName={clientName} handleClientNameChange={handleClientNameChange}
           notes={notes} setNotes={setNotes} color={color} setColor={setColor} rooms={rooms} services={services} staff={staff} 
           onCreate={createBooking} 
         />
@@ -356,13 +362,8 @@ export default function CalendarClient() {
         {selectedBooking && (
           <SessionModal 
             booking={selectedBooking} clientMap={new Map(clients.map(c => [c.id, c]))} rooms={rooms} editRoomId={editRoomId} editColor={editColor}
-            onClose={() => setSelectedBooking(null)} 
-            onDelete={deleteBooking} 
-            onSave={saveColor} 
-            onTogglePayment={togglePayment} 
-            onStartSession={startSession} 
-            onStopSession={stopSession} 
-            setEditRoomId={setEditRoomId} setEditColor={setEditColor}
+            onClose={() => setSelectedBooking(null)} onDelete={deleteBooking} onSave={saveColor} onTogglePayment={togglePayment} 
+            onStartSession={startSession} onStopSession={stopSession} setEditRoomId={setEditRoomId} setEditColor={setEditColor}
           />
         )}
 
@@ -370,6 +371,15 @@ export default function CalendarClient() {
           <ClientModal 
             onClose={() => setShowClientModal(false)} name={newClientName} setName={setNewClientName}
             phone={newClientPhone} setPhone={setNewClientPhone} onCreate={createClientOnly}
+          />
+        )}
+
+        {/* ✅ INTEGRACIÓN DEL MODAL MENSUAL */}
+        {showMonthlyModal && (
+          <MonthlyViewModal 
+            onClose={() => setShowMonthlyModal(false)}
+            orgId={ORG_ID}
+            rooms={rooms}
           />
         )}
       </div>
