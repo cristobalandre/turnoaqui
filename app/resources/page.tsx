@@ -2,6 +2,20 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { 
+  Box, 
+  Plus, 
+  Edit3, 
+  Trash2, 
+  ArrowLeft, 
+  Check, 
+  X, 
+  Monitor, 
+  Layers
+} from "lucide-react";
+import Link from "next/link";
+
+const ORG_ID = "a573aa05-d62b-44c7-a878-b9138902a094";
 
 type Room = {
   id: string;
@@ -10,13 +24,10 @@ type Room = {
   created_at?: string;
 };
 
-const ORG_ID = "a573aa05-d62b-44c7-a878-b9138902a094";
-
 export default function ResourcesPage() {
   const [loading, setLoading] = useState(true);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [newName, setNewName] = useState("");
-
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
 
@@ -24,269 +35,130 @@ export default function ResourcesPage() {
 
   async function loadRooms() {
     setLoading(true);
-
     const { data, error } = await supabase
       .from("rooms")
       .select("*")
       .eq("org_id", ORG_ID)
       .order("created_at", { ascending: true });
 
-    if (error) {
-      alert("Error cargando recursos: " + error.message);
-      setLoading(false);
-      return;
-    }
-
-    setRooms((data || []) as Room[]);
+    if (error) alert("Error cargando recursos: " + error.message);
+    else setRooms((data || []) as Room[]);
     setLoading(false);
   }
 
-  useEffect(() => {
-    loadRooms();
-  }, []);
+  useEffect(() => { loadRooms(); }, []);
 
   async function addRoom() {
-    const name = newName.trim();
-    if (!name) return;
-
-    const { error } = await supabase.from("rooms").insert([
-      {
-        name,
-        org_id: ORG_ID,
-      },
-    ]);
-
-    if (error) {
-      alert("Error creando recurso: " + error.message);
-      return;
-    }
-
-    setNewName("");
-    await loadRooms();
-  }
-
-  function startEdit(room: Room) {
-    setEditingId(room.id);
-    setEditingName(room.name);
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-    setEditingName("");
+    if (!canAdd) return;
+    const { error } = await supabase.from("rooms").insert([{ name: newName.trim(), org_id: ORG_ID }]);
+    if (!error) { setNewName(""); loadRooms(); }
   }
 
   async function saveEdit(roomId: string) {
-    const name = editingName.trim();
-    if (name.length < 2) {
-      alert("El nombre debe tener al menos 2 caracteres.");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("rooms")
-      .update({ name })
-      .eq("id", roomId)
-      .eq("org_id", ORG_ID);
-
-    if (error) {
-      alert("Error editando recurso: " + error.message);
-      return;
-    }
-
-    cancelEdit();
-    await loadRooms();
+    if (editingName.trim().length < 2) return;
+    const { error } = await supabase.from("rooms").update({ name: editingName.trim() }).eq("id", roomId);
+    if (!error) { setEditingId(null); loadRooms(); }
   }
 
   async function deleteRoom(roomId: string) {
-    const ok = confirm("¿Eliminar este recurso? (Esto puede afectar reservas)");
-    if (!ok) return;
-
-    const { error } = await supabase
-      .from("rooms")
-      .delete()
-      .eq("id", roomId)
-      .eq("org_id", ORG_ID);
-
-    if (error) {
-      alert("Error eliminando recurso: " + error.message);
-      return;
-    }
-
-    await loadRooms();
+    if (!confirm("¿Eliminar este recurso?")) return;
+    await supabase.from("rooms").delete().eq("id", roomId);
+    loadRooms();
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 900 }}>
-      <h1 style={{ margin: 0 }}>Recursos</h1>
-      <p style={{ marginTop: 6, opacity: 0.7 }}>
-        Recursos = salas / sillones / boxes (lo que se agenda).
-      </p>
+    <div className="min-h-screen bg-[#09090b] text-zinc-400 p-8 font-sans relative overflow-hidden">
+      {/* 🟢 AURA ESMERALDA */}
+      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none z-0" />
 
-      {/* Add */}
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          marginTop: 16,
-          alignItems: "center",
-        }}
-      >
-        <input
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          placeholder="Ej: Estudio 4 / Sillón 2 / Box 1"
-          style={{
-            flex: 1,
-            padding: "10px 12px",
-            border: "1px solid #ddd",
-            borderRadius: 10,
-          }}
-        />
-        <button
-          onClick={addRoom}
-          disabled={!canAdd}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 10,
-            border: "1px solid #ddd",
-            background: canAdd ? "black" : "#eee",
-            color: canAdd ? "white" : "#666",
-            cursor: canAdd ? "pointer" : "not-allowed",
-          }}
-        >
-          Agregar
-        </button>
-      </div>
-
-      {/* List */}
-      <div
-        style={{
-          marginTop: 18,
-          border: "1px solid #eee",
-          borderRadius: 14,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            padding: 12,
-            borderBottom: "1px solid #eee",
-            fontWeight: 600,
-            background: "#fafafa",
-          }}
-        >
-          Lista de recursos
+      <div className="relative z-10 max-w-5xl mx-auto">
+        {/* HEADER */}
+        <div className="mb-12 flex items-center justify-between">
+          <div>
+            <Link href="/dashboard" className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] hover:text-white transition-colors mb-4 text-zinc-500">
+              <ArrowLeft className="h-3 w-3" /> Dashboard
+            </Link>
+            <h1 className="text-3xl font-light text-white tracking-tight">Gestión de <span className="text-zinc-600 italic">Recursos</span></h1>
+          </div>
         </div>
 
-        {loading ? (
-          <div style={{ padding: 12, opacity: 0.7 }}>Cargando...</div>
-        ) : rooms.length === 0 ? (
-          <div style={{ padding: 12, opacity: 0.7 }}>
-            No hay recursos aún. Agrega el primero arriba 👆
+        {/* BARRA DE CREACIÓN TÉCNICA */}
+        <div className="bg-zinc-900/40 border border-zinc-800/50 p-4 rounded-2xl mb-8 flex gap-4 items-center backdrop-blur-sm shadow-2xl">
+          <div className="flex-1 bg-zinc-800/30 rounded-xl px-4 py-3 border border-zinc-700/30 focus-within:border-emerald-500/50 transition-all">
+            <label className="text-[9px] uppercase tracking-widest text-zinc-600 block mb-1 font-bold">Nuevo Espacio / Box / Sala</label>
+            <div className="flex items-center gap-3">
+              <Layers className="h-4 w-4 text-zinc-500" />
+              <input 
+                value={newName} 
+                onChange={(e) => setNewName(e.target.value)} 
+                placeholder="Ej: Estudio de Grabación A" 
+                className="bg-transparent border-none p-0 w-full text-white text-sm focus:ring-0 placeholder:text-zinc-700" 
+              />
+            </div>
           </div>
-        ) : (
-          <div>
-            {rooms.map((room) => {
-              const isEditing = editingId === room.id;
+          <button 
+            onClick={addRoom} 
+            disabled={!canAdd} 
+            className={`px-8 py-4 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${canAdd ? 'bg-white text-black hover:bg-emerald-400' : 'bg-zinc-800 text-zinc-600 cursor-not-allowed opacity-50'}`}
+          >
+            <Plus className="h-4 w-4" /> AGREGAR
+          </button>
+        </div>
 
-              return (
-                <div
-                  key={room.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 10,
-                    padding: 12,
-                    borderBottom: "1px solid #f0f0f0",
-                  }}
-                >
-                  <div style={{ flex: 1 }}>
-                    {isEditing ? (
-                      <input
-                        value={editingName}
-                        onChange={(e) => setEditingName(e.target.value)}
-                        style={{
-                          width: "100%",
-                          padding: "10px 12px",
-                          border: "1px solid #ddd",
-                          borderRadius: 10,
-                        }}
+        {/* LISTADO DE RECURSOS */}
+        <div className="grid grid-cols-1 gap-4">
+          {loading ? (
+            <div className="text-center py-20 text-xs tracking-[0.3em] animate-pulse">ESCANEANDO INFRAESTRUCTURA...</div>
+          ) : rooms.map((room) => (
+            <div key={room.id} className="group bg-zinc-900/20 border border-zinc-800/50 rounded-2xl p-6 hover:border-emerald-500/30 transition-all duration-500 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                  {/* ICONO CON GLOW */}
+                  <div className="h-14 w-14 rounded-2xl bg-zinc-800/30 flex items-center justify-center border border-zinc-700/20 group-hover:border-emerald-500/50 group-hover:bg-emerald-500/5 transition-all duration-500">
+                    <Monitor className="h-6 w-6 text-zinc-500 group-hover:text-emerald-400" />
+                  </div>
+                  
+                  {editingId === room.id ? (
+                    <div className="flex items-center gap-3">
+                      <input 
+                        value={editingName} 
+                        onChange={(e) => setEditingName(e.target.value)} 
+                        className="bg-zinc-800/50 border border-emerald-500/50 rounded-xl px-4 py-2 text-white text-sm focus:ring-0" 
                       />
-                    ) : (
-                      <div style={{ fontWeight: 600 }}>{room.name}</div>
-                    )}
-                  </div>
-
-                  <div style={{ display: "flex", gap: 8 }}>
-                    {isEditing ? (
-                      <>
-                        <button
-                          onClick={() => saveEdit(room.id)}
-                          style={{
-                            padding: "8px 12px",
-                            borderRadius: 10,
-                            border: "1px solid #ddd",
-                            background: "black",
-                            color: "white",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Guardar
-                        </button>
-                        <button
-                          onClick={cancelEdit}
-                          style={{
-                            padding: "8px 12px",
-                            borderRadius: 10,
-                            border: "1px solid #ddd",
-                            background: "white",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Cancelar
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => startEdit(room)}
-                          style={{
-                            padding: "8px 12px",
-                            borderRadius: 10,
-                            border: "1px solid #ddd",
-                            background: "white",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => deleteRoom(room.id)}
-                          style={{
-                            padding: "8px 12px",
-                            borderRadius: 10,
-                            border: "1px solid #ddd",
-                            background: "white",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Eliminar
-                        </button>
-                      </>
-                    )}
-                  </div>
+                      <button onClick={() => saveEdit(room.id)} className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/40 transition-colors"><Check className="h-4 w-4" /></button>
+                      <button onClick={() => setEditingId(null)} className="p-2 bg-zinc-800 text-zinc-400 rounded-lg"><X className="h-4 w-4" /></button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-white font-medium text-xl tracking-tight">{room.name}</h3>
+                        <span className="text-[9px] px-2 py-0.5 rounded-full border border-emerald-500/30 text-emerald-500 bg-emerald-500/5 tracking-widest font-bold">DISPONIBLE</span>
+                      </div>
+                      <p className="text-[10px] text-zinc-600 uppercase tracking-[0.2em] mt-1.5 font-medium">Capacidad de Agenda Activa</p>
+                    </div>
+                  )}
                 </div>
-              );
-            })}
+
+                {/* ACCIONES */}
+                <div className="flex gap-2 opacity-40 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => { setEditingId(room.id); setEditingName(room.name); }} className="p-3 bg-zinc-800/40 text-zinc-500 hover:text-white rounded-xl border border-zinc-700/30 transition-all">
+                    <Edit3 className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => deleteRoom(room.id)} className="p-3 bg-zinc-800/40 text-zinc-500 hover:text-red-400 rounded-xl border border-zinc-700/30 transition-all">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {rooms.length === 0 && !loading && (
+          <div className="border border-dashed border-zinc-800 rounded-3xl py-24 text-center">
+            <Box className="h-10 w-10 text-zinc-800 mx-auto mb-4" />
+            <p className="text-zinc-600 text-sm italic">No se han detectado recursos configurados.</p>
           </div>
         )}
-      </div>
-
-      <div style={{ marginTop: 16 }}>
-        <a href="/dashboard" style={{ fontSize: 14 }}>
-          ← volver al dashboard
-        </a>
       </div>
     </div>
   );
