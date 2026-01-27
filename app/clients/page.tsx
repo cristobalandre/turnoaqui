@@ -2,533 +2,181 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { 
+  User, Search, Plus, Mail, Phone, 
+  MoreHorizontal, ArrowLeft, Camera, 
+  Trash2, Edit3, MessageSquare 
+} from "lucide-react";
+import Link from "next/link";
 
 const ORG_ID = "a573aa05-d62b-44c7-a878-b9138902a094";
-const BUCKET = "avatars"; // ✅ tu bucket en minúscula
+const BUCKET = "avatars";
 
 type ClientRow = {
   id: string;
-  org_id: string;
   full_name: string;
   phone: string | null;
   email: string | null;
   avatar_url: string | null;
   notes: string | null;
-  created_at: string;
 };
-
-function initials(name: string) {
-  const parts = name.trim().split(" ").filter(Boolean);
-  if (!parts.length) return "C";
-  if (parts.length === 1) return parts[0][0].toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
-}
-
-async function uploadClientAvatar(file: File, clientId: string) {
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `clients/${clientId}.${ext}`; // ✅ clients/{clientId}.jpg
-
-  const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
-    upsert: true,
-    cacheControl: "3600",
-    contentType: file.type,
-  });
-
-  if (uploadError) throw new Error(uploadError.message);
-
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return data.publicUrl;
-}
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // form create/edit
+  const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ClientRow | null>(null);
 
+  // Form States
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
 
-  const [search, setSearch] = useState("");
-
   const filteredClients = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter((c) => {
-      const n = (c.full_name || "").toLowerCase();
-      const p = (c.phone || "").toLowerCase();
-      const e = (c.email || "").toLowerCase();
-      return n.includes(q) || p.includes(q) || e.includes(q);
-    });
+    return q ? clients.filter(c => 
+      c.full_name.toLowerCase().includes(q) || 
+      (c.phone || "").includes(q) || 
+      (c.email || "").toLowerCase().includes(q)
+    ) : clients;
   }, [clients, search]);
-
-  const resetForm = () => {
-    setFullName("");
-    setPhone("");
-    setEmail("");
-    setNotes("");
-  };
-
-  const openCreate = () => {
-    setEditing(null);
-    resetForm();
-    setModalOpen(true);
-  };
-
-  const openEdit = (c: ClientRow) => {
-    setEditing(c);
-    setFullName(c.full_name || "");
-    setPhone(c.phone || "");
-    setEmail(c.email || "");
-    setNotes(c.notes || "");
-    setModalOpen(true);
-  };
 
   const loadClients = async () => {
     setLoading(true);
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("clients")
-      .select("id,org_id,full_name,phone,email,avatar_url,notes,created_at")
+      .select("id,full_name,phone,email,avatar_url,notes")
       .eq("org_id", ORG_ID)
       .order("created_at", { ascending: false });
-
-    if (error) {
-      alert("Error cargando clientes: " + error.message);
-      setLoading(false);
-      return;
-    }
-
-    setClients((data as ClientRow[]) || []);
+    if (data) setClients(data as ClientRow[]);
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadClients();
-  }, []);
+  useEffect(() => { loadClients(); }, []);
 
   const saveClient = async () => {
-    if (!fullName.trim()) return alert("Nombre requerido.");
+    if (!fullName.trim()) return;
+    const payload = { 
+      org_id: ORG_ID, 
+      full_name: fullName.trim(), 
+      phone: phone.trim() || null, 
+      email: email.trim() || null, 
+      notes: notes.trim() || null 
+    };
 
-    if (!editing) {
-      // CREATE
-      const { data, error } = await supabase
-        .from("clients")
-        .insert([
-          {
-            org_id: ORG_ID,
-            full_name: fullName.trim(),
-            phone: phone.trim() || null,
-            email: email.trim() || null,
-            notes: notes.trim() || null,
-            avatar_url: null,
-          },
-        ])
-        .select("*")
-        .single();
+    const { error } = editing 
+      ? await supabase.from("clients").update(payload).eq("id", editing.id)
+      : await supabase.from("clients").insert([payload]);
 
-      if (error) return alert("No se pudo crear: " + error.message);
-
-      setClients((prev) => [data as ClientRow, ...prev]);
-      setModalOpen(false);
-      resetForm();
-      return;
-    }
-
-    // UPDATE
-    const { error } = await supabase
-      .from("clients")
-      .update({
-        full_name: fullName.trim(),
-        phone: phone.trim() || null,
-        email: email.trim() || null,
-        notes: notes.trim() || null,
-      })
-      .eq("id", editing.id)
-      .eq("org_id", ORG_ID);
-
-    if (error) return alert("No se pudo actualizar: " + error.message);
-
-    setClients((prev) =>
-      prev.map((c) =>
-        c.id === editing.id
-          ? {
-              ...c,
-              full_name: fullName.trim(),
-              phone: phone.trim() || null,
-              email: email.trim() || null,
-              notes: notes.trim() || null,
-            }
-          : c
-      )
-    );
-
-    setModalOpen(false);
-    setEditing(null);
-    resetForm();
+    if (!error) { setModalOpen(false); loadClients(); }
   };
 
-  const deleteClient = async (clientId: string) => {
-    const ok = confirm("¿Eliminar cliente? (Las reservas quedarán con client_id null si aplica)");
-    if (!ok) return;
-
-    const { error } = await supabase.from("clients").delete().eq("id", clientId).eq("org_id", ORG_ID);
-    if (error) return alert("No se pudo eliminar: " + error.message);
-
-    setClients((prev) => prev.filter((c) => c.id !== clientId));
-  };
-
-  const onPickAvatar = async (file: File, client: ClientRow) => {
-    try {
-      // 1) subimos
-      const url = await uploadClientAvatar(file, client.id);
-
-      // 2) guardamos en DB
-      const { error } = await supabase
-        .from("clients")
-        .update({ avatar_url: url })
-        .eq("id", client.id)
-        .eq("org_id", ORG_ID);
-
-      if (error) throw new Error(error.message);
-
-      // 3) refrescamos local
-      setClients((prev) => prev.map((c) => (c.id === client.id ? { ...c, avatar_url: url } : c)));
-    } catch (e: any) {
-      alert("Error subiendo avatar: " + e.message);
-    }
+  const onPickAvatar = async (file: File, clientId: string) => {
+    const path = `clients/${clientId}.${file.name.split(".").pop()}`;
+    await supabase.storage.from(BUCKET).upload(path, file, { upsert: true });
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+    await supabase.from("clients").update({ avatar_url: data.publicUrl }).eq("id", clientId);
+    loadClients();
   };
 
   return (
-    <div style={{ padding: 24, background: "#fafafa", minHeight: "100vh" }}>
-      {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 980, letterSpacing: -0.3 }}>Clientes 👤</h1>
-          <div style={{ marginTop: 6, color: "#64748b", fontWeight: 700 }}>
-            Crea clientes con avatar para mostrarlos en el calendario (AgendaPro style).
+    <div className="min-h-screen bg-[#09090b] text-zinc-400 p-8 font-sans relative overflow-hidden">
+      {/* 🟢 AURA ESMERALDA */}
+      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none z-0" />
+
+      <div className="relative z-10 max-w-5xl mx-auto">
+        {/* HEADER */}
+        <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <Link href="/dashboard" className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] hover:text-white transition-colors mb-4 text-zinc-500">
+              <ArrowLeft className="h-3 w-3" /> Dashboard
+            </Link>
+            <h1 className="text-3xl font-light text-white tracking-tight">Base de <span className="text-zinc-600 italic">Clientes</span></h1>
+          </div>
+
+          <div className="flex gap-3">
+            <div className="relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-600 group-focus-within:text-emerald-500 transition-colors" />
+              <input 
+                value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar por nombre, tel..."
+                className="pl-10 pr-4 py-2.5 bg-zinc-900/40 border border-zinc-800/50 rounded-xl text-xs text-white focus:ring-1 focus:ring-emerald-500/50 outline-none w-64 transition-all"
+              />
+            </div>
+            <button onClick={() => { setEditing(null); setModalOpen(true); }} className="px-5 py-2.5 rounded-xl bg-white text-black hover:bg-emerald-400 transition-all text-xs font-bold shadow-2xl flex items-center gap-2">
+              <Plus className="h-4 w-4" /> NUEVO CLIENTE
+            </button>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, teléfono o email..."
-            style={{
-              width: 320,
-              padding: "10px 12px",
-              borderRadius: 14,
-              border: "1px solid rgba(15,23,42,0.10)",
-              background: "white",
-              boxShadow: "0 10px 26px rgba(0,0,0,0.05)",
-              fontWeight: 700,
-            }}
-          />
-
-          <button
-            onClick={openCreate}
-            style={{
-              padding: "10px 14px",
-              borderRadius: 14,
-              border: "1px solid rgba(15,23,42,0.10)",
-              cursor: "pointer",
-              fontWeight: 980,
-              background: "linear-gradient(180deg,#111827,#0b1220)",
-              color: "white",
-              boxShadow: "0 12px 26px rgba(0,0,0,0.18)",
-            }}
-          >
-            + Nuevo cliente
-          </button>
-        </div>
-      </div>
-
-      {/* LIST */}
-      <div
-        style={{
-          marginTop: 16,
-          border: "1px solid rgba(15,23,42,0.08)",
-          borderRadius: 18,
-          background: "white",
-          boxShadow: "0 14px 34px rgba(0,0,0,0.06)",
-          overflow: "hidden",
-        }}
-      >
-        <div style={{ padding: 14, borderBottom: "1px solid rgba(15,23,42,0.06)", fontWeight: 980 }}>
-          {loading ? "Cargando..." : `${filteredClients.length} clientes`}
-        </div>
-
-        <div style={{ padding: 14 }}>
-          {filteredClients.length === 0 && !loading && (
-            <div style={{ color: "#64748b", fontWeight: 700 }}>No hay clientes todavía.</div>
-          )}
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12 }}>
-            {filteredClients.map((c) => (
-              <div
-                key={c.id}
-                style={{
-                  border: "1px solid rgba(15,23,42,0.08)",
-                  borderRadius: 18,
-                  padding: 14,
-                  boxShadow: "0 12px 26px rgba(0,0,0,0.05)",
-                  background: "linear-gradient(180deg,#fff,#fbfdff)",
-                }}
-              >
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  {/* Avatar */}
+        {/* GRID DE CLIENTES */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {loading ? (
+            <div className="col-span-full text-center py-20 text-xs tracking-widest animate-pulse">SINCRONIZANDO DATA DE CLIENTES...</div>
+          ) : filteredClients.map((c) => (
+            <div key={c.id} className="group bg-zinc-900/20 border border-zinc-800/50 rounded-2xl p-5 hover:border-emerald-500/30 transition-all duration-500 backdrop-blur-sm">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="relative h-14 w-14 rounded-full overflow-hidden border border-zinc-800 group-hover:border-emerald-500/50 transition-all">
                   {c.avatar_url ? (
-                    <img
-                      src={c.avatar_url}
-                      alt={c.full_name}
-                      width={54}
-                      height={54}
-                      style={{ borderRadius: 999, objectFit: "cover", border: "1px solid rgba(15,23,42,0.12)" }}
-                    />
+                    <img src={c.avatar_url} className="h-full w-full object-cover" alt={c.full_name} />
                   ) : (
-                    <div
-                      style={{
-                        width: 54,
-                        height: 54,
-                        borderRadius: 999,
-                        display: "grid",
-                        placeItems: "center",
-                        fontWeight: 980,
-                        background: "#eef2ff",
-                        color: "#111827",
-                        border: "1px solid rgba(15,23,42,0.12)",
-                      }}
-                    >
-                      {initials(c.full_name)}
+                    <div className="h-full w-full bg-zinc-800/50 flex items-center justify-center text-sm font-bold text-zinc-500 uppercase">
+                      {c.full_name.substring(0,2)}
                     </div>
                   )}
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 980, fontSize: 15, color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {c.full_name}
-                    </div>
-
-                    <div style={{ marginTop: 4, color: "#64748b", fontWeight: 700, fontSize: 12 }}>
-                      {c.phone ? `📞 ${c.phone}` : "📞 (sin teléfono)"}{" "}
-                      {c.email ? `· ✉️ ${c.email}` : ""}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Notes */}
-                {c.notes && (
-                  <div
-                    style={{
-                      marginTop: 10,
-                      padding: "10px 12px",
-                      borderRadius: 14,
-                      background: "#f8fafc",
-                      border: "1px solid rgba(15,23,42,0.06)",
-                      color: "#334155",
-                      fontWeight: 700,
-                      fontSize: 12,
-                    }}
-                  >
-                    {c.notes}
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
-                  <button
-                    onClick={() => openEdit(c)}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 14,
-                      border: "1px solid rgba(15,23,42,0.10)",
-                      cursor: "pointer",
-                      background: "white",
-                      fontWeight: 950,
-                      boxShadow: "0 10px 22px rgba(0,0,0,0.05)",
-                    }}
-                  >
-                    Editar
-                  </button>
-
-                  <label
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 14,
-                      border: "1px solid rgba(15,23,42,0.10)",
-                      cursor: "pointer",
-                      background: "white",
-                      fontWeight: 950,
-                      boxShadow: "0 10px 22px rgba(0,0,0,0.05)",
-                    }}
-                  >
-                    Cambiar foto
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: "none" }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        onPickAvatar(file, c);
-                        e.currentTarget.value = "";
-                      }}
-                    />
+                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                    <Camera className="h-4 w-4 text-white" />
+                    <input type="file" className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && onPickAvatar(e.target.files[0], c.id)} />
                   </label>
-
-                  <button
-                    onClick={() => deleteClient(c.id)}
-                    style={{
-                      padding: "10px 12px",
-                      borderRadius: 14,
-                      border: "1px solid rgba(15,23,42,0.10)",
-                      cursor: "pointer",
-                      background: "white",
-                      fontWeight: 950,
-                    }}
-                  >
-                    Eliminar
-                  </button>
                 </div>
-
-                <div style={{ marginTop: 10, color: "#94a3b8", fontSize: 11, fontWeight: 700 }}>
-                  ID: {c.id}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-white font-medium text-base truncate">{c.full_name}</h3>
+                  <div className="flex flex-col gap-0.5 mt-1">
+                    {c.phone && <span className="text-[10px] text-zinc-500 flex items-center gap-1.5"><Phone className="h-3 w-3" /> {c.phone}</span>}
+                    {c.email && <span className="text-[10px] text-zinc-500 flex items-center gap-1.5"><Mail className="h-3 w-3" /> {c.email}</span>}
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
+
+              {c.notes && (
+                <div className="mb-4 p-3 rounded-xl bg-zinc-800/20 border border-zinc-700/20 text-[10px] text-zinc-500 italic flex gap-2">
+                  <MessageSquare className="h-3 w-3 shrink-0" />
+                  <p className="line-clamp-2">{c.notes}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2 border-t border-zinc-800/50">
+                <button onClick={() => { setEditing(c); setModalOpen(true); }} className="flex-1 py-2 rounded-lg bg-zinc-800/40 text-zinc-400 hover:text-white border border-zinc-700/30 text-[10px] font-bold transition-all">EDITAR</button>
+                <button onClick={() => { if(confirm("¿Eliminar?")) supabase.from("clients").delete().eq("id", c.id).then(() => loadClients()); }} className="p-2 rounded-lg bg-zinc-800/40 text-zinc-600 hover:text-red-400 border border-zinc-700/30 transition-all"><Trash2 className="h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* MODAL CREATE/EDIT */}
+      {/* MODAL (Look Gemini) */}
       {modalOpen && (
-        <div
-          onClick={() => setModalOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            padding: 16,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: 520,
-              background: "white",
-              borderRadius: 18,
-              padding: 14,
-              boxShadow: "0 14px 40px rgba(0,0,0,.30)",
-              border: "1px solid rgba(15,23,42,0.10)",
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-              <div style={{ fontWeight: 980, fontSize: 16 }}>{editing ? "Editar cliente" : "Nuevo cliente"}</div>
-              <button
-                onClick={() => setModalOpen(false)}
-                style={{
-                  border: "1px solid rgba(15,23,42,0.12)",
-                  borderRadius: 14,
-                  padding: "8px 10px",
-                  cursor: "pointer",
-                  background: "white",
-                  fontWeight: 900,
-                }}
-              >
-                Cerrar
-              </button>
-            </div>
-
-            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-              <input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Nombre completo"
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 14,
-                  border: "1px solid rgba(15,23,42,0.10)",
-                  fontWeight: 700,
-                }}
-              />
-
-              <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Teléfono (opcional)"
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 14,
-                  border: "1px solid rgba(15,23,42,0.10)",
-                  fontWeight: 700,
-                }}
-              />
-
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email (opcional)"
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 14,
-                  border: "1px solid rgba(15,23,42,0.10)",
-                  fontWeight: 700,
-                }}
-              />
-
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Notas (opcional)"
-                style={{
-                  padding: "10px 12px",
-                  borderRadius: 14,
-                  border: "1px solid rgba(15,23,42,0.10)",
-                  fontWeight: 700,
-                  minHeight: 90,
-                  resize: "vertical",
-                }}
-              />
-
-              <button
-                onClick={saveClient}
-                style={{
-                  padding: "12px 14px",
-                  borderRadius: 14,
-                  border: "1px solid rgba(15,23,42,0.10)",
-                  cursor: "pointer",
-                  fontWeight: 980,
-                  background: "linear-gradient(180deg,#111827,#0b1220)",
-                  color: "white",
-                  boxShadow: "0 12px 26px rgba(0,0,0,0.20)",
-                }}
-              >
-                {editing ? "Guardar cambios" : "Crear cliente"}
-              </button>
-
-              {!editing && (
-                <div style={{ color: "#64748b", fontSize: 12, fontWeight: 700 }}>
-                  Tip: al crear el cliente podrás subir su foto con “Cambiar foto”.
-                </div>
-              )}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md bg-black/40">
+          <div className="bg-[#0c0c0e] border border-zinc-800 w-full max-w-md rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500/20" />
+            <h2 className="text-xl text-white font-light mb-6 tracking-tight">{editing ? 'Actualizar' : 'Registrar'} <span className="text-zinc-600">Cliente</span></h2>
+            
+            <div className="space-y-4">
+              <input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Nombre completo" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 text-sm text-white focus:border-emerald-500/50 outline-none" />
+              <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="WhatsApp / Teléfono" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 text-sm text-white focus:border-emerald-500/50 outline-none" />
+              <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 text-sm text-white focus:border-emerald-500/50 outline-none" />
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notas internas..." className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 text-sm text-white h-24 focus:border-emerald-500/50 outline-none resize-none" />
+              
+              <div className="flex gap-3 pt-4">
+                <button onClick={() => setModalOpen(false)} className="flex-1 py-3 rounded-xl bg-zinc-900 text-zinc-500 text-xs font-bold border border-zinc-800 hover:text-white transition-all uppercase">Cancelar</button>
+                <button onClick={saveClient} className="flex-1 py-3 rounded-xl bg-white text-black text-xs font-bold hover:bg-emerald-400 transition-all uppercase">Guardar</button>
+              </div>
             </div>
           </div>
         </div>
       )}
-
-      <div style={{ marginTop: 16 }}>
-        <a href="/dashboard" style={{ color: "#0f172a", fontWeight: 900, textDecoration: "none" }}>
-          ← volver al dashboard
-        </a>
-      </div>
     </div>
   );
 }
