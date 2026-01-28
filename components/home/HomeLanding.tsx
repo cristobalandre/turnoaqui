@@ -4,35 +4,34 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Outfit } from "next/font/google";
-import { ArrowRight, LogOut, Chrome, Lock, LayoutDashboard } from "lucide-react"; 
+import { ArrowRight, LogOut, Chrome, Lock, LayoutDashboard, User } from "lucide-react"; 
 import { Logo } from "@/components/ui/Logo";
-// ✅ CORRECCIÓN: Usamos la librería estándar para evitar errores de compilación
 import { createClient } from "@supabase/supabase-js";
 
 const outfit = Outfit({ subsets: ["latin"] });
 
-// 🖼️ IMÁGENES DE FONDO
 const HERO_IMAGES = [
   "/fondo1.png", 
   "/fondo2.png",
   "/fondo3.png"
 ];
 
+// 🛑 CLAVE PARA EVITAR PARPADEOS: 
+// Creamos el cliente FUERA del componente para que no se reinicie constantemente.
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 export default function HomeLanding() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
-  // 🔐 ESTADOS DE SUPABASE
+  // Estados Reales
   const [user, setUser] = useState<any | null>(null);
   const [userName, setUserName] = useState<string>(""); 
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // ✅ INICIALIZACIÓN DIRECTA (Más segura para evitar errores de versiones)
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  
   const router = useRouter();
 
   // 1. Carrusel de Fondo
@@ -43,52 +42,62 @@ export default function HomeLanding() {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. 🛡️ VERIFICAR SESIÓN
+  // 2. VERIFICAR SESIÓN REAL (Sin nombres falsos)
   useEffect(() => {
     const checkUser = async () => {
-      setLoading(true);
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        setUser(session.user);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          setUser(session.user);
 
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('plan_status, full_name')
-          .eq('id', session.user.id)
-          .single();
+          // Buscar el nombre real en tu tabla 'profiles'
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('plan_status, full_name')
+            .eq('id', session.user.id)
+            .single();
 
-        if (profile) {
-            setUserName(profile.full_name || session.user.user_metadata?.full_name || 'Usuario');
-            
-            if (profile.plan_status === 'active') { 
-                setIsAuthorized(true);
-            } else {
-                setIsAuthorized(false);
-            }
+          if (profile) {
+              // Si existe perfil, usamos ese nombre. Si no, el de Google.
+              setUserName(profile.full_name || session.user.user_metadata?.full_name || 'Usuario');
+              
+              // Verificar si está activo
+              if (profile.plan_status === 'active') { 
+                  setIsAuthorized(true);
+              } else {
+                  setIsAuthorized(false);
+              }
+          } else {
+              // Si no hay perfil, usamos el nombre de Google
+              setIsAuthorized(false);
+              setUserName(session.user.user_metadata?.full_name || 'Usuario');
+          }
         } else {
-            setIsAuthorized(false);
-            setUserName(session.user.user_metadata?.full_name || 'Usuario');
+          setUser(null);
+          setIsAuthorized(false);
         }
-      } else {
-        setUser(null);
-        setIsAuthorized(false);
+      } catch (error) {
+        console.error("Error verificando sesión:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     checkUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      checkUser();
+    // Escuchar cambios de sesión (Login/Logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        checkUser();
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, [supabase]);
+  }, []);
 
 
-  // 3. 🚀 LOGIN CON GOOGLE
+  // LOGIN CON GOOGLE
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -98,17 +107,19 @@ export default function HomeLanding() {
     });
   };
 
-  // 4. 🚪 LOGOUT
+  // LOGOUT
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
     setIsAuthorized(false);
+    setUserName("");
     router.refresh();
   };
 
   return (
     <div className={`min-h-screen bg-[#0F1112] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative`}>
       
+      {/* FONDO */}
       <div className="fixed inset-0 z-0">
         {HERO_IMAGES.map((img, index) => (
           <div
@@ -127,6 +138,7 @@ export default function HomeLanding() {
         <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-emerald-500/10 blur-[120px] rounded-full opacity-60" />
       </div>
 
+      {/* NAVBAR */}
       <nav className="relative z-50 w-full border-b border-white/5 bg-[#0F1112]/60 backdrop-blur-xl transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
@@ -163,7 +175,6 @@ export default function HomeLanding() {
               <>
                 <div className="hidden md:flex items-center gap-10 text-sm font-medium text-gray-400">
                   <a href="#features" className="hover:text-emerald-400 transition-colors">Características</a>
-                  <a href="#security" className="hover:text-emerald-400 transition-colors">Seguridad</a>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -182,6 +193,7 @@ export default function HomeLanding() {
         </div>
       </nav>
 
+      {/* HERO SECTION */}
       <main className="relative z-10 mx-auto max-w-7xl px-6 pt-24 pb-32 text-center">
         <div className="mb-8 flex justify-center">
           {user ? (
