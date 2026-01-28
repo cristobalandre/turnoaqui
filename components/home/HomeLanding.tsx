@@ -16,7 +16,7 @@ const HERO_IMAGES = [
   "/fondo3.png"
 ];
 
-// Cliente de Supabase (Fuera del componente para estabilidad)
+// Cliente de Supabase (Solo para verificar sesión, no para login directo aquí)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -41,7 +41,7 @@ export default function HomeLanding() {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. Verificar Sesión y Permisos
+  // 2. Verificar Sesión Actual
   useEffect(() => {
     const checkUser = async () => {
       try {
@@ -61,7 +61,6 @@ export default function HomeLanding() {
               const realName = profile.full_name || session.user.user_metadata?.full_name || 'Usuario';
               setUserName(realName);
               
-              // ✅ AQUÍ OCURRE LA MAGIA DE SEGURIDAD
               if (profile.plan_status === 'active') { 
                   setIsAuthorized(true);
               } else {
@@ -93,19 +92,7 @@ export default function HomeLanding() {
     return () => subscription.unsubscribe();
   }, []);
 
-
-  // 3. LOGIN CON GOOGLE (CORREGIDO)
-  const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        // ✅ CORRECCIÓN: Redirigimos a la raíz (Home) para que se ejecute la validación antes de entrar.
-        redirectTo: `${window.location.origin}/`, 
-      },
-    });
-  };
-
-  // 4. LOGOUT
+  // 3. LOGOUT
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -145,6 +132,7 @@ export default function HomeLanding() {
 
           <div className="flex items-center gap-6">
             {!loading && user ? (
+              // ✅ USUARIO LOGUEADO
               <div className={`flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500`}>
                 <div className="hidden md:flex flex-col items-end mr-2">
                   <span className={`text-[10px] uppercase tracking-widest font-bold ${isAuthorized ? 'text-emerald-500' : 'text-yellow-500'}`}>
@@ -170,20 +158,23 @@ export default function HomeLanding() {
                 </div>
               </div>
             ) : (
+              // ❌ INVITADO: Enlaces a /login
               <>
                 <div className="hidden md:flex items-center gap-10 text-sm font-medium text-gray-400">
                   <a href="#features" className="hover:text-emerald-400 transition-colors">Características</a>
                 </div>
 
                 <div className="flex items-center gap-3">
-                   <button onClick={handleLogin} className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white group" title="Ingresar con Google">
+                   {/* Botón Icono Google -> Va al Login */}
+                   <Link href="/login" className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white group" title="Ingresar">
                       <Chrome className="w-4 h-4 text-zinc-400 group-hover:text-white" />
-                   </button>
+                   </Link>
 
-                   <button onClick={handleLogin} className="group relative inline-flex h-10 items-center justify-center overflow-hidden rounded-lg bg-emerald-600 px-6 text-sm font-medium text-white transition-all hover:bg-emerald-500 shadow-lg shadow-emerald-500/20">
+                   {/* Botón Principal -> Va al Login */}
+                   <Link href="/login" className="group relative inline-flex h-10 items-center justify-center overflow-hidden rounded-lg bg-emerald-600 px-6 text-sm font-medium text-white transition-all hover:bg-emerald-500 shadow-lg shadow-emerald-500/20">
                     <span>Ingresar</span>
                     <ArrowRight className="ml-2 h-4 w-4" />
-                  </button>
+                  </Link>
                 </div>
               </>
             )}
@@ -196,7 +187,6 @@ export default function HomeLanding() {
         <div className="mb-8 flex justify-center">
           {user ? (
              isAuthorized ? (
-               // ✅ AUTORIZADO
                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-bold text-emerald-400 backdrop-blur-md animate-in fade-in zoom-in duration-500">
                  <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -205,7 +195,6 @@ export default function HomeLanding() {
                  Sistema Operativo Online
                </div>
              ) : (
-               // ❌ BLOQUEADO
                <div className="inline-flex items-center gap-2 rounded-full border border-yellow-500/20 bg-yellow-500/10 px-4 py-1.5 text-xs font-bold text-yellow-400 backdrop-blur-md animate-in fade-in zoom-in duration-500">
                  <Lock className="w-3 h-3" />
                  Acceso Restringido - Contacta al Admin
@@ -262,13 +251,13 @@ export default function HomeLanding() {
               </button>
             )
           ) : (
-            // BOTÓN LOGIN
-            <button 
-              onClick={handleLogin}
+            // ✅ BOTÓN VISITANTE -> Va al nuevo /login
+            <Link 
+              href="/login"
               className="h-14 px-10 rounded-2xl bg-white text-black font-black flex items-center justify-center hover:bg-emerald-400 transition-all shadow-xl shadow-emerald-500/10 uppercase text-xs tracking-widest hover:scale-105 active:scale-95"
             >
               Entrar a la Consola
-            </button>
+            </Link>
           )}
         </div>
       </main>
