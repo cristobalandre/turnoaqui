@@ -22,7 +22,7 @@ import { QuickCreatePanel } from "@/components/calendar/QuickCreatePanel";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { ClientModal } from "@/components/calendar/ClientModal";
 import { MonthlyViewModal } from "@/components/calendar/MonthlyViewModal";
-// ✅ IMPORTAMOS LOS NUEVOS ICONOS VECTORIALES
+// ✅ IMPORTAMOS LOS ICONOS VECTORIALES
 import { IconArrowLeft, IconArrowRight, IconCalendarAudit, IconChart, IconPlus, IconUser } from "@/components/ui/VectorIcons";
 
 // --- UTILIDADES ---
@@ -280,14 +280,13 @@ export default function CalendarClient() {
           <div><Logo size="text-4xl" />
           
           <div className="flex items-center gap-4">
-             {/* BOTÓN AURA: Vista Mensual con NUEVO ICONO */}
+             {/* BOTÓN AURA: Vista Mensual */}
             <button 
                 onClick={() => setShowMonthlyModal(true)}
                 className="relative group bg-zinc-900 border border-zinc-800 px-6 py-2 rounded-2xl overflow-hidden transition-all hover:border-emerald-500/50 hover:scale-105 active:scale-95 shadow-xl"
             >
                 <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <div className="relative flex items-center gap-3">
-                    {/* ✅ ICONO AUDITORÍA */}
                     <IconCalendarAudit className="text-emerald-400 group-hover:text-emerald-300 transition-colors" size={28} />
                     <div className="flex flex-col text-left">
                         <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Auditoría</span>
@@ -297,12 +296,11 @@ export default function CalendarClient() {
             </button>
 
             <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800/50 backdrop-blur-md">
-                {/* ✅ ICONOS FLECHAS */}
                 <button onClick={() => setViewStart(d => addDays(d, -1))} className="p-2 text-zinc-400 hover:text-white transition-all"> <IconArrowLeft size={18} /> </button>
                 <div className="px-6 text-center border-x border-zinc-800/50"><span className="text-[9px] block text-zinc-600 font-bold mb-0.5 uppercase tracking-widest">Timeline</span><span className="text-sm font-bold">{headerRangeLabel}</span></div>
                 <button onClick={() => setViewStart(d => addDays(d, 1))} className="p-2 text-zinc-400 hover:text-white transition-all"> <IconArrowRight size={18} /> </button>
             </div>
-            {/* ✅ ICONO PLUS EN BOTÓN NUEVA RESERVA */}
+            
             <button 
               onClick={() => setStartAt(new Date().toISOString().slice(0, 16))} 
               className="bg-emerald-500 text-black px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2"
@@ -311,6 +309,7 @@ export default function CalendarClient() {
             </button>
           </div>
         </div>
+        </div> {/* Cierre del div del header */}
 
         {/* BARRA TÉCNICA */}
         <div className="flex flex-wrap items-center gap-4 mb-6 bg-zinc-900/30 p-3 rounded-[28px] border border-zinc-800/50 backdrop-blur-sm">
@@ -331,7 +330,6 @@ export default function CalendarClient() {
           </div>
 
           <div className="flex-1" />
-          {/* ✅ ICONOS STATS Y USER */}
           <button onClick={() => setShowStats(!showStats)} className={`p-3 rounded-xl border transition-all ${showStats ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-zinc-800/40 border-zinc-700/30 text-zinc-500 hover:text-white'}`}>
             <IconChart size={20} />
           </button>
@@ -342,7 +340,6 @@ export default function CalendarClient() {
           <button onClick={exportToExcel} className="px-5 py-3 bg-zinc-800/20 border border-zinc-700/20 text-zinc-500 text-[9px] font-black tracking-widest uppercase rounded-2xl hover:border-zinc-500 transition-all">CSV</button>
         </div>
 
-        {/* ... (STATS, PANELS, GRID IGUAL QUE ANTES) ... */}
         {showStats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
@@ -395,6 +392,7 @@ export default function CalendarClient() {
             rooms={rooms}
           />
         )}
-    </div>
-   </div>
+      </div> {/* Cierre del div "relative z-10" */}
+    </div> {/* Cierre del div "min-h-screen" (EL QUE FALTABA) */}
   );
+}
