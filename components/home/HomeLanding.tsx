@@ -50,7 +50,6 @@ export default function HomeLanding() {
         if (session?.user) {
           setUser(session.user);
 
-          // Consultar perfil
           const { data: profile } = await supabase
             .from('profiles')
             .select('plan_status, full_name')
@@ -60,12 +59,7 @@ export default function HomeLanding() {
           if (profile) {
               const realName = profile.full_name || session.user.user_metadata?.full_name || 'Usuario';
               setUserName(realName);
-              
-              if (profile.plan_status === 'active') { 
-                  setIsAuthorized(true);
-              } else {
-                  setIsAuthorized(false);
-              }
+              setIsAuthorized(profile.plan_status === 'active');
           } else {
               setIsAuthorized(false);
               setUserName(session.user.user_metadata?.full_name || 'Usuario');
@@ -82,13 +76,9 @@ export default function HomeLanding() {
     };
 
     checkUser();
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        checkUser();
-      }
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') checkUser();
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -104,15 +94,17 @@ export default function HomeLanding() {
   return (
     <div className={`min-h-screen bg-[#0F1112] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* --- FONDO NUEVO (Estilo Cine con Viñeta) --- */}
-      {/* Ya no es fixed inset-0, ahora es un contenedor superior con máscara */}
+      {/* --- FONDO MEJORADO (Viñeta más agresiva) --- */}
       <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
          <div 
            className="relative w-full h-full max-w-[1400px] mx-auto"
            style={{
-             // MÁSCARA MÁGICA: Desvanece bordes laterales e inferior
-             maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%), linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%)',
-             WebkitMaskImage: 'linear-gradient(to bottom, black 60%, transparent 100%), linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)',
+             // 🛠️ AQUÍ ESTÁ EL CAMBIO:
+             // Aumenté el rango de negro (transparent -> black) del 15% al 30%
+             // y reduje el final del 85% al 70%.
+             // Esto "come" más imagen de los lados para ocultar el corte.
+             maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
+             WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
              maskComposite: 'intersect',
              WebkitMaskComposite: 'source-in'
            }}
@@ -121,18 +113,18 @@ export default function HomeLanding() {
               <div
                 key={index}
                 className={`absolute inset-0 bg-cover bg-center transition-all duration-[2500ms] ease-in-out ${
-                  index === currentImageIndex ? "opacity-60 scale-100" : "opacity-0 scale-105"
+                  index === currentImageIndex ? "opacity-50 scale-100" : "opacity-0 scale-105"
                 }`}
                 style={{ backgroundImage: `url(${img})` }}
               />
             ))}
          </div>
          
-         {/* Degradado extra para suavizar la unión con el negro abajo */}
-         <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-[#0F1112] to-transparent" />
+         {/* Degradado inferior */}
+         <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-[#0F1112] via-[#0F1112]/80 to-transparent" />
       </div>
 
-      {/* Luces Ambientales (Atmósfera Esmeralda suave) */}
+      {/* Luces Ambientales */}
       <div className="fixed inset-0 z-0 pointer-events-none mix-blend-screen">
         <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[700px] bg-emerald-500/10 blur-[120px] rounded-full opacity-40" />
       </div>
@@ -146,7 +138,6 @@ export default function HomeLanding() {
 
           <div className="flex items-center gap-6">
             {!loading && user ? (
-              // ✅ USUARIO LOGUEADO
               <div className={`flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500`}>
                 <div className="hidden md:flex flex-col items-end mr-2">
                   <span className={`text-[10px] uppercase tracking-widest font-bold ${isAuthorized ? 'text-emerald-500' : 'text-yellow-500'}`}>
@@ -165,14 +156,12 @@ export default function HomeLanding() {
                           {userName.charAt(0).toUpperCase()}
                       </div>
                    )}
-                   
                    <button onClick={handleLogout} className="p-2 rounded-full hover:bg-white/5 text-zinc-400 hover:text-red-400 transition-colors" title="Cerrar Sesión">
                      <LogOut className="w-4 h-4" />
                    </button>
                 </div>
               </div>
             ) : (
-              // ❌ INVITADO
               <>
                 <div className="hidden md:flex items-center gap-10 text-sm font-medium text-gray-400">
                   <a href="#features" className="hover:text-emerald-400 transition-colors">Características</a>
@@ -194,7 +183,7 @@ export default function HomeLanding() {
         </div>
       </nav>
 
-      {/* HERO SECTION (Contenido Principal) */}
+      {/* HERO SECTION */}
       <main className="relative z-10 flex-grow flex flex-col items-center justify-center pt-20 pb-32 text-center px-6">
         
         {/* Badge Estado */}
