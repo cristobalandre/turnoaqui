@@ -2,17 +2,17 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // Para redirigir
+import { useRouter } from "next/navigation";
 import { Outfit } from "next/font/google";
 import { ArrowRight, LogOut, Chrome, Lock, LayoutDashboard } from "lucide-react"; 
 import { Logo } from "@/components/ui/Logo";
-// 👇 Importamos el cliente real de Supabase
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+// ✅ CORRECCIÓN: Usamos la librería estándar para evitar errores de compilación
+import { createClient } from "@supabase/supabase-js";
 
 const outfit = Outfit({ subsets: ["latin"] });
 
-// 🖼️ TUS IMÁGENES DE FONDO (Intacto)
-const heroImages = [
+// 🖼️ IMÁGENES DE FONDO
+const HERO_IMAGES = [
   "/fondo1.png", 
   "/fondo2.png",
   "/fondo3.png"
@@ -21,53 +21,53 @@ const heroImages = [
 export default function HomeLanding() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
-  // 🔐 ESTADOS REALES (Sustituimos la simulación por esto)
+  // 🔐 ESTADOS DE SUPABASE
   const [user, setUser] = useState<any | null>(null);
   const [userName, setUserName] = useState<string>(""); 
-  const [isAuthorized, setIsAuthorized] = useState(false); // Estado de plan_status
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const supabase = createClientComponentClient();
+  // ✅ INICIALIZACIÓN DIRECTA (Más segura para evitar errores de versiones)
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  
   const router = useRouter();
 
-  // ⏱️ Lógica del Carrusel (Intacto)
+  // 1. Carrusel de Fondo
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % heroImages.length);
+      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % HERO_IMAGES.length);
     }, 10000); 
     return () => clearInterval(interval);
   }, []);
 
-  // 🛡️ LÓGICA DE SEGURIDAD REAL
+  // 2. 🛡️ VERIFICAR SESIÓN
   useEffect(() => {
     const checkUser = async () => {
       setLoading(true);
       
-      // 1. Verificamos si hay sesión activa
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
         setUser(session.user);
 
-        // 2. Consultamos tu tabla 'profiles' para ver si pagó/está activo
-        const { data: profile, error } = await supabase
-          .from('profiles') // Nombre exacto de tu tabla
-          .select('plan_status, full_name') // Campos necesarios
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('plan_status, full_name')
           .eq('id', session.user.id)
           .single();
 
         if (profile) {
-            // Usamos el nombre real de la base de datos o el de Google
             setUserName(profile.full_name || session.user.user_metadata?.full_name || 'Usuario');
             
-            // ✅ CONDICIÓN DE ACCESO: plan_status debe ser 'active'
             if (profile.plan_status === 'active') { 
                 setIsAuthorized(true);
             } else {
                 setIsAuthorized(false);
             }
         } else {
-            // Si no tiene perfil, asumimos no autorizado
             setIsAuthorized(false);
             setUserName(session.user.user_metadata?.full_name || 'Usuario');
         }
@@ -80,7 +80,6 @@ export default function HomeLanding() {
 
     checkUser();
 
-    // Escuchar cambios de sesión en tiempo real
     const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       checkUser();
     });
@@ -89,18 +88,17 @@ export default function HomeLanding() {
   }, [supabase]);
 
 
-  // 🚀 LOGIN CON GOOGLE
+  // 3. 🚀 LOGIN CON GOOGLE
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // Al terminar, intenta llevarlo al dashboard (la seguridad interna lo rebotará si no está activo, pero aquí lo intentamos)
         redirectTo: `${window.location.origin}/dashboard`,
       },
     });
   };
 
-  // 🚪 CERRAR SESIÓN
+  // 4. 🚪 LOGOUT
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -111,9 +109,8 @@ export default function HomeLanding() {
   return (
     <div className={`min-h-screen bg-[#0F1112] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative`}>
       
-      {/* --- 1. FONDO DINÁMICO (Intacto) --- */}
       <div className="fixed inset-0 z-0">
-        {heroImages.map((img, index) => (
+        {HERO_IMAGES.map((img, index) => (
           <div
             key={index}
             className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[2000ms] ease-in-out ${
@@ -126,26 +123,20 @@ export default function HomeLanding() {
         <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-transparent to-[#09090b]/50" />
       </div>
 
-      {/* --- 2. ILUMINACIÓN AMBIENTAL (Intacto) --- */}
       <div className="fixed inset-0 z-0 pointer-events-none mix-blend-screen">
         <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-emerald-500/10 blur-[120px] rounded-full opacity-60" />
       </div>
 
-      {/* --- NAVBAR --- */}
       <nav className="relative z-50 w-full border-b border-white/5 bg-[#0F1112]/60 backdrop-blur-xl transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
-          
           <div className="flex items-center gap-3">
             <Logo size="text-4xl" />
           </div>
 
           <div className="flex items-center gap-6">
-            
             {!loading && user ? (
-              // ✅ ESTADO: USUARIO LOGUEADO (CON DATOS REALES)
               <div className={`flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500`}>
                 <div className="hidden md:flex flex-col items-end mr-2">
-                  {/* Etiqueta de estado basada en la base de datos */}
                   <span className={`text-[10px] uppercase tracking-widest font-bold ${isAuthorized ? 'text-emerald-500' : 'text-yellow-500'}`}>
                     {isAuthorized ? 'Consola Activa' : 'Pago Pendiente'}
                   </span>
@@ -155,7 +146,6 @@ export default function HomeLanding() {
                 </div>
 
                 <div className="flex items-center gap-2 pl-4 border-l border-white/10">
-                   {/* Avatar real de Google o Inicial */}
                    {user.user_metadata?.avatar_url ? (
                       <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-9 h-9 rounded-full border-2 border-black shadow-lg shadow-emerald-500/20" />
                    ) : (
@@ -170,7 +160,6 @@ export default function HomeLanding() {
                 </div>
               </div>
             ) : (
-              // ❌ ESTADO: VISITANTE (TU DISEÑO ORIGINAL)
               <>
                 <div className="hidden md:flex items-center gap-10 text-sm font-medium text-gray-400">
                   <a href="#features" className="hover:text-emerald-400 transition-colors">Características</a>
@@ -193,14 +182,10 @@ export default function HomeLanding() {
         </div>
       </nav>
 
-      {/* --- HERO SECTION --- */}
       <main className="relative z-10 mx-auto max-w-7xl px-6 pt-24 pb-32 text-center">
-        
-        {/* BADGE DE ESTADO (Condicional Real) */}
         <div className="mb-8 flex justify-center">
           {user ? (
              isAuthorized ? (
-               // 🟢 AUTORIZADO (plan_status = active)
                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-bold text-emerald-400 backdrop-blur-md animate-in fade-in zoom-in duration-500">
                  <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -209,14 +194,12 @@ export default function HomeLanding() {
                  Sistema Operativo Online
                </div>
              ) : (
-               // ⚠️ NO AUTORIZADO
                <div className="inline-flex items-center gap-2 rounded-full border border-yellow-500/20 bg-yellow-500/10 px-4 py-1.5 text-xs font-bold text-yellow-400 backdrop-blur-md animate-in fade-in zoom-in duration-500">
                  <Lock className="w-3 h-3" />
                  Acceso Restringido - Contacta al Admin
                </div>
              )
           ) : (
-            // ⚪ VISITANTE (Original)
             <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-emerald-400 backdrop-blur-md">
                 <span className="flex h-2 w-2 relative">
                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -227,12 +210,10 @@ export default function HomeLanding() {
           )}
         </div>
 
-        {/* LOGO HERO */}
         <div className="mb-8 drop-shadow-2xl">
            <Logo size="text-6xl md:text-8xl" />
         </div>
 
-        {/* TÍTULO H1 DINÁMICO */}
         <h1 className="mx-auto max-w-4xl text-5xl font-medium tracking-tight text-white sm:text-7xl mb-8 leading-[1.1] drop-shadow-lg transition-all duration-500">
           {user ? (
             <span className="animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -247,11 +228,9 @@ export default function HomeLanding() {
           )}
         </h1>
 
-        {/* BOTONES DE ACCIÓN */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-24">
           {user ? (
             isAuthorized ? (
-              // 🟢 BOTÓN HABILITADO -> VA AL DASHBOARD
               <Link 
                 href="/dashboard" 
                 className="h-14 px-10 rounded-2xl bg-white text-black font-black flex items-center justify-center gap-2 hover:bg-emerald-400 transition-all shadow-xl shadow-emerald-500/10 uppercase text-xs tracking-widest hover:scale-105 active:scale-95"
@@ -260,7 +239,6 @@ export default function HomeLanding() {
                 Ir al Dashboard
               </Link>
             ) : (
-              // 🔴 BOTÓN BLOQUEADO (NO ACTIVO)
               <button 
                 disabled
                 className="h-14 px-10 rounded-2xl bg-white/5 text-zinc-500 font-bold flex items-center justify-center gap-2 cursor-not-allowed uppercase text-xs tracking-widest border border-white/10"
@@ -270,7 +248,6 @@ export default function HomeLanding() {
               </button>
             )
           ) : (
-            // ⚪ BOTÓN DE LOGIN (VISITANTE)
             <button 
               onClick={handleLogin}
               className="h-14 px-10 rounded-2xl bg-white text-black font-black flex items-center justify-center hover:bg-emerald-400 transition-all shadow-xl shadow-emerald-500/10 uppercase text-xs tracking-widest hover:scale-105 active:scale-95"
