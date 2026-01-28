@@ -3,14 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Outfit } from "next/font/google";
-import { Loader2, Mail, Lock, ArrowRight } from "lucide-react";
+// 1. Agregamos ArrowLeft aquí 👇
+import { Loader2, Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
-// ✅ USAMOS LA CONEXIÓN DIRECTA (Igual que en HomeLanding para evitar errores)
 import { createClient } from "@supabase/supabase-js";
+// 2. Importamos Link aquí 👇
+import Link from "next/link";
 
 const outfit = Outfit({ subsets: ["latin"] });
 
-// Inicializamos el cliente aquí mismo
+// Tu conexión directa que funciona bien
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -19,21 +21,17 @@ const supabase = createClient(
 export default function LoginPage() {
   const router = useRouter();
   
-  // Estado para alternar entre Login y Registro
   const [isSignUp, setIsSignUp] = useState(false);
-  
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'error' | 'success', text: string } | null>(null);
 
-  // 1. LOGIN CON GOOGLE
   const onGoogleLogin = async () => {
     setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        // Redirige al Callback para verificar
         redirectTo: `${location.origin}/auth/callback`,
       },
     });
@@ -44,18 +42,15 @@ export default function LoginPage() {
     }
   };
 
-  // 2. LOGIN / REGISTRO POR CORREO
   const handleAuth = async () => {
     setLoading(true);
     setMsg(null);
 
     if (isSignUp) {
-      // --- MODO REGISTRO ---
       const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          // Importante: Redirigir al callback para confirmar el correo
           emailRedirectTo: `${location.origin}/auth/callback`,
         },
       });
@@ -66,7 +61,6 @@ export default function LoginPage() {
         setMsg({ type: 'success', text: "¡Cuenta creada! Revisa tu correo para confirmar." });
       }
     } else {
-      // --- MODO INICIO SESIÓN ---
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -85,13 +79,22 @@ export default function LoginPage() {
   return (
     <div className={`min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-[#0F1112] text-gray-100 ${outfit.className}`}>
       
+      {/* --- ✅ 3. NUEVO BOTÓN: VOLVER AL INICIO --- */}
+      <Link 
+        href="/" 
+        className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Volver al inicio
+      </Link>
+      {/* --------------------------------------------- */}
+
       {/* FONDO AMBIENTAL */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[800px] bg-emerald-500/10 blur-[150px] rounded-full opacity-50" />
         <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-teal-500/5 blur-[120px] rounded-full opacity-30" />
       </div>
 
-      {/* TARJETA PRINCIPAL */}
       <div className="relative z-10 w-full max-w-[420px] px-6">
         
         {/* LOGO GIGANTE Y HEADER */}
@@ -109,7 +112,6 @@ export default function LoginPage() {
 
         <div className="bg-zinc-900/50 border border-white/5 backdrop-blur-xl rounded-3xl p-8 shadow-2xl shadow-black/50">
           
-          {/* --- BOTÓN GOOGLE --- */}
           <button
             onClick={onGoogleLogin}
             disabled={loading}
@@ -128,14 +130,12 @@ export default function LoginPage() {
             <span>Continuar con Google</span>
           </button>
 
-          {/* Separador */}
           <div className="relative flex items-center py-6">
             <div className="flex-grow border-t border-white/5"></div>
             <span className="flex-shrink-0 px-4 text-[10px] uppercase tracking-widest text-zinc-600 font-bold">o con correo</span>
             <div className="flex-grow border-t border-white/5"></div>
           </div>
 
-          {/* Formulario */}
           <div className="space-y-4">
             <div className="relative group">
               <Mail className="absolute left-4 top-3.5 h-5 w-5 text-zinc-500 group-focus-within:text-emerald-400 transition-colors" />
@@ -160,7 +160,6 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Mensajes de Estado */}
           {msg && (
             <div className={`mt-4 p-3 rounded-xl text-xs font-bold text-center border animate-in fade-in slide-in-from-top-1 ${
               msg.type === 'success'
@@ -171,7 +170,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Botón de Acción Principal */}
           <button
             onClick={handleAuth}
             disabled={loading}
@@ -181,7 +179,6 @@ export default function LoginPage() {
             {!loading && <ArrowRight className="w-4 h-4" />}
           </button>
 
-          {/* Toggle Login/Registro */}
           <div className="mt-6 text-center">
             <button 
               onClick={() => { setIsSignUp(!isSignUp); setMsg(null); }}
