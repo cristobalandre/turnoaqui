@@ -16,8 +16,7 @@ const HERO_IMAGES = [
   "/fondo3.png"
 ];
 
-// 🛑 CLAVE PARA EVITAR PARPADEOS: 
-// Creamos el cliente FUERA del componente para que no se reinicie constantemente.
+// Cliente de Supabase (Fuera del componente para estabilidad)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -26,7 +25,7 @@ const supabase = createClient(
 export default function HomeLanding() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
-  // Estados Reales
+  // Estados de Usuario
   const [user, setUser] = useState<any | null>(null);
   const [userName, setUserName] = useState<string>(""); 
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -34,7 +33,7 @@ export default function HomeLanding() {
 
   const router = useRouter();
 
-  // 1. Carrusel de Fondo
+  // 1. Carrusel
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentImageIndex((prevIndex) => (prevIndex + 1) % HERO_IMAGES.length);
@@ -42,7 +41,7 @@ export default function HomeLanding() {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. VERIFICAR SESIÓN REAL (Sin nombres falsos)
+  // 2. Verificar Sesión y Permisos
   useEffect(() => {
     const checkUser = async () => {
       try {
@@ -51,7 +50,7 @@ export default function HomeLanding() {
         if (session?.user) {
           setUser(session.user);
 
-          // Buscar el nombre real en tu tabla 'profiles'
+          // Consultar perfil
           const { data: profile } = await supabase
             .from('profiles')
             .select('plan_status, full_name')
@@ -59,17 +58,16 @@ export default function HomeLanding() {
             .single();
 
           if (profile) {
-              // Si existe perfil, usamos ese nombre. Si no, el de Google.
-              setUserName(profile.full_name || session.user.user_metadata?.full_name || 'Usuario');
+              const realName = profile.full_name || session.user.user_metadata?.full_name || 'Usuario';
+              setUserName(realName);
               
-              // Verificar si está activo
+              // ✅ AQUÍ OCURRE LA MAGIA DE SEGURIDAD
               if (profile.plan_status === 'active') { 
                   setIsAuthorized(true);
               } else {
                   setIsAuthorized(false);
               }
           } else {
-              // Si no hay perfil, usamos el nombre de Google
               setIsAuthorized(false);
               setUserName(session.user.user_metadata?.full_name || 'Usuario');
           }
@@ -78,7 +76,7 @@ export default function HomeLanding() {
           setIsAuthorized(false);
         }
       } catch (error) {
-        console.error("Error verificando sesión:", error);
+        console.error("Error sesión:", error);
       } finally {
         setLoading(false);
       }
@@ -86,7 +84,6 @@ export default function HomeLanding() {
 
     checkUser();
 
-    // Escuchar cambios de sesión (Login/Logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
         checkUser();
@@ -97,17 +94,18 @@ export default function HomeLanding() {
   }, []);
 
 
-  // LOGIN CON GOOGLE
+  // 3. LOGIN CON GOOGLE (CORREGIDO)
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        // ✅ CORRECCIÓN: Redirigimos a la raíz (Home) para que se ejecute la validación antes de entrar.
+        redirectTo: `${window.location.origin}/`, 
       },
     });
   };
 
-  // LOGOUT
+  // 4. LOGOUT
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -198,6 +196,7 @@ export default function HomeLanding() {
         <div className="mb-8 flex justify-center">
           {user ? (
              isAuthorized ? (
+               // ✅ AUTORIZADO
                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-bold text-emerald-400 backdrop-blur-md animate-in fade-in zoom-in duration-500">
                  <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -206,6 +205,7 @@ export default function HomeLanding() {
                  Sistema Operativo Online
                </div>
              ) : (
+               // ❌ BLOQUEADO
                <div className="inline-flex items-center gap-2 rounded-full border border-yellow-500/20 bg-yellow-500/10 px-4 py-1.5 text-xs font-bold text-yellow-400 backdrop-blur-md animate-in fade-in zoom-in duration-500">
                  <Lock className="w-3 h-3" />
                  Acceso Restringido - Contacta al Admin
@@ -243,6 +243,7 @@ export default function HomeLanding() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-24">
           {user ? (
             isAuthorized ? (
+              // ✅ BOTÓN DE ENTRADA (SOLO SI ESTÁ AUTORIZADO)
               <Link 
                 href="/dashboard" 
                 className="h-14 px-10 rounded-2xl bg-white text-black font-black flex items-center justify-center gap-2 hover:bg-emerald-400 transition-all shadow-xl shadow-emerald-500/10 uppercase text-xs tracking-widest hover:scale-105 active:scale-95"
@@ -251,6 +252,7 @@ export default function HomeLanding() {
                 Ir al Dashboard
               </Link>
             ) : (
+              // ❌ BOTÓN BLOQUEADO (SI NO PAGÓ)
               <button 
                 disabled
                 className="h-14 px-10 rounded-2xl bg-white/5 text-zinc-500 font-bold flex items-center justify-center gap-2 cursor-not-allowed uppercase text-xs tracking-widest border border-white/10"
@@ -260,6 +262,7 @@ export default function HomeLanding() {
               </button>
             )
           ) : (
+            // BOTÓN LOGIN
             <button 
               onClick={handleLogin}
               className="h-14 px-10 rounded-2xl bg-white text-black font-black flex items-center justify-center hover:bg-emerald-400 transition-all shadow-xl shadow-emerald-500/10 uppercase text-xs tracking-widest hover:scale-105 active:scale-95"
