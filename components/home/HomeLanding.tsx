@@ -62,7 +62,7 @@ export default function HomeLanding() {
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
             {/* Logo en la barra (Pequeño) */}
-            <Logo size="text-4xl" />
+            <Logo size="text-6xl" />
           </div>
 
           <div className="hidden md:flex items-center gap-10 text-sm font-medium text-gray-400">
@@ -89,7 +89,7 @@ export default function HomeLanding() {
           TurnoAquí v1.0 - Consola de Operaciones
         </div>
 
-        {/* LOGO GRANDE EN EL HERO (Se ve increíble sobre el fondo ahumado) */}
+        {/* LOGO GRANDE EN EL HERO */}
         <div className="mb-8 drop-shadow-2xl">
            <Logo size="text-6xl md:text-8xl" />
         </div>
