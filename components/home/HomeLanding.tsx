@@ -16,7 +16,6 @@ const HERO_IMAGES = [
   "/fondo3.png"
 ];
 
-// Cliente de Supabase
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -24,16 +23,12 @@ const supabase = createClient(
 
 export default function HomeLanding() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  
-  // Estados de Usuario
   const [user, setUser] = useState<any | null>(null);
   const [userName, setUserName] = useState<string>(""); 
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
-
   const router = useRouter();
 
-  // 1. Carrusel
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentImageIndex((prevIndex) => (prevIndex + 1) % HERO_IMAGES.length);
@@ -41,15 +36,12 @@ export default function HomeLanding() {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. Verificar Sesión
   useEffect(() => {
     const checkUser = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
         if (session?.user) {
           setUser(session.user);
-
           const { data: profile } = await supabase
             .from('profiles')
             .select('plan_status, full_name')
@@ -74,7 +66,6 @@ export default function HomeLanding() {
         setLoading(false);
       }
     };
-
     checkUser();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') checkUser();
@@ -82,7 +73,6 @@ export default function HomeLanding() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 3. LOGOUT
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -94,15 +84,11 @@ export default function HomeLanding() {
   return (
     <div className={`min-h-screen bg-[#0F1112] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* --- FONDO MEJORADO (Viñeta más agresiva) --- */}
+      {/* FONDO CON VIÑETA MEJORADA */}
       <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
          <div 
            className="relative w-full h-full max-w-[1400px] mx-auto"
            style={{
-             // 🛠️ AQUÍ ESTÁ EL CAMBIO:
-             // Aumenté el rango de negro (transparent -> black) del 15% al 30%
-             // y reduje el final del 85% al 70%.
-             // Esto "come" más imagen de los lados para ocultar el corte.
              maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
              WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
              maskComposite: 'intersect',
@@ -119,12 +105,9 @@ export default function HomeLanding() {
               />
             ))}
          </div>
-         
-         {/* Degradado inferior */}
          <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-[#0F1112] via-[#0F1112]/80 to-transparent" />
       </div>
 
-      {/* Luces Ambientales */}
       <div className="fixed inset-0 z-0 pointer-events-none mix-blend-screen">
         <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[700px] bg-emerald-500/10 blur-[120px] rounded-full opacity-40" />
       </div>
@@ -135,7 +118,6 @@ export default function HomeLanding() {
           <div className="flex items-center gap-3">
             <Logo size="text-4xl" />
           </div>
-
           <div className="flex items-center gap-6">
             {!loading && user ? (
               <div className={`flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-500`}>
@@ -147,7 +129,6 @@ export default function HomeLanding() {
                     Hola, <span className="text-emerald-400 capitalize">{userName.split(' ')[0]}</span>
                   </span>
                 </div>
-
                 <div className="flex items-center gap-2 pl-4 border-l border-white/10">
                    {user.user_metadata?.avatar_url ? (
                       <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-9 h-9 rounded-full border-2 border-black shadow-lg shadow-emerald-500/20" />
@@ -166,12 +147,10 @@ export default function HomeLanding() {
                 <div className="hidden md:flex items-center gap-10 text-sm font-medium text-gray-400">
                   <a href="#features" className="hover:text-emerald-400 transition-colors">Características</a>
                 </div>
-
                 <div className="flex items-center gap-3">
                    <Link href="/login" className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white group" title="Ingresar">
                       <Chrome className="w-4 h-4 text-zinc-400 group-hover:text-white" />
                    </Link>
-
                    <Link href="/login" className="group relative inline-flex h-10 items-center justify-center overflow-hidden rounded-lg bg-emerald-600 px-6 text-sm font-medium text-white transition-all hover:bg-emerald-500 shadow-lg shadow-emerald-500/20">
                     <span>Ingresar</span>
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -184,7 +163,7 @@ export default function HomeLanding() {
       </nav>
 
       {/* HERO SECTION */}
-      <main className="relative z-10 flex-grow flex flex-col items-center justify-center pt-20 pb-32 text-center px-6">
+      <main className="relative z-10 flex-grow flex flex-col items-center justify-center pt-20 pb-20 text-center px-6">
         
         {/* Badge Estado */}
         <div className="mb-10 flex justify-center animate-in fade-in zoom-in duration-700 delay-100">
@@ -263,6 +242,32 @@ export default function HomeLanding() {
           )}
         </div>
       </main>
+
+      {/* --- FOOTER (AQUÍ ESTÁ LO NUEVO) --- */}
+      <footer className="relative z-10 w-full py-8 border-t border-white/5 bg-[#0F1112]/50 backdrop-blur-sm mt-auto">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col items-center justify-center gap-6">
+          
+          {/* Enlaces Legales */}
+          <div className="flex flex-wrap justify-center gap-6 md:gap-8 text-xs font-medium text-zinc-500">
+            <Link href="/legal/privacy" className="hover:text-emerald-400 transition-colors">
+              Política de Privacidad
+            </Link>
+            <Link href="/legal/terms" className="hover:text-emerald-400 transition-colors">
+              Términos y Condiciones
+            </Link>
+            <a href="mailto:soporte@turnoaqui.com" className="hover:text-emerald-400 transition-colors">
+              Contacto
+            </a>
+          </div>
+
+          {/* Copyright */}
+          <div className="text-[10px] text-zinc-700 font-bold uppercase tracking-widest flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-zinc-800"></span>
+            TurnoAquí © 2026 • Todos los derechos reservados
+            <span className="w-1.5 h-1.5 rounded-full bg-zinc-800"></span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
