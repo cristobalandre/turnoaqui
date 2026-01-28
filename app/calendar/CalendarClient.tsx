@@ -277,7 +277,7 @@ export default function CalendarClient() {
       <div className="relative z-10 max-w-[1600px] mx-auto">
         {/* HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-          <div><Logo size="text-4xl" /><p className="text-[10px] uppercase tracking-[0.4em] text-zinc-600 mt-1 font-black">Consola de Operaciones</p></div>
+          <div><Logo size="text-4xl" />
           
           <div className="flex items-center gap-4">
              {/* BOTÓN AURA: Vista Mensual con NUEVO ICONO */}
