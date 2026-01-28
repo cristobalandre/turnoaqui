@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { format, addDays, startOfWeek, endOfMonth, startOfMonth, eachDayOfInterval, isSameDay, isBefore, startOfDay, addMinutes } from "date-fns";
+// ✅ CORRECCIÓN: Agregué "isToday" a los imports
+import { format, addDays, startOfWeek, endOfMonth, startOfMonth, eachDayOfInterval, isSameDay, isBefore, startOfDay, addMinutes, isToday } from "date-fns";
 import { es } from "date-fns/locale";
 import { Upload, CheckCircle2, Loader2, Music, Calendar, Clock, MapPin, ChevronRight, User, Phone, ArrowLeft } from "lucide-react";
 import { Outfit } from "next/font/google";
@@ -62,7 +63,7 @@ export default function BookingPage() {
       const fileName = `${Math.random()}-${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('session-files') // Asegúrate de que este bucket exista y sea público
+        .from('session-files') 
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
