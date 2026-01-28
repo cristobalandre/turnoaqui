@@ -15,17 +15,14 @@ import {
 import { es } from "date-fns/locale";
 import { supabase as sb } from "@/lib/supabaseClient";
 
-// --- COMPONENTES ATOMIZADOS ---
 import { Logo } from "@/components/ui/Logo";
 import { SessionModal } from "@/components/calendar/SessionModal";
 import { QuickCreatePanel } from "@/components/calendar/QuickCreatePanel";
 import { CalendarGrid } from "@/components/calendar/CalendarGrid";
 import { ClientModal } from "@/components/calendar/ClientModal";
 import { MonthlyViewModal } from "@/components/calendar/MonthlyViewModal";
-// ✅ IMPORTAMOS LOS ICONOS VECTORIALES
 import { IconArrowLeft, IconArrowRight, IconCalendarAudit, IconChart, IconPlus, IconUser } from "@/components/ui/VectorIcons";
 
-// --- UTILIDADES ---
 import { isPastDateTime, DATE_ERROR_MSG } from "@/lib/validations";
 
 const ORG_ID = "a573aa05-d62b-44c7-a878-b9138902a094";
@@ -40,19 +37,16 @@ function snapMinutes(mins: number) { return Math.round(mins / SLOT_MIN) * SLOT_M
 export default function CalendarClient() {
   const [isMounted, setIsMounted] = useState(false);
   
-  // Datos
   const [rooms, setRooms] = useState<any[]>([]);
   const [staff, setStaff] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
   
-  // Estados de Vista
   const [viewMode, setViewMode] = useState<"day" | "two" | "week">("day");
   const [viewStart, setViewStart] = useState<Date>(() => startOfDay(new Date()));
   const [roomFilter, setRoomFilter] = useState<string>("all");
 
-  // Formulario
   const [roomId, setRoomId] = useState("");
   const [staffId, setStaffId] = useState("");
   const [serviceId, setServiceId] = useState("");
@@ -63,7 +57,6 @@ export default function CalendarClient() {
   const [startAt, setStartAt] = useState("");
   const [color, setColor] = useState("#10b981");
 
-  // Modales
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [editRoomId, setEditRoomId] = useState("");
   const [editColor, setEditColor] = useState("");
@@ -75,7 +68,6 @@ export default function CalendarClient() {
 
   useEffect(() => { setIsMounted(true); }, []);
 
-  // --- CARGA DE DATOS ---
   const loadAll = useCallback(async () => {
     if (!sb) return;
     const [roomsRes, staffRes, servicesRes, clientsRes] = await Promise.all([
@@ -105,7 +97,6 @@ export default function CalendarClient() {
     loadBookingsForRange(viewStart, days);
   }, [viewMode, viewStart, loadBookingsForRange]);
 
-  // --- FUNCIONES (Conectadas) ---
   const handleClientNameChange = (val: string) => {
     setClientName(val);
     const found = clients.find(c => c.name.toLowerCase() === val.toLowerCase());
@@ -236,7 +227,6 @@ export default function CalendarClient() {
     loadBookingsForRange(viewStart, 1);
   };
 
-  // --- MEMOS ---
   const hours = useMemo(() => {
     const arr: number[] = [];
     for (let h = START_HOUR; h <= END_HOUR; h++) arr.push(h);
@@ -275,12 +265,10 @@ export default function CalendarClient() {
       <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/5 blur-[140px] rounded-full pointer-events-none z-0" />
       
       <div className="relative z-10 max-w-[1600px] mx-auto">
-        {/* HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div><Logo size="text-4xl" />
           
           <div className="flex items-center gap-4">
-             {/* BOTÓN AURA: Vista Mensual */}
             <button 
                 onClick={() => setShowMonthlyModal(true)}
                 className="relative group bg-zinc-900 border border-zinc-800 px-6 py-2 rounded-2xl overflow-hidden transition-all hover:border-emerald-500/50 hover:scale-105 active:scale-95 shadow-xl"
@@ -309,9 +297,8 @@ export default function CalendarClient() {
             </button>
           </div>
         </div>
-        </div> {/* Cierre del div del header */}
+        </div>
 
-        {/* BARRA TÉCNICA */}
         <div className="flex flex-wrap items-center gap-4 mb-6 bg-zinc-900/30 p-3 rounded-[28px] border border-zinc-800/50 backdrop-blur-sm">
           <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30">
             <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Estudio:</span>
@@ -392,7 +379,7 @@ export default function CalendarClient() {
             rooms={rooms}
           />
         )}
-      </div> {/* Cierre del div "relative z-10" */}
-    </div> {/* Cierre del div "min-h-screen" (EL QUE FALTABA) */}
+      </div>
+    </div>
   );
 }

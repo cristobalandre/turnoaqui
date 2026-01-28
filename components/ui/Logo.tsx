@@ -11,8 +11,8 @@ export const Logo = ({ size = "text-5xl", className = "" }: LogoProps) => {
   const heightMap: Record<string, string> = {
     "text-2xl": "h-8",   // Para Modales (Pequeño ~32px)
     "text-3xl": "h-10",  // Intermedio
-    "text-4xl": "h-24",  // Para Header/Barra Superior (~96px)
-    "text-5xl": "h-54",  // 💥 PARA EL HERO/PORTADA (Gigante ~256px)
+    "text-4xl": "h-12",  // Para Header/Barra Superior (~48px)
+    "text-5xl": "h-64",  // 💥 PARA EL HERO/PORTADA (Gigante ~256px)
   };
 
   // Si pasan un tamaño que no está en el mapa, usamos h-64 (Gigante) por defecto
