@@ -395,7 +395,6 @@ export default function CalendarClient() {
             rooms={rooms}
           />
         )}
-      </div>
     </div>
   );
 }
