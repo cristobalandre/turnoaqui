@@ -62,7 +62,7 @@ export default function HomeLanding() {
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
             {/* Logo en la barra (Pequeño) */}
-            <Logo size="text-6xl" />
+            <Logo size="text-5xl" />
           </div>
 
           <div className="hidden md:flex items-center gap-10 text-sm font-medium text-gray-400">
