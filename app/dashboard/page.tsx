@@ -50,6 +50,19 @@ export default function DashboardPage() {
             </h1>
           </div>
           <div className="flex items-center gap-4">
+          <button
+  onClick={() => {
+    navigator.clipboard.writeText(`${window.location.origin}/booking`);
+    alert("✅ ¡Link de reserva copiado!");
+  }}
+  className="hidden md:flex items-center gap-2 px-4 py-2 bg-zinc-900/50 hover:bg-emerald-500/10 border border-zinc-800 hover:border-emerald-500/50 rounded-full transition-all text-xs font-bold text-zinc-400 hover:text-emerald-400 group"
+>
+  {/* Icono Link */}
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="group-hover:rotate-45 transition-transform"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+  
+  <span>Copiar Link Reserva</span>
+</button>
+
              <div className="h-10 w-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center">
                 <Activity className="h-4 w-4 text-emerald-500" />
              </div>
@@ -66,7 +79,7 @@ export default function DashboardPage() {
             badge="Nueva"
           />
           <DashboardCard 
-            href="/booking" 
+            href="/calendar" 
             title="Calendario" 
             desc="Agenda y horarios" 
             icon={<Calendar />} 
