@@ -1,18 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client"; 
 import { useRouter } from "next/navigation";
 import { Outfit } from "next/font/google";
-import { Loader2, Mail, Lock, ArrowRight, CheckCircle } from "lucide-react";
-import Link from "next/link";
+import { Loader2, Mail, Lock, ArrowRight } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
+// ✅ USAMOS LA CONEXIÓN DIRECTA (Igual que en HomeLanding para evitar errores)
+import { createClient } from "@supabase/supabase-js";
 
 const outfit = Outfit({ subsets: ["latin"] });
 
+// Inicializamos el cliente aquí mismo
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = createClient();
   
   // Estado para alternar entre Login y Registro
   const [isSignUp, setIsSignUp] = useState(false);
@@ -28,6 +33,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
+        // Redirige al Callback para verificar
         redirectTo: `${location.origin}/auth/callback`,
       },
     });
@@ -49,6 +55,7 @@ export default function LoginPage() {
         email,
         password,
         options: {
+          // Importante: Redirigir al callback para confirmar el correo
           emailRedirectTo: `${location.origin}/auth/callback`,
         },
       });
@@ -78,7 +85,7 @@ export default function LoginPage() {
   return (
     <div className={`min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-[#0F1112] text-gray-100 ${outfit.className}`}>
       
-      {/* FONDO AMBIENTAL (Geminizado) */}
+      {/* FONDO AMBIENTAL */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[800px] bg-emerald-500/10 blur-[150px] rounded-full opacity-50" />
         <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-teal-500/5 blur-[120px] rounded-full opacity-30" />
