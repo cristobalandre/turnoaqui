@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-// 1. Importamos useRouter para redirigir al salir
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+// ✅ 1. AGREGAMOS 'Music4' A LOS IMPORTS
 import { 
   Calendar, Inbox, Users, Scissors, Package, 
-  Settings, ChevronRight, Activity, Info, Zap, LayoutDashboard, LogOut
+  Settings, ChevronRight, Activity, Info, Zap, LayoutDashboard, LogOut, Music4
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -16,7 +16,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   
   const supabase = createClient();
-  const router = useRouter(); // 2. Inicializamos el router
+  const router = useRouter(); 
 
   useEffect(() => {
     const getData = async () => {
@@ -27,7 +27,6 @@ export default function DashboardPage() {
           .from('profiles').select('*').eq('id', user.id).single();
         setProfile(profileData);
       } else {
-        // Si no hay usuario, patada al login de inmediato
         router.push("/login");
       }
       setLoading(false);
@@ -35,11 +34,10 @@ export default function DashboardPage() {
     getData();
   }, [router, supabase]);
 
-  // 3. Lógica de Logout
   const handleLogout = async () => {
-    await supabase.auth.signOut(); // Mata la sesión en Supabase
-    router.refresh();              // Limpia caché local
-    router.push("/login");         // Redirige al login
+    await supabase.auth.signOut(); 
+    router.refresh();              
+    router.push("/login");         
   };
 
   const displayName = profile?.full_name?.split(' ')[0] 
@@ -74,7 +72,6 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Botón Copiar Link */}
             <button
               onClick={() => {
                 navigator.clipboard.writeText(`${window.location.origin}/booking`);
@@ -91,12 +88,10 @@ export default function DashboardPage() {
               </div>
             </button>
             
-            {/* Ícono de Actividad (Decorativo) */}
             <div className="h-12 w-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-lg" title="Estado del Sistema: Activo">
                 <Activity className="h-5 w-5 text-emerald-500" />
             </div>
 
-            {/* 🔴 BOTÓN LOGOUT (NUEVO) */}
             <button 
               onClick={handleLogout}
               className="h-12 w-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-lg hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 transition-all group"
@@ -116,36 +111,51 @@ export default function DashboardPage() {
                  </div>
                  <div>
                     <h3 className="text-sm font-bold text-white">¿Por dónde empiezo?</h3>
-                    <p className="text-xs text-zinc-500">Usa el <strong>Calendario</strong> para agendar manualmente o revisa <strong>Solicitudes</strong> para ver quién reservó por la web.</p>
+                    <p className="text-xs text-zinc-500">Usa el <strong>Calendario</strong> para agendar o el nuevo <strong>Studio Hub</strong> para gestionar tus mezclas.</p>
                  </div>
               </div>
            </div>
         </div>
 
-        {/* --- GRID PRINCIPAL --- */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+        {/* --- GRID PRINCIPAL (ACTUALIZADO CON 4 COLUMNAS) --- */}
+        {/* ✅ 2. Cambiamos a 'lg:grid-cols-4' para que quepa la nueva tarjeta */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+          
           <SpotlightCard 
             href="/calendar" 
             title="Calendario" 
             subtitle="Agenda y Bloqueos"
-            desc="Aquí gestionas tus horas, creas reservas manuales y ves disponibilidad." 
+            desc="Gestión de horas y disponibilidad." 
             icon={<Calendar />}
             color="emerald"
           />
+
+          {/* ✅ 3. AQUÍ ESTÁ LA NUEVA BOMBA: STUDIO HUB */}
+          <SpotlightCard 
+            href="/projects" 
+            title="Studio Hub" 
+            subtitle="Sala de Mezclas"
+            desc="Sube maquetas, gestiona versiones y recibe feedback." 
+            icon={<Music4 />} 
+            badge="BETA"
+            color="amber" // Usamos el nuevo color Ámbar
+          />
+
           <SpotlightCard 
             href="/requests" 
             title="Solicitudes" 
             subtitle="Buzón de Entrada"
-            desc="Citas agendadas por clientes desde la web. Revísalas y apruébalas." 
+            desc="Citas agendadas por la web." 
             icon={<Inbox />} 
             badge="Revisar"
             color="blue"
           />
+          
           <SpotlightCard 
             href="/clients" 
             title="Clientes" 
             subtitle="Base de Datos"
-            desc="Historial de quienes han visitado tu estudio y sus datos de contacto." 
+            desc="Historial de contactos." 
             icon={<Users />}
             color="purple"
           />
@@ -189,12 +199,17 @@ export default function DashboardPage() {
   );
 }
 
-// COMPONENTES VISUALES (IGUAL QUE ANTES)
+// ----------------------------------------------------------------------
+// COMPONENTES VISUALES
+// ----------------------------------------------------------------------
+
 function SpotlightCard({ href, title, subtitle, desc, icon, badge, color = "emerald" }: any) {
+  // ✅ 4. AGREGAMOS EL COLOR 'AMBER' AL MAPA
   const colors: any = {
     emerald: "group-hover:bg-emerald-500/10 group-hover:border-emerald-500/50 text-emerald-400",
     blue: "group-hover:bg-blue-500/10 group-hover:border-blue-500/50 text-blue-400",
     purple: "group-hover:bg-purple-500/10 group-hover:border-purple-500/50 text-purple-400",
+    amber: "group-hover:bg-amber-500/10 group-hover:border-amber-500/50 text-amber-400", // <--- Nuevo color para el Hub
   };
   
   const iconColor = colors[color] || colors.emerald;
