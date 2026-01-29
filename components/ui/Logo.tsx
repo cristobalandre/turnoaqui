@@ -31,7 +31,7 @@ export const Logo = ({
       */}
       <div className={`relative ${widthClass} flex items-center justify-center transition-transform duration-500 hover:scale-105`}>
          <Image
-           src="/logo.svg"
+           src="/logo.png
            alt="TurnoAquí Logo"
            // Estos valores son para que Next sepa el aspect ratio original,
            // no el tamaño final en pantalla. Asegúrate de que coincidan con tu SVG real.
