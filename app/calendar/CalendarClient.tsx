@@ -12,6 +12,9 @@ import {
 import { es } from "date-fns/locale";
 import { supabase as sb } from "@/lib/supabaseClient";
 
+// Iconos Nuevos para la UI Vistosa
+import { Info, MousePointer2, Move, GripHorizontal, LayoutGrid } from "lucide-react"; 
+
 import { Logo } from "@/components/ui/Logo";
 import { SessionModal } from "@/components/calendar/SessionModal";
 import { QuickCreatePanel } from "@/components/calendar/QuickCreatePanel";
@@ -257,15 +260,34 @@ export default function CalendarClient() {
   if (!isMounted) return null;
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-[#fafafa] p-5 font-sans relative overflow-hidden">
-      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/5 blur-[140px] rounded-full pointer-events-none z-0" />
+    <div className="min-h-screen bg-[#09090b] text-[#fafafa] p-5 font-sans relative overflow-hidden selection:bg-emerald-500/30">
       
-      <div className="relative z-10 max-w-[1600px] mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-          {/*  Logo maldito brr */}
-          <Logo widthClass="w-[145px]" />
+      {/* 🟢 ATMÓSFERA MEJORADA (Efecto "Vistoso") */}
+      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-emerald-900/10 to-transparent pointer-events-none" />
+      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-emerald-500/5 blur-[140px] rounded-full pointer-events-none z-0 animate-pulse" />
+      
+      <div className="relative z-10 max-w-[1800px] mx-auto">
+        
+        {/* --- HEADER --- */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-6">
+          <div>
+             <div className="flex items-center gap-2 mb-2">
+               <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+               </span>
+               <p className="text-[10px] uppercase tracking-[0.3em] text-emerald-500 font-bold">Gestión de Tiempo Real</p>
+            </div>
+             
+             {/* ✅ LOGO ACTUALIZADO */}
+             <Logo widthClass="w-[180px]" />
+             
+             <p className="text-sm text-zinc-500 mt-4 max-w-md hidden md:block leading-relaxed">
+              Organiza tus sesiones, bloquea horarios y audita la producción mensual.
+            </p>
+          </div>
           
-          <div className="flex items-center gap-4 mt-6 md:mt-0">
+          <div className="flex items-center gap-4">
             <button 
                 onClick={() => setShowMonthlyModal(true)}
                 className="relative group bg-zinc-900 border border-zinc-800 px-6 py-2 rounded-2xl overflow-hidden transition-all hover:border-emerald-500/50 hover:scale-105 active:scale-95 shadow-xl"
@@ -280,60 +302,87 @@ export default function CalendarClient() {
                 </div>
             </button>
 
-            <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800/50 backdrop-blur-md">
-                <button onClick={() => setViewStart(d => addDays(d, -1))} className="p-2 text-zinc-400 hover:text-white transition-all"> <IconArrowLeft size={18} /> </button>
-                <div className="px-6 text-center border-x border-zinc-800/50"><span className="text-[9px] block text-zinc-600 font-bold mb-0.5 uppercase tracking-widest">Timeline</span><span className="text-sm font-bold">{headerRangeLabel}</span></div>
-                <button onClick={() => setViewStart(d => addDays(d, 1))} className="p-2 text-zinc-400 hover:text-white transition-all"> <IconArrowRight size={18} /> </button>
+            <div className="flex items-center gap-2 bg-zinc-900/50 p-1.5 rounded-2xl border border-zinc-800/50 backdrop-blur-md shadow-lg">
+                <button onClick={() => setViewStart(d => addDays(d, -1))} className="p-2 text-zinc-400 hover:text-white transition-all hover:bg-zinc-800 rounded-lg"> <IconArrowLeft size={18} /> </button>
+                <div className="px-6 text-center border-x border-zinc-800/50"><span className="text-[9px] block text-zinc-600 font-bold mb-0.5 uppercase tracking-widest">Timeline</span><span className="text-sm font-bold text-white shadow-sm">{headerRangeLabel}</span></div>
+                <button onClick={() => setViewStart(d => addDays(d, 1))} className="p-2 text-zinc-400 hover:text-white transition-all hover:bg-zinc-800 rounded-lg"> <IconArrowRight size={18} /> </button>
             </div>
             
             <button 
               onClick={() => setStartAt(new Date().toISOString().slice(0, 16))} 
-              className="bg-emerald-500 text-black px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2"
+              className="bg-emerald-500 text-black px-6 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2 hover:bg-emerald-400 hover:scale-105"
             >
               <IconPlus size={16} strokeWidth={3} /> Nueva Reserva
             </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 mb-6 bg-zinc-900/30 p-3 rounded-[28px] border border-zinc-800/50 backdrop-blur-sm">
-          <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30">
-            <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Estudio:</span>
-            <select value={roomFilter} onChange={e => setRoomFilter(e.target.value)} className="bg-transparent text-xs font-bold text-zinc-200 outline-none cursor-pointer">
-              <option value="all" className="bg-[#0c0c0e]">TODOS</option>
+        {/* --- 💡 BANNER DE INSTRUCCIONES (NUEVO) --- */}
+        <div className="mb-8 p-1 rounded-2xl bg-gradient-to-r from-zinc-800/30 to-zinc-900/30 border border-zinc-800/50 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 duration-700">
+           <div className="bg-[#0c0c0e]/80 rounded-xl px-6 py-3 flex flex-wrap items-center gap-6 text-xs text-zinc-400">
+              <div className="flex items-center gap-2">
+                 <div className="p-1.5 bg-emerald-500/10 rounded text-emerald-400"><Info size={14} /></div>
+                 <span className="font-bold text-zinc-300 uppercase tracking-wider text-[10px]">Tips de Uso:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                 <Move size={14} className="text-zinc-500" />
+                 <span><strong className="text-zinc-300">Arrastrar y Soltar</strong> para reagendar rápidamente.</span>
+              </div>
+              <div className="w-px h-4 bg-zinc-800 hidden md:block" />
+              <div className="flex items-center gap-2">
+                 <MousePointer2 size={14} className="text-zinc-500" />
+                 <span><strong className="text-zinc-300">Clic</strong> en una reserva para ver detalles o editar.</span>
+              </div>
+              <div className="w-px h-4 bg-zinc-800 hidden md:block" />
+              <div className="flex items-center gap-2">
+                 <LayoutGrid size={14} className="text-zinc-500" />
+                 <span>Usa la vista <strong className="text-zinc-300">Semanal (7 D)</strong> para ver el panorama completo.</span>
+              </div>
+           </div>
+        </div>
+
+        {/* --- BARRA DE HERRAMIENTAS VISTOSA --- */}
+        <div className="flex flex-wrap items-center gap-4 mb-6 bg-zinc-900/40 p-2 pl-4 pr-2 rounded-[24px] border border-zinc-800 backdrop-blur-md shadow-2xl">
+          <div className="flex items-center gap-3 bg-zinc-800/40 px-4 py-2 rounded-xl border border-zinc-700/30 hover:border-zinc-500/50 transition-colors">
+            <GripHorizontal size={14} className="text-zinc-500" />
+            <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Sala:</span>
+            <select value={roomFilter} onChange={e => setRoomFilter(e.target.value)} className="bg-transparent text-xs font-bold text-zinc-200 outline-none cursor-pointer hover:text-white transition-colors">
+              <option value="all" className="bg-[#0c0c0e]">TODAS</option>
               {rooms.map(r => <option key={r.id} value={r.id} className="bg-[#0c0c0e]">{r.name.toUpperCase()}</option>)}
             </select>
           </div>
           
           <div className="flex items-center gap-1 bg-zinc-800/40 p-1 rounded-xl border border-zinc-700/30">
             {(['day', 'two', 'week'] as const).map(mode => (
-              <button key={mode} onClick={() => setViewMode(mode)} className={`px-4 py-2 rounded-lg text-[9px] font-black transition-all ${viewMode === mode ? 'bg-white text-black' : 'text-zinc-500 hover:text-zinc-300'}`}>
+              <button key={mode} onClick={() => setViewMode(mode)} className={`px-4 py-2 rounded-lg text-[9px] font-black transition-all ${viewMode === mode ? 'bg-white text-black shadow-md' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/50'}`}>
                 {mode === 'day' ? '1 D' : mode === 'two' ? '2 D' : '7 D'}
               </button>
             ))}
           </div>
 
           <div className="flex-1" />
-          <button onClick={() => setShowStats(!showStats)} className={`p-3 rounded-xl border transition-all ${showStats ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-zinc-800/40 border-zinc-700/30 text-zinc-500 hover:text-white'}`}>
+          
+          <button onClick={() => setShowStats(!showStats)} className={`p-3 rounded-xl border transition-all ${showStats ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400 shadow-lg shadow-emerald-900/20' : 'bg-zinc-800/40 border-zinc-700/30 text-zinc-500 hover:text-white hover:bg-zinc-700/50'}`}>
             <IconChart size={20} />
           </button>
-          <button onClick={() => setShowClientModal(true)} className="p-3 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 hover:text-white rounded-xl transition-all">
+          <button onClick={() => setShowClientModal(true)} className="p-3 bg-zinc-800/40 border border-zinc-700/30 text-zinc-500 hover:text-white rounded-xl transition-all hover:bg-zinc-700/50">
             <IconUser size={20} />
           </button>
           
-          <button onClick={exportToExcel} className="px-5 py-3 bg-zinc-800/20 border border-zinc-700/20 text-zinc-500 text-[9px] font-black tracking-widest uppercase rounded-2xl hover:border-zinc-500 transition-all">CSV</button>
+          <button onClick={exportToExcel} className="px-5 py-3 bg-zinc-800/20 border border-zinc-700/20 text-zinc-500 text-[9px] font-black tracking-widest uppercase rounded-2xl hover:border-zinc-500 hover:text-white hover:bg-zinc-800/50 transition-all">CSV</button>
         </div>
 
         {showStats && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 animate-in slide-in-from-top-4 duration-500">
+            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md hover:border-emerald-500/30 transition-colors">
               <p className="text-[10px] uppercase text-zinc-600 font-black mb-1">Caja Real</p>
               <h4 className="text-3xl font-light text-emerald-400">${stats.collectedRevenue.toLocaleString('es-CL')}</h4>
             </div>
-            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
+            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md hover:border-zinc-600/30 transition-colors">
               <p className="text-[10px] uppercase text-zinc-600 font-black mb-1">Ocupación</p>
               <h4 className="text-3xl font-light text-white">{stats.totalHours} Hrs</h4>
             </div>
-            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md">
+            <div className="bg-zinc-900/40 border border-zinc-800/50 p-6 rounded-[32px] backdrop-blur-md hover:border-zinc-600/30 transition-colors">
               <p className="text-[10px] uppercase text-zinc-600 font-black mb-1">Salud de Cobros</p>
               <h4 className="text-3xl font-light text-white">{stats.estimatedRevenue > 0 ? Math.round((stats.collectedRevenue / stats.estimatedRevenue) * 100) : 0}%</h4>
             </div>
