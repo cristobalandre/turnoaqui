@@ -80,12 +80,18 @@ export default function ProjectDetailPage() {
   // 1. ¿Es Admin? Solo si tiene la etiqueta 'admin' en su metadata de Supabase
   const isAdmin = currentUser?.user_metadata?.role === 'admin';
   
-  // 2. ¿Es el que lo subió? (Para dejarle borrar su propio archivo si se equivocó, opcional)
+  // 2. ¿Es el que lo subió? (Para dejarle borrar su propio archivo si se equivocó)
   const isUploader = currentUser && project && currentUser.id === project.user_id;
 
+  // ⚡️ AQUÍ ESTÁ EL CAMBIO CLAVE: GUARDAR IDENTIDAD DEL ADMIN
   const handleReviewAction = async (newStatus: 'Aprobado' | 'Rechazado') => {
     if (!isAdmin) return; // ¡SOLO EL ADMIN PASA!
     setIsUpdatingStatus(true);
+
+    // Capturamos TU nombre y TU foto real en este momento exacto
+    // Google suele guardar la foto en 'avatar_url' o 'picture' y el nombre en 'full_name'
+    const adminName = currentUser.user_metadata.full_name || currentUser.user_metadata.name || "Admin";
+    const adminAvatar = currentUser.user_metadata.avatar_url || currentUser.user_metadata.picture;
 
     const { error } = await supabase
       .from('projects')
@@ -93,6 +99,8 @@ export default function ProjectDetailPage() {
         status: newStatus,
         reviewed_by: currentUser.id,
         reviewed_at: new Date().toISOString(),
+        reviewer_name: adminName,    // ✅ Guardamos: "Chris Andrez"
+        reviewer_avatar: adminAvatar // ✅ Guardamos: Tu foto de perfil
       })
       .eq('id', id);
 
@@ -128,7 +136,9 @@ export default function ProjectDetailPage() {
   const handleSendComment = async () => {
     if (!newComment.trim()) return;
     const exactTime = playerRef.current?.getCurrentTime() || "00:00";
+    // Lógica inteligente para el avatar del comentario
     const userAvatar = currentUser?.user_metadata?.avatar_url || currentUser?.user_metadata?.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`;
+    
     const { error } = await supabase.from('comments').insert({
       project_id: id,
       content: newComment,
@@ -175,7 +185,7 @@ export default function ProjectDetailPage() {
              {copied ? <Check size={14} /> : <Share2 size={14} />} {copied ? "Copiado" : "Compartir"}
            </button>
            
-           {/* Admin o Uploader pueden borrar, pero el Admin manda */}
+           {/* Admin o Uploader pueden borrar */}
            {(isAdmin || isUploader) && (
              <button onClick={handleDeleteProject} disabled={isDeleting} className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all" title="Eliminar Proyecto">
                {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
@@ -203,7 +213,7 @@ export default function ProjectDetailPage() {
               {/* 🎛️ ZONA DE CONTROL POR ROLES */}
               <div className="w-full md:w-auto">
                 {project.status === 'En Revisión' ? (
-                  // ¿Es Admin? (Tiene la etiqueta 'admin') -> VE BOTONES
+                  // ¿Es Admin? -> VE BOTONES
                   isAdmin ? (
                     <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 backdrop-blur-md">
                       <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider text-center mb-2">
@@ -219,7 +229,7 @@ export default function ProjectDetailPage() {
                       </div>
                     </div>
                   ) : (
-                    // ¿Es Cliente? (Incluso si él subió el archivo) -> VE ESPERA
+                    // ¿Es Cliente? -> VE ESPERA
                     <div className="bg-zinc-900/50 border border-dashed border-zinc-700 rounded-2xl p-6 backdrop-blur-md text-center">
                        <Loader2 className="animate-spin text-amber-500 mx-auto mb-2" />
                        <p className="text-sm font-bold text-white">Esperando revisión...</p>
@@ -229,17 +239,16 @@ export default function ProjectDetailPage() {
                     </div>
                   )
                 ) : (
-                  // ✅ TARJETA FINAL
+                  // ✅ TARJETA FINAL CON IDENTIDAD REAL
                   <div className={`flex items-center gap-4 bg-black/50 p-4 rounded-2xl border backdrop-blur-xl transition-all duration-500
                       ${project.status === 'Aprobado' ? 'border-amber-500/50 shadow-[0_0_30px_-5px_rgba(245,158,11,0.2)]' : 'border-zinc-800'}
                   `}>
                      <div className={`w-14 h-14 rounded-full overflow-hidden border-2 relative shadow-lg ${project.status === 'Aprobado' ? 'border-amber-400' : 'border-zinc-600'}`}>
-                        {project.reviewed_by && (
-                           <Image 
-                             src={`https://api.dicebear.com/7.x/initials/svg?seed=${project.reviewed_by}`} 
-                             alt="Admin" fill className="object-cover" 
-                           />
-                        )}
+                        {/* FOTO REAL (O Fallback a Dicebear con el ID si falla) */}
+                        <Image 
+                           src={project.reviewer_avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${project.reviewed_by}`} 
+                           alt="Admin" fill className="object-cover" 
+                        />
                      </div>
                      <div>
                         <div className="flex items-center gap-2 mb-0.5">
@@ -248,8 +257,9 @@ export default function ProjectDetailPage() {
                            </p>
                            {project.status === 'Aprobado' && <ShieldCheck size={14} className="text-amber-400" />}
                         </div>
+                        {/* NOMBRE REAL */}
                         <p className="text-white font-bold text-sm">
-                          {project.status}
+                          {project.status} por <span className="text-amber-200">{project.reviewer_name || "Admin"}</span>
                         </p>
                         <p className="text-[10px] text-zinc-500">
                            {new Date(project.reviewed_at).toLocaleDateString()}
@@ -266,7 +276,7 @@ export default function ProjectDetailPage() {
               <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">Comentarios <span className="text-zinc-600 text-sm font-normal">({comments.length})</span></h3>
               <div className="flex gap-4 items-start mb-10">
                  <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 relative overflow-hidden">
-                    <Image src={currentUser?.user_metadata?.avatar_url || currentUser?.user_metadata?.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`} alt="Me" fill className="object-cover" />
+                   <Image src={currentUser?.user_metadata?.avatar_url || currentUser?.user_metadata?.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`} alt="Me" fill className="object-cover" />
                  </div>
                  <div className="flex-1 relative">
                     <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Deja un comentario..." className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-all resize-none h-24" />
