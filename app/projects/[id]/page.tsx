@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation"; // Importamos useRouter para redirigir al borrar
+import { useParams, useRouter } from "next/navigation";
 import { Outfit } from "next/font/google";
-import { ArrowLeft, Download, CheckCircle2, Send, Loader2, Trash2 } from "lucide-react"; // Agregamos Trash2
+import { ArrowLeft, Download, CheckCircle2, Send, Loader2, Trash2, Share2, Check } from "lucide-react"; // Agregamos Share2 y Check
 import { AudioPlayer, AudioPlayerRef } from "@/components/projects/AudioPlayer";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
@@ -13,7 +13,7 @@ const outfit = Outfit({ subsets: ["latin"] });
 
 export default function ProjectDetailPage() {
   const { id } = useParams(); 
-  const router = useRouter(); // Hook para movernos de página
+  const router = useRouter(); 
   const supabase = createClient();
   const playerRef = useRef<AudioPlayerRef>(null);
   
@@ -22,7 +22,8 @@ export default function ProjectDetailPage() {
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [isDeleting, setIsDeleting] = useState(false); // Estado para el borrado
+  const [isDeleting, setIsDeleting] = useState(false); 
+  const [copied, setCopied] = useState(false); // Estado para el feedback de copiado
 
   // 1. EL PORTERO AUTOMÁTICO 🛡️
   useEffect(() => {
@@ -42,7 +43,6 @@ export default function ProjectDetailPage() {
 
       setCurrentUser(session.user);
 
-      // Cargar Proyecto
       const { data: projectData, error } = await supabase
         .from('projects')
         .select('*')
@@ -71,9 +71,17 @@ export default function ProjectDetailPage() {
     if (data) setComments(data);
   };
 
-  // 🗑️ FUNCIÓN DE BORRADO (Opción A)
+  // 🔗 FUNCIÓN COMPARTIR (Opción B)
+  const handleShare = () => {
+    // Copia la URL actual al portapapeles
+    navigator.clipboard.writeText(window.location.href);
+    // Cambia el ícono temporalmente
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // 🗑️ FUNCIÓN DE BORRADO
   const handleDeleteProject = async () => {
-    // 1. Confirmación de seguridad
     if (!confirm("⚠️ ¿Estás seguro de que quieres ELIMINAR este proyecto permanentemente?\n\nEsta acción borrará el audio, los comentarios y no se puede deshacer.")) {
       return;
     }
@@ -81,24 +89,15 @@ export default function ProjectDetailPage() {
     setIsDeleting(true);
 
     try {
-      // 2. Extraer la ruta del archivo desde la URL completa
-      // La URL es tipo: .../storage/v1/object/public/projects/uploads/archivo.mp3
-      // Necesitamos solo: uploads/archivo.mp3
       if (project.audio_url) {
         const fileUrl = project.audio_url;
-        const filePath = fileUrl.split('/projects/')[1]; // Truco para sacar la ruta relativa
+        const filePath = fileUrl.split('/projects/')[1]; 
 
         if (filePath) {
-           // Borrar de Storage
-           const { error: storageError } = await supabase.storage
-             .from('projects')
-             .remove([filePath]);
-           
-           if (storageError) console.error("Error borrando archivo:", storageError);
+           await supabase.storage.from('projects').remove([filePath]);
         }
       }
 
-      // 3. Borrar de la Base de Datos
       const { error: dbError } = await supabase
         .from('projects')
         .delete()
@@ -106,9 +105,8 @@ export default function ProjectDetailPage() {
 
       if (dbError) throw dbError;
 
-      // 4. Redirigir al Hub
       alert("✅ Proyecto eliminado correctamente.");
-      router.push('/projects'); // Volver al inicio
+      router.push('/projects'); 
 
     } catch (error: any) {
       console.error("Error al eliminar:", error);
@@ -167,8 +165,17 @@ export default function ProjectDetailPage() {
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
-           {/* BOTÓN ELIMINAR (Solo aparece si no se está borrando ya) */}
+        <div className="flex items-center gap-2">
+           {/* BOTÓN COMPARTIR (NUEVO) */}
+           <button 
+             onClick={handleShare}
+             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${copied ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500' : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'}`}
+           >
+             {copied ? <Check size={14} /> : <Share2 size={14} />}
+             {copied ? "Copiado" : "Compartir"}
+           </button>
+
+           {/* BOTÓN ELIMINAR */}
            <button 
              onClick={handleDeleteProject}
              disabled={isDeleting}
