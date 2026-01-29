@@ -1,29 +1,38 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Outfit } from "next/font/google";
-import { ArrowLeft, Share2, Download, CheckCircle2, Send, Trash2 } from "lucide-react";
-import { AudioPlayer } from "@/components/projects/AudioPlayer";
+import { ArrowLeft, Download, CheckCircle2, Send } from "lucide-react";
+// Importamos el tipo para el ref
+import { AudioPlayer, AudioPlayerRef } from "@/components/projects/AudioPlayer";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 
 const outfit = Outfit({ subsets: ["latin"] });
 
 export default function ProjectDetailPage() {
-  const { id } = useParams(); // Obtenemos el ID de la URL
+  const { id } = useParams(); 
   const supabase = createClient();
+  
+  // Referencia para controlar el Player
+  const playerRef = useRef<AudioPlayerRef>(null);
   
   const [project, setProject] = useState<any>(null);
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // 1. CARGAR DATOS
+  // 1. CARGAR DATOS Y USUARIO
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
+
+      // Obtener usuario actual para el avatar y nombre
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
 
       // Cargar Proyecto
       const { data: projectData } = await supabase.from('projects').select('*').eq('id', id).single();
@@ -46,22 +55,26 @@ export default function ProjectDetailPage() {
     if (data) setComments(data);
   };
 
-  // 2. ENVIAR COMENTARIO
+  // 2. ENVIAR COMENTARIO MEJORADO
   const handleSendComment = async () => {
     if (!newComment.trim()) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
+    // A. Capturamos el tiempo exacto del player
+    const exactTime = playerRef.current?.getCurrentTime() || "00:00";
     
+    // B. Usamos el email real
+    const userEmail = currentUser?.email || "Usuario";
+
     const { error } = await supabase.from('comments').insert({
       project_id: id,
       content: newComment,
-      user_email: user?.email || "Anónimo", // Guardamos email para mostrar
-      timestamp: "00:00" // Pendiente: Conectar con tiempo real del player
+      user_email: userEmail, // ✅ Email real
+      timestamp: exactTime   // ✅ Tiempo real
     });
 
     if (!error) {
       setNewComment("");
-      fetchComments(); // Recargar lista
+      fetchComments(); 
     } else {
       alert("Error enviando comentario");
     }
@@ -93,7 +106,7 @@ export default function ProjectDetailPage() {
 
       <div className="flex flex-1 overflow-hidden">
         
-        {/* MAIN: PLAYER & COMENTARIOS */}
+        {/* MAIN */}
         <main className="flex-1 p-6 md:p-10 overflow-y-auto relative scrollbar-hide">
            
            <div className="mb-8">
@@ -104,12 +117,15 @@ export default function ProjectDetailPage() {
               <p className="text-zinc-500 text-sm">Versión Actual: {project.version}</p>
            </div>
 
-           {/* 🎵 PLAYER REAL CON URL DE BASE DE DATOS */}
+           {/* 🎵 PLAYER CONECTADO (REF) */}
            <div className="mb-12">
-              <AudioPlayer url={project.audio_url} />
+              <AudioPlayer 
+                url={project.audio_url} 
+                ref={playerRef} // ✅ Conectamos la antena
+              />
            </div>
 
-           {/* 💬 SECCIÓN DE FEEDBACK */}
+           {/* 💬 COMENTARIOS */}
            <div className="max-w-3xl mx-auto">
               <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                 Comentarios <span className="text-zinc-600 text-sm font-normal">({comments.length})</span>
@@ -118,13 +134,19 @@ export default function ProjectDetailPage() {
               {/* Input */}
               <div className="flex gap-4 items-start mb-10">
                  <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 relative overflow-hidden">
-                    <Image src="https://api.dicebear.com/7.x/initials/svg?seed=Yo" alt="Me" fill className="object-cover" />
+                    {/* Avatar de Tu Usuario Actual */}
+                    <Image 
+                      src={`https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email || 'User'}`} 
+                      alt="Me" 
+                      fill 
+                      className="object-cover" 
+                    />
                  </div>
                  <div className="flex-1 relative">
                     <textarea 
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Deja un comentario sobre la mezcla..." 
+                      placeholder="Deja un comentario sobre la mezcla (se guardará el segundo exacto)..." 
                       className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all resize-none h-24"
                     />
                     <button 
@@ -136,16 +158,26 @@ export default function ProjectDetailPage() {
                  </div>
               </div>
 
-              {/* Lista de Comentarios */}
+              {/* Lista */}
               <div className="space-y-6">
                 {comments.map((comment) => (
                   <div key={comment.id} className="flex gap-4 group animate-in fade-in slide-in-from-bottom-2">
                      <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 relative overflow-hidden mt-1">
-                        <Image src={`https://api.dicebear.com/7.x/initials/svg?seed=${comment.user_email}`} alt="User" fill className="object-cover" />
+                        {/* Avatar Dinámico basado en el Email del que comentó */}
+                        <Image 
+                           src={`https://api.dicebear.com/7.x/initials/svg?seed=${comment.user_email}`} 
+                           alt="User" 
+                           fill 
+                           className="object-cover" 
+                        />
                      </div>
                      <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                           <span className="text-xs font-bold text-white">{comment.user_email?.split('@')[0]}</span>
+                           <span className="text-xs font-bold text-white">{comment.user_email?.split('@')[0] || "Anónimo"}</span>
+                           {/* TIMESTAMP DEL COMENTARIO */}
+                           <span className="text-[10px] font-mono text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                             {comment.timestamp}
+                           </span>
                            <span className="text-[10px] text-zinc-600">• {new Date(comment.created_at).toLocaleDateString()}</span>
                         </div>
                         <p className="text-zinc-400 text-sm leading-relaxed bg-zinc-900/30 p-3 rounded-tr-xl rounded-br-xl rounded-bl-xl border border-zinc-800/50">

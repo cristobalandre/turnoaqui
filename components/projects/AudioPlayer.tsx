@@ -1,34 +1,53 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import WaveSurfer from "wavesurfer.js";
 import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
 
-export const AudioPlayer = ({ url }: { url: string }) => {
+// Definimos qué funciones podrá usar el padre
+export interface AudioPlayerRef {
+  getCurrentTime: () => string;
+}
+
+export const AudioPlayer = forwardRef<AudioPlayerRef, { url: string }>(({ url }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const wavesurfer = useRef<WaveSurfer | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState("00:00");
   const [duration, setDuration] = useState("00:00");
 
+  // Función auxiliar para formatear tiempo
+  const formatTime = (seconds: number) => {
+    if (!seconds) return "00:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  // ✅ ESTA ES LA MAGIA: Exponemos la función al padre
+  useImperativeHandle(ref, () => ({
+    getCurrentTime: () => {
+      const time = wavesurfer.current?.getCurrentTime() || 0;
+      return formatTime(time);
+    }
+  }));
+
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Inicializar WaveSurfer (El motor de SoundCloud)
     wavesurfer.current = WaveSurfer.create({
       container: containerRef.current,
-      waveColor: "#52525b",      // Gris oscuro (no reproducido)
-      progressColor: "#f59e0b",  // Ámbar (reproducido)
+      waveColor: "#52525b",
+      progressColor: "#f59e0b",
       cursorColor: "#fff",
-      barWidth: 2,
+      barWidth: 3,
       barGap: 3,
       barRadius: 3,
-      height: 96,                // Altura de la onda
-      normalize: true,           // Normalizar picos
-      url: url,                  // URL del audio real
+      height: 96,
+      normalize: true,
+      url: url,
     });
 
-    // Eventos
     wavesurfer.current.on("play", () => setIsPlaying(true));
     wavesurfer.current.on("pause", () => setIsPlaying(false));
     wavesurfer.current.on("audioprocess", (t) => setCurrentTime(formatTime(t)));
@@ -39,25 +58,15 @@ export const AudioPlayer = ({ url }: { url: string }) => {
     };
   }, [url]);
 
-  // Formato de tiempo (MM:SS)
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
-
   const handlePlayPause = () => {
     wavesurfer.current?.playPause();
   };
 
   return (
     <div className="w-full bg-[#0F1112] border border-zinc-800 rounded-3xl p-6 shadow-xl relative group">
-      
-      {/* Contenedor de la Onda */}
-      <div className="mb-4 relative z-10" ref={containerRef} />
+      <div className="mb-4 relative z-10 w-full" ref={containerRef} />
 
-      {/* Controles e Info */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mt-4">
         <span className="text-xs font-mono text-zinc-400 w-10">{currentTime}</span>
         
         <div className="flex items-center gap-4">
@@ -81,4 +90,6 @@ export const AudioPlayer = ({ url }: { url: string }) => {
       </div>
     </div>
   );
-};
+});
+
+AudioPlayer.displayName = "AudioPlayer";
