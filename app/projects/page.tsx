@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Outfit } from "next/font/google";
 import { 
   ArrowLeft, Plus, Music4, Clock, Mic2, Search, 
-  BarChart3, Zap, Filter, LayoutGrid, List 
+  BarChart3, Zap, Filter, LayoutGrid, List, Users // ✅ Importamos Users
 } from "lucide-react";
 import NewProjectModal from "@/components/projects/NewProjectModal";
 import { createClient } from "@/lib/supabase/client";
@@ -93,9 +93,10 @@ export default function ProjectsPage() {
         {/* HEADER "STUDIO OS" */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="group p-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 transition-all hover:scale-105">
-              <ArrowLeft size={20} className="text-zinc-400 group-hover:text-white" />
-            </Link>
+            {/* LINK AL DASHBOARD (Opcional, o solo visual) */}
+            <div className="p-3 rounded-2xl border border-zinc-800 bg-zinc-900/50">
+               <LayoutGrid size={24} className="text-white" />
+            </div>
             <div>
                <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">Centro de Mando</p>
                <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
@@ -104,13 +105,26 @@ export default function ProjectsPage() {
             </div>
           </div>
           
-          <button 
-            onClick={() => setIsModalOpen(true)}
-            className="group flex items-center gap-3 px-6 py-4 bg-white text-black font-bold rounded-2xl transition-all shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_-5px_rgba(255,255,255,0.5)] hover:scale-[1.02] active:scale-95"
-          >
-            <div className="bg-black text-white p-1 rounded-full"><Plus size={14} /></div>
-            <span>SUBIR PROYECTO</span>
-          </button>
+          {/* ZONA DE BOTONES DE ACCIÓN */}
+          <div className="flex items-center gap-3">
+            
+            {/* 🆕 BOTÓN ROSTER (ARTISTAS) */}
+            <Link href="/artists">
+                <button className="group flex items-center gap-2 px-5 py-4 bg-zinc-900 border border-zinc-800 text-zinc-300 font-bold rounded-2xl transition-all hover:bg-zinc-800 hover:text-white hover:border-zinc-700 hover:scale-[1.02] active:scale-95">
+                    <Users size={18} />
+                    <span className="text-sm">ROSTER</span>
+                </button>
+            </Link>
+
+            {/* BOTÓN SUBIR PROYECTO */}
+            <button 
+                onClick={() => setIsModalOpen(true)}
+                className="group flex items-center gap-3 px-6 py-4 bg-white text-black font-bold rounded-2xl transition-all shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_-5px_rgba(255,255,255,0.5)] hover:scale-[1.02] active:scale-95"
+            >
+                <div className="bg-black text-white p-1 rounded-full"><Plus size={14} /></div>
+                <span>SUBIR PROYECTO</span>
+            </button>
+          </div>
         </div>
 
         {/* 📊 BARRA DE ESTADÍSTICAS (GLASSMORPHISM) */}
