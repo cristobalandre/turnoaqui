@@ -3,108 +3,239 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Outfit } from "next/font/google";
-import { ArrowLeft, Plus, Music4, Clock, Mic2, Loader2, RefreshCw } from "lucide-react";
+import { 
+  ArrowLeft, Plus, Music4, Clock, Mic2, Search, 
+  BarChart3, Zap, Filter, LayoutGrid, List 
+} from "lucide-react";
 import NewProjectModal from "@/components/projects/NewProjectModal";
 import { createClient } from "@/lib/supabase/client";
+import Image from "next/image";
 
 const outfit = Outfit({ subsets: ["latin"] });
 
 export default function ProjectsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
+  const [filteredProjects, setFilteredProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [user, setUser] = useState<any>(null);
+  
+  // Estadísticas
+  const [stats, setStats] = useState({ total: 0, active: 0, storage: "0 MB" });
+
   const supabase = createClient();
 
-  // Función para cargar proyectos
   const fetchProjects = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    
+    // 1. Obtener Usuario
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) setUser(session.user);
+
+    // 2. Obtener Proyectos
+    const { data } = await supabase
       .from('projects')
       .select('*')
       .order('created_at', { ascending: false });
     
-    if (error) console.error("Error cargando:", error);
-    if (data) setProjects(data);
+    if (data) {
+      setProjects(data);
+      setFilteredProjects(data);
+      
+      // Calcular Stats
+      setStats({
+        total: data.length,
+        active: data.filter(p => p.status === 'En Revisión').length,
+        storage: `${(data.length * 3.5).toFixed(1)} MB` // Estimado ficticio (3.5MB por tema)
+      });
+    }
     setLoading(false);
   };
 
-  // Cargar al iniciar
   useEffect(() => {
     fetchProjects();
   }, []);
 
+  // Filtro en tiempo real
+  useEffect(() => {
+    const results = projects.filter(p => 
+      p.title.toLowerCase().includes(search.toLowerCase()) ||
+      p.artist?.toLowerCase().includes(search.toLowerCase())
+    );
+    setFilteredProjects(results);
+  }, [search, projects]);
+
+  // 🎨 FUNCIÓN DE ARTE GENERATIVO
+  // Crea un gradiente único basado en el ID del proyecto
+  const generateGradient = (id: string) => {
+    const colors = [
+      "from-pink-500 to-rose-500",
+      "from-amber-500 to-orange-600",
+      "from-emerald-400 to-cyan-600",
+      "from-violet-600 to-indigo-600",
+      "from-blue-400 to-blue-600",
+      "from-fuchsia-500 to-purple-600",
+    ];
+    // Usamos el último caracter del ID para elegir color
+    const index = id.charCodeAt(id.length - 1) % colors.length;
+    return colors[index];
+  };
+
   return (
-    <div className={`min-h-screen bg-[#09090b] text-zinc-300 ${outfit.className} p-6 md:p-10 relative`}>
+    <div className={`min-h-screen bg-[#09090b] text-zinc-300 ${outfit.className} p-6 pb-20 md:p-10 relative overflow-hidden`}>
       
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-10 max-w-7xl mx-auto">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="p-3 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 transition-colors">
-            <ArrowLeft size={20} />
-          </Link>
-          <div>
-             <h1 className="text-3xl font-bold text-white tracking-tight">Studio Hub</h1>
-             <p className="text-sm text-zinc-500">Tus mezclas activas.</p>
-          </div>
-        </div>
+      {/* Fondo Ambiental */}
+      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-zinc-900/50 to-[#09090b] pointer-events-none z-0" />
+      
+      <div className="relative z-10 max-w-7xl mx-auto space-y-10">
         
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-5 py-3 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl transition-all shadow-lg active:scale-95 text-sm uppercase tracking-wide"
-        >
-          <Plus size={18} /> Nuevo Proyecto
-        </button>
+        {/* HEADER "STUDIO OS" */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="group p-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 transition-all hover:scale-105">
+              <ArrowLeft size={20} className="text-zinc-400 group-hover:text-white" />
+            </Link>
+            <div>
+               <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">Centro de Mando</p>
+               <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
+                 Hola, <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500">{user?.user_metadata?.full_name?.split(" ")[0] || "Productor"}</span> 👋
+               </h1>
+            </div>
+          </div>
+          
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="group flex items-center gap-3 px-6 py-4 bg-white text-black font-bold rounded-2xl transition-all shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_-5px_rgba(255,255,255,0.5)] hover:scale-[1.02] active:scale-95"
+          >
+            <div className="bg-black text-white p-1 rounded-full"><Plus size={14} /></div>
+            <span>SUBIR PROYECTO</span>
+          </button>
+        </div>
+
+        {/* 📊 BARRA DE ESTADÍSTICAS (GLASSMORPHISM) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+           {/* Card 1 */}
+           <div className="p-5 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex items-center gap-4 hover:border-zinc-700 transition-colors">
+              <div className="p-3 rounded-xl bg-amber-500/10 text-amber-500">
+                <Music4 size={24} />
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500 uppercase font-bold">Total Proyectos</p>
+                <p className="text-2xl font-bold text-white">{stats.total}</p>
+              </div>
+           </div>
+           
+           {/* Card 2 */}
+           <div className="p-5 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex items-center gap-4 hover:border-zinc-700 transition-colors">
+              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-500">
+                <Zap size={24} />
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500 uppercase font-bold">En Revisión</p>
+                <p className="text-2xl font-bold text-white">{stats.active}</p>
+              </div>
+           </div>
+
+           {/* Card 3 */}
+           <div className="p-5 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex items-center gap-4 hover:border-zinc-700 transition-colors">
+              <div className="p-3 rounded-xl bg-violet-500/10 text-violet-500">
+                <BarChart3 size={24} />
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500 uppercase font-bold">Espacio Usado</p>
+                <p className="text-2xl font-bold text-white">{stats.storage}</p>
+              </div>
+           </div>
+        </div>
+
+        {/* 🔍 BARRA DE BÚSQUEDA Y FILTROS */}
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-center sticky top-4 z-20">
+           <div className="relative w-full md:w-96 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-amber-500 transition-colors" size={18} />
+              <input 
+                type="text" 
+                placeholder="Buscar por nombre o artista..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-[#0F1112]/90 backdrop-blur-xl border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 transition-all shadow-xl"
+              />
+           </div>
+           
+           <div className="flex gap-2">
+              <button className="p-3 rounded-xl border border-zinc-800 bg-[#0F1112] text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"><Filter size={18} /></button>
+              <button className="p-3 rounded-xl border border-zinc-800 bg-[#0F1112] text-amber-500 hover:bg-zinc-800 transition-colors"><LayoutGrid size={18} /></button>
+           </div>
+        </div>
+
+        {/* 📀 GRID DE PROYECTOS (Diseño SoundCloud Moderno) */}
+        {loading ? (
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
+              {[1,2,3].map(i => <div key={i} className="h-64 bg-zinc-900 rounded-3xl border border-zinc-800"></div>)}
+           </div>
+        ) : filteredProjects.length === 0 ? (
+           <div className="flex flex-col items-center justify-center py-32 border border-dashed border-zinc-800 rounded-3xl bg-zinc-900/20">
+              <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-4">
+                 <Music4 className="text-zinc-600" size={32} />
+              </div>
+              <h3 className="text-lg font-bold text-white">No se encontraron pistas</h3>
+              <p className="text-zinc-500 text-sm">Intenta con otro término o sube algo nuevo.</p>
+           </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredProjects.map((project) => (
+              <Link key={project.id} href={`/projects/${project.id}`} className="group relative flex flex-col bg-[#0F1112] border border-zinc-800 rounded-3xl overflow-hidden hover:border-zinc-600 transition-all hover:-translate-y-2 hover:shadow-2xl duration-300">
+                
+                {/* 1. PORTADA GENERATIVA */}
+                <div className={`h-40 w-full bg-gradient-to-br ${generateGradient(project.id)} relative p-6 flex flex-col justify-between`}>
+                   <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
+                   <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white uppercase tracking-wider">
+                      {project.status}
+                   </div>
+                   
+                   {/* Botón Play "Fantasma" */}
+                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
+                      <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-2xl">
+                         <Music4 size={24} className="text-black ml-1" />
+                      </div>
+                   </div>
+                </div>
+
+                {/* 2. INFO DEL PROYECTO */}
+                <div className="p-5 flex-1 flex flex-col">
+                   <h3 className="text-lg font-bold text-white mb-1 truncate leading-tight group-hover:text-amber-500 transition-colors">
+                     {project.title}
+                   </h3>
+                   <p className="text-sm text-zinc-500 mb-6 truncate">{project.artist}</p>
+
+                   <div className="mt-auto flex items-center justify-between pt-4 border-t border-zinc-800/50">
+                      <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+                         <Clock size={12} />
+                         <span>{new Date(project.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-1 rounded border border-zinc-800">
+                         <Mic2 size={10} />
+                         <span>{project.version}</span>
+                      </div>
+                   </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {/* FOOTER INVENTADO */}
+        <div className="text-center py-10 opacity-30 hover:opacity-100 transition-opacity">
+           <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-zinc-500">
+             TurnoAqui Studio OS • v2.5.0 • {new Date().getFullYear()}
+           </p>
+        </div>
       </div>
 
-      {/* GRID DE PROYECTOS */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-zinc-500 gap-4">
-           <Loader2 className="animate-spin text-amber-500" size={32} />
-           <p className="text-xs uppercase tracking-widest">Cargando librería...</p>
-        </div>
-      ) : projects.length === 0 ? (
-        <div className="text-center py-24 border border-dashed border-zinc-800 rounded-3xl bg-zinc-900/30">
-           <Music4 className="mx-auto mb-4 opacity-20" size={48} />
-           <h3 className="text-lg font-bold text-white mb-2">Está muy silencioso aquí...</h3>
-           <p className="text-zinc-500 text-sm mb-6">Sube tu primera maqueta para empezar.</p>
-           <button onClick={() => setIsModalOpen(true)} className="text-amber-500 hover:underline text-sm font-bold">Subir ahora</button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-          {projects.map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}`} className="group relative bg-[#0F1112] border border-zinc-800 hover:border-amber-500/30 rounded-3xl p-6 transition-all hover:-translate-y-1 hover:shadow-2xl cursor-pointer">
-              <div className="flex justify-between items-start mb-6">
-                <div className="h-14 w-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 group-hover:text-amber-500 transition-colors">
-                   <Music4 size={24} />
-                </div>
-                <span className="text-[10px] font-bold uppercase px-2 py-1 rounded-full border bg-zinc-900 border-zinc-700 text-zinc-400">
-                  {project.status}
-                </span>
-              </div>
-
-              <h3 className="text-xl font-bold text-white mb-1 group-hover:text-amber-400 transition-colors truncate">{project.title}</h3>
-              <p className="text-sm text-zinc-500 mb-6">{project.artist}</p>
-
-              <div className="flex items-center justify-between pt-4 border-t border-zinc-800/50">
-                 <div className="flex items-center gap-1.5 text-[10px] font-bold px-2 py-1.5 rounded-lg border text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
-                    <Clock size={12} />
-                    <span>Reciente</span>
-                 </div>
-                 <div className="flex items-center gap-1 text-xs text-zinc-500 bg-zinc-900/50 px-2 py-1 rounded border border-zinc-800/50">
-                    <Mic2 size={10} />
-                    <span>{project.version}</span>
-                 </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* MODAL (Pasamos fetchProjects para recargar al subir) */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-300">
            <div className="absolute inset-0 cursor-pointer" onClick={() => setIsModalOpen(false)} />
-           <div className="relative z-10 w-full max-w-md">
+           <div className="relative z-10 w-full max-w-md animate-in zoom-in-95 duration-300">
               <NewProjectModal onClose={() => { setIsModalOpen(false); fetchProjects(); }} />
            </div>
         </div>
