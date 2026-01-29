@@ -123,7 +123,7 @@ export const MonthlyViewModal = ({ onClose, rooms, orgId }: MonthlyViewModalProp
         {/* --- HEADER --- */}
         <div className="flex flex-col md:flex-row items-center justify-between p-6 border-b border-zinc-800/50 bg-zinc-900/20 gap-4">
           <div>
-             <Logo size="text-5xl" />
+             <Logo widthClass="w-[145px]" />
              <p className="text-[10px] uppercase tracking-[0.3em] text-zinc-500 font-bold mt-1">Auditoría Mensual</p>
           </div>
           
