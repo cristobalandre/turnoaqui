@@ -21,13 +21,12 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
     }
   };
 
-  // 🧼 LA LAVADORA DE NOMBRES (Vital para evitar errores)
+  // ✅ LAVADORA DE NOMBRES: Esto evita el error "Invalid Key" para siempre
   const sanitizeFileName = (name: string) => {
-    // Quita acentos y caracteres raros
     return name
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Quita tildes
-      .replace(/[^a-zA-Z0-9.]/g, "_") // Cambia espacios y símbolos por _
-      .toLowerCase();
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Quita tildes (canción -> cancion)
+      .replace(/[^a-zA-Z0-9.]/g, "_") // Cambia espacios y símbolos raros por _
+      .toLowerCase(); // Todo a minúsculas
   };
 
   const processAndUpload = async () => {
@@ -36,7 +35,7 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
     setProgress(0);
 
     try {
-      // 1. LIMPIEZA DEL NOMBRE
+      // 1. LIMPIEZA INICIAL
       const cleanName = sanitizeFileName(file.name);
       let fileToUpload = new File([file], cleanName, { type: file.type });
       let fileName = cleanName;
@@ -48,7 +47,6 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
             await ffmpeg.load();
         }
         setStatus("Optimizando Audio...");
-        // FFmpeg necesita el nombre original para leerlo de memoria
         ffmpeg.FS("writeFile", file.name, await fetchFile(file));
         await ffmpeg.run("-i", file.name, "-b:a", "128k", "output.mp3");
         const data = ffmpeg.FS("readFile", "output.mp3");
@@ -65,7 +63,7 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
 
       // 3. SUBIDA AL STORAGE
       setStatus("Subiendo a la nube...");
-      // Agregamos timestamp para que sea único
+      // Agregamos timestamp para evitar duplicados
       const filePath = `uploads/${Date.now()}_${fileName}`;
       
       const { error: uploadError } = await supabase.storage
@@ -84,12 +82,12 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
       const { data: { user } } = await supabase.auth.getUser();
 
       const { error: dbError } = await supabase.from('projects').insert({
-        title: file.name.replace(/\.[^/.]+$/, ""), // Título original bonito
+        title: file.name.replace(/\.[^/.]+$/, ""), // Título legible (original)
         artist: user?.user_metadata?.full_name || "Artista",
         status: "En Revisión",
         version: "v1.0",
         audio_url: publicUrl,
-        user_id: user?.id // Puede ser null si el usuario es anon, pero la tabla lo aceptará
+        user_id: user?.id // Pasamos el ID aunque la política sea pública
       });
 
       if (dbError) throw new Error(`Database: ${dbError.message}`);
@@ -110,7 +108,6 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
     }
   };
 
-  // ... (El resto del return es igual) ...
   return (
     <div className="bg-[#0F1112] w-full max-w-md rounded-3xl border border-zinc-800 p-6 shadow-2xl relative overflow-hidden">
       <div className="flex justify-between items-center mb-6">
@@ -123,7 +120,8 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
            </button>
         )}
       </div>
-
+      
+      {/* ... Resto del diseño igual ... */}
       <div className="space-y-6">
         <div className="border-2 border-dashed border-zinc-800 rounded-2xl p-8 flex flex-col items-center justify-center bg-zinc-900/50 hover:bg-zinc-900 transition-colors group">
            {file ? (
