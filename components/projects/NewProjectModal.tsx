@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/client";
 import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
 import { UploadCloud, Music, X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
-// Inicializamos FFmpeg (Logueo activado para ver detalles en consola)
 const ffmpeg = createFFmpeg({ log: true });
 
 export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
@@ -31,77 +30,79 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
       let fileToUpload = file;
       let fileName = file.name;
 
-      // --- 1. INTENTO DE OPTIMIZACIÓN (FFmpeg) ---
+      // 1. OPTIMIZACIÓN (Intento)
       try {
         if (!ffmpeg.isLoaded()) {
-          setStatus("Cargando motor de audio...");
-          await ffmpeg.load();
+            setStatus("Cargando motor...");
+            await ffmpeg.load();
         }
-
         setStatus("Optimizando Audio...");
         ffmpeg.FS("writeFile", file.name, await fetchFile(file));
-
-        // Convertimos a MP3 ligero (128k)
         await ffmpeg.run("-i", file.name, "-b:a", "128k", "output.mp3");
         const data = ffmpeg.FS("readFile", "output.mp3");
-
-        // ✅ CORRECCIÓN AQUÍ: Agregamos 'as ArrayBuffer' para calmar a TypeScript
-        const blob = new Blob([data.buffer as ArrayBuffer], { type: "audio/mp3" });
         
+        const blob = new Blob([data.buffer as ArrayBuffer], { type: "audio/mp3" });
         fileToUpload = new File([blob], "optimized_" + file.name.replace(/\.[^/.]+$/, "") + ".mp3", { type: "audio/mp3" });
         fileName = fileToUpload.name;
-
-        setStatus("¡Optimización lista!");
-        setProgress(50); 
-
-      } catch (ffmpegError) {
-        console.warn("⚠️ FFmpeg falló o no cargó. Usando archivo original.", ffmpegError);
-        // Fallback silencioso: seguimos con el archivo original
-        setStatus("Subiendo original (sin optimizar)...");
-        fileToUpload = file; // Volvemos al original
+        setStatus("¡Optimizado!");
+      } catch (err) {
+        console.warn("Saltando optimización...");
+        fileToUpload = file; 
       }
 
-      // --- 2. SUBIDA A SUPABASE ---
-      setStatus("Enviando a la nube...");
-      
+      setProgress(50);
+
+      // 2. SUBIDA AL STORAGE
+      setStatus("Subiendo a la nube...");
       const filePath = `uploads/${Date.now()}_${fileName}`;
       
-      // Intentamos subir
-      const { data, error: uploadError } = await supabase.storage
-        .from('projects') // ⚠️ ESTE BUCKET DEBE EXISTIR EN SUPABASE
-        .upload(filePath, fileToUpload, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('projects')
+        .upload(filePath, fileToUpload);
 
-      if (uploadError) {
-        // Lanzamos el error específico de Supabase para verlo en el catch
-        throw new Error(`Error Supabase: ${uploadError.message}`);
-      }
+      if (uploadError) throw new Error(`Storage Error: ${uploadError.message}`);
+
+      // 3. GUARDAR EN BASE DE DATOS (¡ESTA ES LA PARTE QUE FALTABA!)
+      setStatus("Guardando en Studio Hub...");
+      
+      // Obtener URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('projects')
+        .getPublicUrl(filePath);
+
+      // Insertar en la tabla 'projects'
+      const { error: dbError } = await supabase.from('projects').insert({
+        title: file.name.replace(/\.[^/.]+$/, ""), // Nombre sin extensión
+        artist: "Artista", // Puedes cambiar esto luego
+        status: "En Revisión",
+        version: "v1.0",
+        audio_url: publicUrl
+      });
+
+      if (dbError) throw new Error(`Database Error: ${dbError.message}`);
 
       setProgress(100);
       setStatus("¡Completado!");
       
-      // Éxito
       setTimeout(() => {
-        alert("✅ Archivo subido correctamente.");
+        alert("✅ Proyecto creado exitosamente");
         if (onClose) onClose();
+        // Recargar la página para ver el nuevo proyecto
         window.location.reload(); 
       }, 500);
 
     } catch (error: any) {
-      console.error("❌ ERROR DETALLADO:", error);
-      // Mostramos el error real en pantalla
-      alert(`FALLO LA SUBIDA:\n${error.message}`);
+      console.error("❌ ERROR:", error);
+      alert(`Error: ${error.message}`);
       setUploading(false);
-      setStatus("Error - Intenta de nuevo");
+      setStatus("Reintentar");
     }
   };
 
+  // ... (El resto del renderizado UI se mantiene igual)
   return (
     <div className="bg-[#0F1112] w-full max-w-md rounded-3xl border border-zinc-800 p-6 shadow-2xl relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-amber-700" />
-      
+      {/* ... Header ... */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           <Music className="text-amber-500" size={24} /> Subir Maqueta
@@ -114,13 +115,10 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
       </div>
 
       <div className="space-y-6">
-        {/* Zona de Carga */}
+        {/* Dropzone */}
         <div className="border-2 border-dashed border-zinc-800 rounded-2xl p-8 flex flex-col items-center justify-center bg-zinc-900/50 hover:bg-zinc-900 transition-colors group">
            {file ? (
              <div className="text-center">
-                <div className="w-12 h-12 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Music size={24} />
-                </div>
                 <p className="text-sm text-white font-medium truncate max-w-[200px]">{file.name}</p>
                 <button onClick={() => setFile(null)} className="mt-3 text-[10px] text-red-400 hover:text-red-300 underline">Cambiar archivo</button>
              </div>
@@ -133,7 +131,7 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
            )}
         </div>
 
-        {/* Barra de Progreso */}
+        {/* Progreso */}
         {uploading && (
           <div className="space-y-2">
              <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-zinc-400">
