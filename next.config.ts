@@ -2,17 +2,19 @@
 const nextConfig = {
   reactStrictMode: true,
   
-  // 1. imágenes externas (Para el componente <Image />)
+  // 1. IMAGENES (Google, DiceBear, Supabase)
   images: {
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: [
-      { protocol: 'https', hostname: 'lh3.googleusercontent.com' }, // Google
-      { protocol: 'https', hostname: 'api.dicebear.com' },          // Avatares
-      { protocol: 'https', hostname: 'pynaormfmxkzonmjyxyy.supabase.co' }, // Tu Storage
+      { protocol: 'https', hostname: '*.googleusercontent.com' },
+      { protocol: 'https', hostname: 'api.dicebear.com' },
+      { protocol: 'https', hostname: 'pynaormfmxkzonmjyxyy.supabase.co' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },
 
-  // 2. Headers "Credentialless"
-  // Esto permite que FFmpeg funcione SIN romper las imágenes externas.
+  // 2. HEADERS DE SEGURIDAD (FFmpeg + Fotos Google)
   async headers() {
     return [
       {
@@ -23,8 +25,10 @@ const nextConfig = {
             value: 'same-origin',
           },
           {
+            // ESTA ES LA CLAVE: credentialless
+            // Permite que FFmpeg use memoria rapida SIN bloquear las fotos de Google.
             key: 'Cross-Origin-Embedder-Policy',
-            value: 'credentialless', //  (Antes era 'require-corp')
+            value: 'credentialless', 
           },
         ],
       },
