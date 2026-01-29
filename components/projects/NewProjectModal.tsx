@@ -45,8 +45,9 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
         await ffmpeg.run("-i", file.name, "-b:a", "128k", "output.mp3");
         const data = ffmpeg.FS("readFile", "output.mp3");
 
-        // Creamos el nuevo archivo optimizado
-        const blob = new Blob([data.buffer], { type: "audio/mp3" });
+        // ✅ CORRECCIÓN AQUÍ: Agregamos 'as ArrayBuffer' para calmar a TypeScript
+        const blob = new Blob([data.buffer as ArrayBuffer], { type: "audio/mp3" });
+        
         fileToUpload = new File([blob], "optimized_" + file.name.replace(/\.[^/.]+$/, "") + ".mp3", { type: "audio/mp3" });
         fileName = fileToUpload.name;
 
