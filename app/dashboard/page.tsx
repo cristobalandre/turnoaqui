@@ -2,35 +2,46 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+// 1. Importamos useRouter para redirigir al salir
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { 
   Calendar, Inbox, Users, Scissors, Package, 
-  Settings, ChevronRight, Activity, Info, Zap, LayoutDashboard
+  Settings, ChevronRight, Activity, Info, Zap, LayoutDashboard, LogOut
 } from "lucide-react";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  
   const supabase = createClient();
+  const router = useRouter(); // 2. Inicializamos el router
 
   useEffect(() => {
     const getData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUser(user);
-        // Intentamos buscar el nombre en la tabla 'profiles', si no, usamos el de Google
         const { data: profileData } = await supabase
           .from('profiles').select('*').eq('id', user.id).single();
         setProfile(profileData);
+      } else {
+        // Si no hay usuario, patada al login de inmediato
+        router.push("/login");
       }
       setLoading(false);
     };
     getData();
-  }, []);
+  }, [router, supabase]);
 
-  // Lógica inteligente para el nombre:
-  // 1. Nombre en perfil (Base de datos) -> 2. Nombre en Google -> 3. "Colega"
+  // 3. Lógica de Logout
+  const handleLogout = async () => {
+    await supabase.auth.signOut(); // Mata la sesión en Supabase
+    router.refresh();              // Limpia caché local
+    router.push("/login");         // Redirige al login
+  };
+
   const displayName = profile?.full_name?.split(' ')[0] 
     || user?.user_metadata?.full_name?.split(' ')[0] 
     || 'Colega';
@@ -38,7 +49,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-400 font-sans relative overflow-hidden selection:bg-emerald-500/30">
       
-      {/* 🟢 FONDO CON VIDA (Glows animados) */}
+      {/* 🟢 FONDO CON VIDA */}
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-emerald-900/10 to-transparent pointer-events-none" />
       <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none animate-pulse" />
       
@@ -63,6 +74,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Botón Copiar Link */}
             <button
               onClick={() => {
                 navigator.clipboard.writeText(`${window.location.origin}/booking`);
@@ -73,15 +85,25 @@ export default function DashboardPage() {
               <div className="p-1.5 bg-emerald-500/10 rounded-full group-hover:bg-emerald-500/20 transition-colors">
                 <Zap className="w-3.5 h-3.5 text-emerald-400" />
               </div>
-              <div className="flex flex-col text-left">
+              <div className="hidden md:flex flex-col text-left">
                 <span className="text-[9px] uppercase font-bold text-zinc-500 group-hover:text-emerald-400 transition-colors">Tu Link Público</span>
-                <span className="text-xs font-bold text-zinc-300 group-hover:text-white">Copiar Enlace de Reserva</span>
+                <span className="text-xs font-bold text-zinc-300 group-hover:text-white">Copiar Enlace</span>
               </div>
             </button>
             
-            <div className="h-12 w-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-lg">
+            {/* Ícono de Actividad (Decorativo) */}
+            <div className="h-12 w-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-lg" title="Estado del Sistema: Activo">
                 <Activity className="h-5 w-5 text-emerald-500" />
-             </div>
+            </div>
+
+            {/* 🔴 BOTÓN LOGOUT (NUEVO) */}
+            <button 
+              onClick={handleLogout}
+              className="h-12 w-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-lg hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-500 transition-all group"
+              title="Cerrar Sesión"
+            >
+                <LogOut className="h-5 w-5 text-zinc-500 group-hover:text-red-500 transition-colors" />
+            </button>
           </div>
         </header>
 
@@ -100,7 +122,7 @@ export default function DashboardPage() {
            </div>
         </div>
 
-        {/* --- GRID PRINCIPAL (Tarjetas Vistosas) --- */}
+        {/* --- GRID PRINCIPAL --- */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
           <SpotlightCard 
             href="/calendar" 
@@ -167,12 +189,8 @@ export default function DashboardPage() {
   );
 }
 
-// ----------------------------------------------------------------------
-// COMPONENTES VISUALES MEJORADOS
-// ----------------------------------------------------------------------
-
+// COMPONENTES VISUALES (IGUAL QUE ANTES)
 function SpotlightCard({ href, title, subtitle, desc, icon, badge, color = "emerald" }: any) {
-  // Mapa de colores para los brillos
   const colors: any = {
     emerald: "group-hover:bg-emerald-500/10 group-hover:border-emerald-500/50 text-emerald-400",
     blue: "group-hover:bg-blue-500/10 group-hover:border-blue-500/50 text-blue-400",
@@ -183,10 +201,7 @@ function SpotlightCard({ href, title, subtitle, desc, icon, badge, color = "emer
 
   return (
     <Link href={href} className="group relative bg-[#0F1112] border border-zinc-800 rounded-[2rem] p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-900/10 overflow-hidden">
-      
-      {/* Glow de Fondo al Hover */}
       <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-white/5 to-transparent pointer-events-none`} />
-      
       <div className="relative z-10 flex flex-col h-full">
         <div className="flex justify-between items-start mb-6">
            <div className={`h-14 w-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center transition-all duration-300 ${iconColor}`}>
@@ -198,14 +213,11 @@ function SpotlightCard({ href, title, subtitle, desc, icon, badge, color = "emer
              </span>
            )}
         </div>
-
         <div className="mt-auto">
           <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">{subtitle}</p>
           <h3 className="text-2xl font-bold text-white mb-3 group-hover:text-emerald-400 transition-colors">{title}</h3>
           <p className="text-sm text-zinc-400 leading-relaxed font-medium">{desc}</p>
         </div>
-
-        {/* Flecha interactiva */}
         <div className="mt-6 flex items-center gap-2 text-xs font-bold text-zinc-600 group-hover:text-white transition-colors">
            <span>INGRESAR</span>
            <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
