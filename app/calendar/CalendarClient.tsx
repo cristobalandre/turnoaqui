@@ -280,7 +280,7 @@ export default function CalendarClient() {
             </div>
              
              {/* ✅ LOGO ACTUALIZADO */}
-             <Logo widthClass="w-[180px]" />
+             <Logo widthClass="w-[230px]" />
              
              <p className="text-sm text-zinc-500 mt-4 max-w-md hidden md:block leading-relaxed">
               Organiza tus sesiones, bloquea horarios y audita la producción mensual.
