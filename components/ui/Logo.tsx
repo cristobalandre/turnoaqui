@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Outfit } from "next/font/google";
 
 const outfit = Outfit({ subsets: ["latin"] });
@@ -15,13 +16,19 @@ export const Logo = ({
 }: LogoProps) => {
   return (
     <div className={`flex items-center ${outfit.className} ${className}`}>
-      {/* Contenedor que controla el ancho */}
+      {/* El 'widthClass' controla el tamaño de esta caja invisible.
+         La imagen de adentro simplemente se adapta a esta caja.
+      */}
       <div className={`relative ${widthClass} flex items-center justify-center transition-transform duration-500 hover:scale-105`}>
-         <img
+         <Image
            src="/logo.png" 
            alt="TurnoAquí Logo"
-           // h-auto y w-full hacen que la imagen se adapte perfectamente al widthClass
+           width={0}
+           height={0}
+           sizes="100vw"
+           // w-full hace que llene el widthClass, h-auto mantiene la proporción
            className="h-auto w-full object-contain drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+           priority
          />
       </div>
     </div>
