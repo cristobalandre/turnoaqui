@@ -3,17 +3,20 @@
 import Link from "next/link";
 import { Outfit } from "next/font/google";
 import { 
-  ArrowLeft, Share2, Download, Clock, CheckCircle2, Plus 
+  ArrowLeft, Share2, Download, Clock, CheckCircle2, Plus, X 
 } from "lucide-react";
 import { useState } from "react";
-// ✅ 1. Importamos el Reproductor Real
+import Image from "next/image"; // ✅ Importamos Image para el avatar
+// ✅ Importamos los componentes necesarios
 import { AudioPlayer } from "@/components/projects/AudioPlayer";
+import NewProjectModal from "@/components/projects/NewProjectModal";
 
 const outfit = Outfit({ subsets: ["latin"] });
 
 export default function ProjectDetailPage() {
-  // Nota: Ya no necesitamos el estado 'isPlaying' aquí porque el AudioPlayer lo maneja internamente.
   const [activeVersion, setActiveVersion] = useState(2);
+  // ✅ Estado para controlar el Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Mock de versiones
   const versions = [
@@ -22,7 +25,7 @@ export default function ProjectDetailPage() {
   ];
 
   return (
-    <div className={`min-h-screen bg-[#09090b] text-zinc-300 ${outfit.className} flex flex-col`}>
+    <div className={`min-h-screen bg-[#09090b] text-zinc-300 ${outfit.className} flex flex-col relative`}>
       
       {/* --- HEADER SUPERIOR --- */}
       <header className="border-b border-zinc-800 bg-[#0c0c0e] px-6 py-4 flex items-center justify-between sticky top-0 z-50">
@@ -61,26 +64,36 @@ export default function ProjectDetailPage() {
 
            {/* 🌊 EL WAVEFORM REAL (WaveSurfer) */}
            <div className="mb-8">
-              {/* Aquí pasamos una URL de prueba. Cuando conectes Supabase, pasarás la URL real del archivo */}
               <AudioPlayer url="https://www.mfiles.co.uk/mp3-downloads/gs-cd-track2.mp3" />
            </div>
 
-           {/* Caja de Comentarios */}
+           {/* Caja de Comentarios (Corregida y Limpia) */}
            <div className="max-w-2xl mx-auto">
               <div className="flex gap-4 items-start">
-                 {/* Avatar Placeholder */}
-                 <div className="w-10 h-10 rounded-full bg-zinc-800 flex-shrink-0" />
-                 <div className="flex-1">
+                  {/* Avatar Seguro */}
+                  <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700 overflow-hidden relative shrink-0">
+                    <Image 
+                      src="https://api.dicebear.com/7.x/initials/svg?seed=User" 
+                      alt="User" 
+                      fill 
+                      className="object-cover" 
+                    />
+                  </div>
+                  
+                  <div className="flex-1">
                     <textarea 
                       placeholder="Escribe un comentario en el segundo 01:24..." 
                       className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition-all resize-none h-24"
                     />
                     <div className="flex justify-end mt-2">
-                       <button className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold rounded-lg transition-colors">
+                        <button 
+                          onClick={() => alert("¡Comentario enviado! (Simulación)")}
+                          className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold rounded-lg transition-colors"
+                        >
                           Enviar Feedback
-                       </button>
+                        </button>
                     </div>
-                 </div>
+                  </div>
               </div>
            </div>
 
@@ -116,13 +129,37 @@ export default function ProjectDetailPage() {
            </div>
 
            <div className="mt-8 pt-8 border-t border-zinc-800">
-              <button className="w-full py-3 border border-dashed border-zinc-700 rounded-xl text-xs font-bold text-zinc-500 hover:text-white hover:border-zinc-500 transition-all flex items-center justify-center gap-2">
+              {/* ✅ BOTÓN CONECTADO AL ESTADO */}
+              <button 
+                 onClick={() => setIsModalOpen(true)}
+                 className="w-full py-3 border border-dashed border-zinc-700 rounded-xl text-xs font-bold text-zinc-500 hover:text-white hover:border-zinc-500 transition-all flex items-center justify-center gap-2"
+              >
                  <Plus size={14} /> Subir Nueva Versión
               </button>
            </div>
         </aside>
 
       </div>
+
+      {/* ✅ MODAL DE SUBIDA */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+           {/* Click afuera para cerrar */}
+           <div className="absolute inset-0 cursor-pointer" onClick={() => setIsModalOpen(false)} />
+           
+           <div className="relative z-10 w-full max-w-md">
+              <NewProjectModal />
+              {/* Botón flotante para cerrar */}
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="absolute -top-12 right-0 p-2 bg-zinc-800 rounded-full text-zinc-400 hover:text-white border border-zinc-700 hover:bg-zinc-700 transition-all"
+              >
+                <X size={20} />
+              </button>
+           </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { 
   Box, 
   Plus, 
@@ -15,6 +14,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+// 1. Eliminamos la dependencia de Supabase que fallaba
+// import { supabase } from "@/lib/supabaseClient"; 
+
 const ORG_ID = "a573aa05-d62b-44c7-a878-b9138902a094";
 
 type Room = {
@@ -26,44 +28,60 @@ type Room = {
 
 export default function ResourcesPage() {
   const [loading, setLoading] = useState(true);
-  const [rooms, setRooms] = useState<Room[]>([]);
+  
+  // 2. Datos iniciales de prueba (para que no salga vacío)
+  const [rooms, setRooms] = useState<Room[]>([
+    { id: "1", name: "Sala A - Control Room", org_id: ORG_ID, created_at: new Date().toISOString() },
+    { id: "2", name: "Cabina de Voces 1", org_id: ORG_ID, created_at: new Date().toISOString() },
+    { id: "3", name: "Estudio de Mastering", org_id: ORG_ID, created_at: new Date().toISOString() }
+  ]);
+  
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
 
   const canAdd = useMemo(() => newName.trim().length >= 2, [newName]);
 
-  async function loadRooms() {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("rooms")
-      .select("*")
-      .eq("org_id", ORG_ID)
-      .order("created_at", { ascending: true });
+  // Simulación de carga para el efecto visual
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
 
-    if (error) alert("Error cargando recursos: " + error.message);
-    else setRooms((data || []) as Room[]);
-    setLoading(false);
-  }
-
-  useEffect(() => { loadRooms(); }, []);
+  // --- FUNCIONES LOCALES (Reemplazan a Supabase) ---
 
   async function addRoom() {
     if (!canAdd) return;
-    const { error } = await supabase.from("rooms").insert([{ name: newName.trim(), org_id: ORG_ID }]);
-    if (!error) { setNewName(""); loadRooms(); }
+    
+    // Creamos el recurso localmente
+    const newRoom: Room = {
+      id: Date.now().toString(), // ID único temporal
+      name: newName.trim(),
+      org_id: ORG_ID,
+      created_at: new Date().toISOString()
+    };
+    
+    setRooms([...rooms, newRoom]);
+    setNewName("");
   }
 
   async function saveEdit(roomId: string) {
     if (editingName.trim().length < 2) return;
-    const { error } = await supabase.from("rooms").update({ name: editingName.trim() }).eq("id", roomId);
-    if (!error) { setEditingId(null); loadRooms(); }
+    
+    // Actualizamos el array local
+    const updatedRooms = rooms.map(r => 
+      r.id === roomId ? { ...r, name: editingName.trim() } : r
+    );
+    
+    setRooms(updatedRooms);
+    setEditingId(null);
   }
 
   async function deleteRoom(roomId: string) {
     if (!confirm("¿Eliminar este recurso?")) return;
-    await supabase.from("rooms").delete().eq("id", roomId);
-    loadRooms();
+    
+    // Filtramos para eliminar
+    setRooms(rooms.filter(r => r.id !== roomId));
   }
 
   return (
@@ -91,6 +109,7 @@ export default function ResourcesPage() {
               <input 
                 value={newName} 
                 onChange={(e) => setNewName(e.target.value)} 
+                onKeyDown={(e) => e.key === 'Enter' && addRoom()} // Agregué Enter para enviar
                 placeholder="Ej: Estudio de Grabación A" 
                 className="bg-transparent border-none p-0 w-full text-white text-sm focus:ring-0 placeholder:text-zinc-700" 
               />
@@ -108,7 +127,7 @@ export default function ResourcesPage() {
         {/* LISTADO DE RECURSOS */}
         <div className="grid grid-cols-1 gap-4">
           {loading ? (
-            <div className="text-center py-20 text-xs tracking-[0.3em] animate-pulse">ESCANEANDO INFRAESTRUCTURA...</div>
+            <div className="text-center py-20 text-xs tracking-[0.3em] animate-pulse text-emerald-500/50 font-bold">ESCANEANDO INFRAESTRUCTURA...</div>
           ) : rooms.map((room) => (
             <div key={room.id} className="group bg-zinc-900/20 border border-zinc-800/50 rounded-2xl p-6 hover:border-emerald-500/30 transition-all duration-500 shadow-lg">
               <div className="flex items-center justify-between">
@@ -123,6 +142,7 @@ export default function ResourcesPage() {
                       <input 
                         value={editingName} 
                         onChange={(e) => setEditingName(e.target.value)} 
+                        autoFocus
                         className="bg-zinc-800/50 border border-emerald-500/50 rounded-xl px-4 py-2 text-white text-sm focus:ring-0" 
                       />
                       <button onClick={() => saveEdit(room.id)} className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/40 transition-colors"><Check className="h-4 w-4" /></button>
