@@ -250,7 +250,7 @@ export default function BookingPage() {
             {/* 👈 COLUMNA IZQUIERDA: RESUMEN (TICKET) */}
             <div className="bg-[#0A0A0B]/80 p-6 md:p-8 border-r border-white/5 flex flex-col relative">
                <div className="mb-6">
-                  <Logo size="text-2xl" />
+                  <Logo widthClass="w-[145px]" />
                   <p className="text-xs text-zinc-500 mt-2 font-medium tracking-wide">RESERVA ONLINE</p>
                </div>
 
