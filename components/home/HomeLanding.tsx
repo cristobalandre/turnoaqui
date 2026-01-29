@@ -116,7 +116,7 @@ export default function HomeLanding() {
       <nav className="relative z-50 w-full border-b border-white/5 bg-[#0F1112]/50 backdrop-blur-md transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <Logo size="text-4xl" />
+            <Logo widthClass="w-[145px]" />
           </div>
           <div className="flex items-center gap-6">
             {!loading && user ? (
@@ -195,7 +195,7 @@ export default function HomeLanding() {
 
         {/* Titular */}
         <div className="mb-8 drop-shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-700">
-           <Logo size="text-6xl md:text-8xl" />
+           <Logo widthClass="w-64 md:w-96" />
         </div>
 
         <h1 className="mx-auto max-w-4xl text-5xl font-medium tracking-tight text-white sm:text-7xl mb-10 leading-[1.1] drop-shadow-lg animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-150">
