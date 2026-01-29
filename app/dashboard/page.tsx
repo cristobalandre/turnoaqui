@@ -19,25 +19,46 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const getData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      try {
+        // 1. Verificamos Usuario
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        
+        if (authError || !user) {
+          console.log("No hay sesión activa, redirigiendo...");
+          router.replace("/login"); // Usamos replace para que no puedan volver atrás
+          return;
+        }
+
         setUser(user);
-        const { data: profileData } = await supabase
-          .from('profiles').select('*').eq('id', user.id).single();
-        setProfile(profileData);
-      } else {
-        router.push("/login");
+
+        // 2. Buscamos el perfil (Usamos maybeSingle para que no explote si no existe)
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        if (profileError) {
+          console.error("Error cargando perfil (no crítico):", profileError);
+        }
+        
+        if (profileData) {
+          setProfile(profileData);
+        }
+
+      } catch (error) {
+        console.error("Error crítico cargando dashboard:", error);
+      } finally {
+        // ✅ ESTO ES LO IMPORTANTE: Pase lo que pase, quitamos la pantalla de carga
+        setLoading(false);
       }
-      setLoading(false);
     };
+
     getData();
   }, [router, supabase]);
 
-  // ✅ CORRECCIÓN DEL LOGOUT
   const handleLogout = async () => {
-    // 1. Cerramos sesión en Supabase
     await supabase.auth.signOut(); 
-    // 2. Forzamos recarga completa hacia el login (más seguro que router.push)
     window.location.href = "/login";         
   };
 
@@ -45,8 +66,14 @@ export default function DashboardPage() {
     || user?.user_metadata?.full_name?.split(' ')[0] 
     || 'Colega';
 
+  // Pantalla de carga (Solo se ve mientras loading es true)
   if (loading) {
-    return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-zinc-500">Cargando consola...</div>;
+    return (
+      <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center text-zinc-500 gap-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-emerald-500"></div>
+        <p className="text-xs tracking-widest uppercase animate-pulse">Conectando...</p>
+      </div>
+    );
   }
 
   return (
@@ -147,7 +174,7 @@ export default function DashboardPage() {
   );
 }
 
-// ... (Los componentes SpotlightCard y AdminLink se mantienen igual, no hace falta pegarlos si ya los tienes, pero asegúrate de que SpotlightCard tenga el color 'amber' definido)
+// COMPONENTES AUXILIARES
 function SpotlightCard({ href, title, subtitle, desc, icon, badge, color = "emerald" }: any) {
   const colors: any = {
     emerald: "group-hover:bg-emerald-500/10 group-hover:border-emerald-500/50 text-emerald-400",
@@ -156,6 +183,7 @@ function SpotlightCard({ href, title, subtitle, desc, icon, badge, color = "emer
     amber: "group-hover:bg-amber-500/10 group-hover:border-amber-500/50 text-amber-400", 
   };
   const iconColor = colors[color] || colors.emerald;
+
   return (
     <Link href={href} className="group relative bg-[#0F1112] border border-zinc-800 rounded-[2rem] p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-900/10 overflow-hidden">
       <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-white/5 to-transparent pointer-events-none`} />
