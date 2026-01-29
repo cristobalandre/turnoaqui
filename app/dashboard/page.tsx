@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-// ✅ 1. AGREGAMOS 'Music4' A LOS IMPORTS
 import { 
   Calendar, Inbox, Users, Scissors, Package, 
   Settings, ChevronRight, Activity, Info, Zap, LayoutDashboard, LogOut, Music4
@@ -34,15 +33,21 @@ export default function DashboardPage() {
     getData();
   }, [router, supabase]);
 
+  // ✅ CORRECCIÓN DEL LOGOUT
   const handleLogout = async () => {
+    // 1. Cerramos sesión en Supabase
     await supabase.auth.signOut(); 
-    router.refresh();              
-    router.push("/login");         
+    // 2. Forzamos recarga completa hacia el login (más seguro que router.push)
+    window.location.href = "/login";         
   };
 
   const displayName = profile?.full_name?.split(' ')[0] 
     || user?.user_metadata?.full_name?.split(' ')[0] 
     || 'Colega';
+
+  if (loading) {
+    return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-zinc-500">Cargando consola...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-400 font-sans relative overflow-hidden selection:bg-emerald-500/30">
@@ -117,48 +122,12 @@ export default function DashboardPage() {
            </div>
         </div>
 
-        {/* --- GRID PRINCIPAL (ACTUALIZADO CON 4 COLUMNAS) --- */}
-        {/* ✅ 2. Cambiamos a 'lg:grid-cols-4' para que quepa la nueva tarjeta */}
+        {/* --- GRID PRINCIPAL --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          
-          <SpotlightCard 
-            href="/calendar" 
-            title="Calendario" 
-            subtitle="Agenda y Bloqueos"
-            desc="Gestión de horas y disponibilidad." 
-            icon={<Calendar />}
-            color="emerald"
-          />
-
-          {/* ✅ 3. AQUÍ ESTÁ LA NUEVA BOMBA: STUDIO HUB */}
-          <SpotlightCard 
-            href="/projects" 
-            title="Studio Hub" 
-            subtitle="Sala de Mezclas"
-            desc="Sube maquetas, gestiona versiones y recibe feedback." 
-            icon={<Music4 />} 
-            badge="BETA"
-            color="amber" // Usamos el nuevo color Ámbar
-          />
-
-          <SpotlightCard 
-            href="/requests" 
-            title="Solicitudes" 
-            subtitle="Buzón de Entrada"
-            desc="Citas agendadas por la web." 
-            icon={<Inbox />} 
-            badge="Revisar"
-            color="blue"
-          />
-          
-          <SpotlightCard 
-            href="/clients" 
-            title="Clientes" 
-            subtitle="Base de Datos"
-            desc="Historial de contactos." 
-            icon={<Users />}
-            color="purple"
-          />
+          <SpotlightCard href="/calendar" title="Calendario" subtitle="Agenda y Bloqueos" desc="Gestión de horas y disponibilidad." icon={<Calendar />} color="emerald" />
+          <SpotlightCard href="/projects" title="Studio Hub" subtitle="Sala de Mezclas" desc="Sube maquetas, gestiona versiones y recibe feedback." icon={<Music4 />} badge="BETA" color="amber" />
+          <SpotlightCard href="/requests" title="Solicitudes" subtitle="Buzón de Entrada" desc="Citas agendadas por la web." icon={<Inbox />} badge="Revisar" color="blue" />
+          <SpotlightCard href="/clients" title="Clientes" subtitle="Base de Datos" desc="Historial de contactos." icon={<Users />} color="purple" />
         </div>
 
         {/* --- ADMINISTRACIÓN --- */}
@@ -167,66 +136,33 @@ export default function DashboardPage() {
              <LayoutDashboard size={14} /> Configuración del Estudio
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <AdminLink 
-              href="/services" 
-              title="Servicios" 
-              desc="Precios y Duración"
-              icon={<Scissors />} 
-            />
-            <AdminLink 
-              href="/staff" 
-              title="Staff" 
-              desc="Productores / Ing"
-              icon={<Users />} 
-            />
-            <AdminLink 
-              href="/resources" 
-              title="Recursos" 
-              desc="Salas y Equipos"
-              icon={<Package />} 
-            />
-            <AdminLink 
-              href="/settings" 
-              title="Ajustes" 
-              desc="General"
-              icon={<Settings />} 
-            />
+            <AdminLink href="/services" title="Servicios" desc="Precios y Duración" icon={<Scissors />} />
+            <AdminLink href="/staff" title="Staff" desc="Productores / Ing" icon={<Users />} />
+            <AdminLink href="/resources" title="Recursos" desc="Salas y Equipos" icon={<Package />} />
+            <AdminLink href="/settings" title="Ajustes" desc="General" icon={<Settings />} />
           </div>
         </div>
-
       </div>
     </div>
   );
 }
 
-// ----------------------------------------------------------------------
-// COMPONENTES VISUALES
-// ----------------------------------------------------------------------
-
+// ... (Los componentes SpotlightCard y AdminLink se mantienen igual, no hace falta pegarlos si ya los tienes, pero asegúrate de que SpotlightCard tenga el color 'amber' definido)
 function SpotlightCard({ href, title, subtitle, desc, icon, badge, color = "emerald" }: any) {
-  // ✅ 4. AGREGAMOS EL COLOR 'AMBER' AL MAPA
   const colors: any = {
     emerald: "group-hover:bg-emerald-500/10 group-hover:border-emerald-500/50 text-emerald-400",
     blue: "group-hover:bg-blue-500/10 group-hover:border-blue-500/50 text-blue-400",
     purple: "group-hover:bg-purple-500/10 group-hover:border-purple-500/50 text-purple-400",
-    amber: "group-hover:bg-amber-500/10 group-hover:border-amber-500/50 text-amber-400", // <--- Nuevo color para el Hub
+    amber: "group-hover:bg-amber-500/10 group-hover:border-amber-500/50 text-amber-400", 
   };
-  
   const iconColor = colors[color] || colors.emerald;
-
   return (
     <Link href={href} className="group relative bg-[#0F1112] border border-zinc-800 rounded-[2rem] p-8 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-900/10 overflow-hidden">
       <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-white/5 to-transparent pointer-events-none`} />
       <div className="relative z-10 flex flex-col h-full">
         <div className="flex justify-between items-start mb-6">
-           <div className={`h-14 w-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center transition-all duration-300 ${iconColor}`}>
-             {icon}
-           </div>
-           {badge && (
-             <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold uppercase tracking-wider animate-pulse">
-               {badge}
-             </span>
-           )}
+           <div className={`h-14 w-14 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center transition-all duration-300 ${iconColor}`}>{icon}</div>
+           {badge && <span className="px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold uppercase tracking-wider animate-pulse">{badge}</span>}
         </div>
         <div className="mt-auto">
           <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">{subtitle}</p>
@@ -234,8 +170,7 @@ function SpotlightCard({ href, title, subtitle, desc, icon, badge, color = "emer
           <p className="text-sm text-zinc-400 leading-relaxed font-medium">{desc}</p>
         </div>
         <div className="mt-6 flex items-center gap-2 text-xs font-bold text-zinc-600 group-hover:text-white transition-colors">
-           <span>INGRESAR</span>
-           <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+           <span>INGRESAR</span><ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
         </div>
       </div>
     </Link>
@@ -245,9 +180,7 @@ function SpotlightCard({ href, title, subtitle, desc, icon, badge, color = "emer
 function AdminLink({ href, title, desc, icon }: any) {
   return (
     <Link href={href} className="flex items-center gap-4 p-4 rounded-2xl border border-zinc-800/50 bg-zinc-900/30 hover:bg-zinc-800 hover:border-zinc-700 transition-all group">
-      <div className="h-10 w-10 rounded-xl bg-black border border-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-emerald-400 transition-colors">
-        {icon}
-      </div>
+      <div className="h-10 w-10 rounded-xl bg-black border border-zinc-800 flex items-center justify-center text-zinc-500 group-hover:text-emerald-400 transition-colors">{icon}</div>
       <div>
         <h4 className="text-sm font-bold text-zinc-300 group-hover:text-white transition-colors">{title}</h4>
         <p className="text-[10px] text-zinc-600 group-hover:text-zinc-500">{desc}</p>

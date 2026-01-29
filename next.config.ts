@@ -2,26 +2,17 @@
 const nextConfig = {
   reactStrictMode: true,
   
-  // 1. ? CONFIGURACIÓN DE IMÁGENES
-  // Esto permite cargar avatares externos aunque tengamos los headers de seguridad estrictos
+  // 1. imágenes externas (Para el componente <Image />)
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com', // Para fotos de perfil de Google Auth
-      },
-      {
-        protocol: 'https',
-        hostname: 'api.dicebear.com', // Para los avatares de ejemplo que usamos
-      },
-      {
-        protocol: 'https',
-        hostname: 'pynaormfmxkzonmjyxyy.supabase.co', // ?? TU PROYECTO SUPABASE (Storage)
-      },
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' }, // Google
+      { protocol: 'https', hostname: 'api.dicebear.com' },          // Avatares
+      { protocol: 'https', hostname: 'pynaormfmxkzonmjyxyy.supabase.co' }, // Tu Storage
     ],
   },
 
-  // 2. HEADERS DE SEGURIDAD (Necesarios para FFmpeg/Audio Processor)
+  // 2. Headers "Credentialless"
+  // Esto permite que FFmpeg funcione SIN romper las imágenes externas.
   async headers() {
     return [
       {
@@ -33,7 +24,7 @@ const nextConfig = {
           },
           {
             key: 'Cross-Origin-Embedder-Policy',
-            value: 'require-corp',
+            value: 'credentialless', //  (Antes era 'require-corp')
           },
         ],
       },

@@ -2,17 +2,17 @@
 
 import Link from "next/link";
 import { Outfit } from "next/font/google";
-// ✅ CORRECCIÓN: Agregué "Plus" a los imports
 import { 
-  ArrowLeft, Play, Pause, SkipBack, SkipForward, 
-  MessageSquare, Share2, Download, Clock, CheckCircle2, Plus 
+  ArrowLeft, Share2, Download, Clock, CheckCircle2, Plus 
 } from "lucide-react";
 import { useState } from "react";
+// ✅ 1. Importamos el Reproductor Real
+import { AudioPlayer } from "@/components/projects/AudioPlayer";
 
 const outfit = Outfit({ subsets: ["latin"] });
 
 export default function ProjectDetailPage() {
-  const [isPlaying, setIsPlaying] = useState(false);
+  // Nota: Ya no necesitamos el estado 'isPlaying' aquí porque el AudioPlayer lo maneja internamente.
   const [activeVersion, setActiveVersion] = useState(2);
 
   // Mock de versiones
@@ -59,52 +59,16 @@ export default function ProjectDetailPage() {
               <p className="text-zinc-500 text-sm">Subido por Chris Andrez • Hace 2 horas</p>
            </div>
 
-           {/* 🌊 EL WAVEFORM VISUAL (Simulado por ahora) */}
-           <div className="bg-[#0F1112] border border-zinc-800 rounded-3xl p-8 shadow-2xl relative mb-8 group">
-              
-              {/* Barras de sonido simuladas */}
-              <div className="h-32 flex items-center justify-center gap-1 opacity-50 group-hover:opacity-80 transition-opacity">
-                 {Array.from({ length: 60 }).map((_, i) => (
-                    <div 
-                      key={i} 
-                      className="w-1.5 bg-zinc-700 rounded-full transition-all duration-300"
-                      style={{ 
-                        height: `${Math.random() * 100}%`,
-                        backgroundColor: i < 20 ? '#f59e0b' : '#3f3f46' // Ámbar lo reproducido, Gris lo restante
-                      }} 
-                    />
-                 ))}
-              </div>
-
-              {/* Controles Flotantes */}
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-zinc-900/90 backdrop-blur-md px-6 py-3 rounded-2xl border border-zinc-700 shadow-xl">
-                 <button className="text-zinc-400 hover:text-white"><SkipBack size={20} /></button>
-                 <button 
-                   onClick={() => setIsPlaying(!isPlaying)}
-                   className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-black hover:scale-105 transition-transform shadow-lg shadow-white/20"
-                 >
-                    {isPlaying ? <Pause size={20} fill="black" /> : <Play size={20} fill="black" className="ml-1" />}
-                 </button>
-                 <button className="text-zinc-400 hover:text-white"><SkipForward size={20} /></button>
-              </div>
-
-              {/* Marker de Comentario (Ejemplo) */}
-              <div className="absolute top-1/2 left-[30%] -translate-y-1/2 flex flex-col items-center group/marker cursor-pointer">
-                 <div className="w-8 h-8 rounded-full bg-amber-500 border-2 border-[#0F1112] flex items-center justify-center shadow-lg transform group-hover/marker:scale-110 transition-transform z-10">
-                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" className="w-6 h-6 rounded-full" />
-                 </div>
-                 <div className="absolute bottom-full mb-2 bg-zinc-900 border border-zinc-700 px-3 py-2 rounded-xl text-xs w-48 opacity-0 group-hover/marker:opacity-100 transition-opacity pointer-events-none z-20">
-                    <p className="text-white font-bold mb-1">Chris dice:</p>
-                    <p className="text-zinc-400">"Subir un poco el volumen de la voz aquí."</p>
-                 </div>
-                 <div className="h-full w-px bg-amber-500/50 absolute top-4 pointer-events-none" />
-              </div>
-
+           {/* 🌊 EL WAVEFORM REAL (WaveSurfer) */}
+           <div className="mb-8">
+              {/* Aquí pasamos una URL de prueba. Cuando conectes Supabase, pasarás la URL real del archivo */}
+              <AudioPlayer url="https://www.mfiles.co.uk/mp3-downloads/gs-cd-track2.mp3" />
            </div>
 
            {/* Caja de Comentarios */}
            <div className="max-w-2xl mx-auto">
               <div className="flex gap-4 items-start">
+                 {/* Avatar Placeholder */}
                  <div className="w-10 h-10 rounded-full bg-zinc-800 flex-shrink-0" />
                  <div className="flex-1">
                     <textarea 
