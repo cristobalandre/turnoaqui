@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
-import { UploadCloud, Music, X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { UploadCloud, Music, X, CheckCircle2, Loader2 } from "lucide-react";
 
 const ffmpeg = createFFmpeg({ log: true });
 
@@ -21,73 +21,84 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
     }
   };
 
+  // 🧼 LA LAVADORA DE NOMBRES (Vital para evitar errores)
+  const sanitizeFileName = (name: string) => {
+    // Quita acentos y caracteres raros
+    return name
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Quita tildes
+      .replace(/[^a-zA-Z0-9.]/g, "_") // Cambia espacios y símbolos por _
+      .toLowerCase();
+  };
+
   const processAndUpload = async () => {
     if (!file) return;
     setUploading(true);
     setProgress(0);
 
     try {
-      let fileToUpload = file;
-      let fileName = file.name;
+      // 1. LIMPIEZA DEL NOMBRE
+      const cleanName = sanitizeFileName(file.name);
+      let fileToUpload = new File([file], cleanName, { type: file.type });
+      let fileName = cleanName;
 
-      // 1. OPTIMIZACIÓN (Intento)
+      // 2. OPTIMIZACIÓN (Intento)
       try {
         if (!ffmpeg.isLoaded()) {
             setStatus("Cargando motor...");
             await ffmpeg.load();
         }
         setStatus("Optimizando Audio...");
+        // FFmpeg necesita el nombre original para leerlo de memoria
         ffmpeg.FS("writeFile", file.name, await fetchFile(file));
         await ffmpeg.run("-i", file.name, "-b:a", "128k", "output.mp3");
         const data = ffmpeg.FS("readFile", "output.mp3");
         
         const blob = new Blob([data.buffer as ArrayBuffer], { type: "audio/mp3" });
-        fileToUpload = new File([blob], "optimized_" + file.name.replace(/\.[^/.]+$/, "") + ".mp3", { type: "audio/mp3" });
+        fileToUpload = new File([blob], "opt_" + fileName, { type: "audio/mp3" });
         fileName = fileToUpload.name;
         setStatus("¡Optimizado!");
       } catch (err) {
-        console.warn("Saltando optimización...");
-        fileToUpload = file; 
+        console.warn("Saltando optimización...", err);
       }
 
       setProgress(50);
 
-      // 2. SUBIDA AL STORAGE
+      // 3. SUBIDA AL STORAGE
       setStatus("Subiendo a la nube...");
+      // Agregamos timestamp para que sea único
       const filePath = `uploads/${Date.now()}_${fileName}`;
       
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('projects')
         .upload(filePath, fileToUpload);
 
-      if (uploadError) throw new Error(`Storage Error: ${uploadError.message}`);
+      if (uploadError) throw new Error(`Storage: ${uploadError.message}`);
 
-      // 3. GUARDAR EN BASE DE DATOS (¡ESTA ES LA PARTE QUE FALTABA!)
-      setStatus("Guardando en Studio Hub...");
+      // 4. GUARDAR EN BASE DE DATOS
+      setStatus("Guardando datos...");
       
-      // Obtener URL pública
       const { data: { publicUrl } } = supabase.storage
         .from('projects')
         .getPublicUrl(filePath);
 
-      // Insertar en la tabla 'projects'
+      const { data: { user } } = await supabase.auth.getUser();
+
       const { error: dbError } = await supabase.from('projects').insert({
-        title: file.name.replace(/\.[^/.]+$/, ""), // Nombre sin extensión
-        artist: "Artista", // Puedes cambiar esto luego
+        title: file.name.replace(/\.[^/.]+$/, ""), // Título original bonito
+        artist: user?.user_metadata?.full_name || "Artista",
         status: "En Revisión",
         version: "v1.0",
-        audio_url: publicUrl
+        audio_url: publicUrl,
+        user_id: user?.id // Puede ser null si el usuario es anon, pero la tabla lo aceptará
       });
 
-      if (dbError) throw new Error(`Database Error: ${dbError.message}`);
+      if (dbError) throw new Error(`Database: ${dbError.message}`);
 
       setProgress(100);
       setStatus("¡Completado!");
       
       setTimeout(() => {
-        alert("✅ Proyecto creado exitosamente");
         if (onClose) onClose();
-        // Recargar la página para ver el nuevo proyecto
         window.location.reload(); 
       }, 500);
 
@@ -99,23 +110,21 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
     }
   };
 
-  // ... (El resto del renderizado UI se mantiene igual)
+  // ... (El resto del return es igual) ...
   return (
     <div className="bg-[#0F1112] w-full max-w-md rounded-3xl border border-zinc-800 p-6 shadow-2xl relative overflow-hidden">
-      {/* ... Header ... */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           <Music className="text-amber-500" size={24} /> Subir Maqueta
         </h2>
         {onClose && (
-          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
-            <X size={20} />
-          </button>
+           <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+             <X size={20} />
+           </button>
         )}
       </div>
 
       <div className="space-y-6">
-        {/* Dropzone */}
         <div className="border-2 border-dashed border-zinc-800 rounded-2xl p-8 flex flex-col items-center justify-center bg-zinc-900/50 hover:bg-zinc-900 transition-colors group">
            {file ? (
              <div className="text-center">
@@ -131,7 +140,6 @@ export default function NewProjectModal({ onClose }: { onClose?: () => void }) {
            )}
         </div>
 
-        {/* Progreso */}
         {uploading && (
           <div className="space-y-2">
              <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-zinc-400">
