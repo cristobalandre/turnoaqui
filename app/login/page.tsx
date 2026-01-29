@@ -100,7 +100,7 @@ export default function LoginPage() {
         {/* LOGO GIGANTE Y HEADER */}
         <div className="text-center mb-10">
           <div className="flex justify-center mb-6 drop-shadow-2xl hover:scale-105 transition-transform duration-500">
-            <Logo size="text-5xl md:text-6xl" />
+            <Logo widthClass="w-64 md:w-96" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-white mb-2">
             {isSignUp ? "Crea tu cuenta de estudio" : "Bienvenido de nuevo"}
