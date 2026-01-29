@@ -66,7 +66,7 @@ export default function ProjectsPage() {
     setFilteredProjects(results);
   }, [search, projects]);
 
-  // 🎨 FUNCIÓN DE ARTE GENERATIVO
+  // 🎨 FUNCIÓN DE ARTE GENERATIVO CHILENO 
   // Crea un gradiente único basado en el ID del proyecto
   const generateGradient = (id: string) => {
     const colors = [
