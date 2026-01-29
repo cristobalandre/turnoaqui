@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation"; // Quitamos useRouter porque usaremos window.location para OAuth
+import { useParams, useRouter } from "next/navigation"; // Importamos useRouter para redirigir al borrar
 import { Outfit } from "next/font/google";
-import { ArrowLeft, Download, CheckCircle2, Send, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, CheckCircle2, Send, Loader2, Trash2 } from "lucide-react"; // Agregamos Trash2
 import { AudioPlayer, AudioPlayerRef } from "@/components/projects/AudioPlayer";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
@@ -13,6 +13,7 @@ const outfit = Outfit({ subsets: ["latin"] });
 
 export default function ProjectDetailPage() {
   const { id } = useParams(); 
+  const router = useRouter(); // Hook para movernos de página
   const supabase = createClient();
   const playerRef = useRef<AudioPlayerRef>(null);
   
@@ -21,31 +22,25 @@ export default function ProjectDetailPage() {
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false); // Estado para el borrado
 
   // 1. EL PORTERO AUTOMÁTICO 🛡️
   useEffect(() => {
     const checkSessionAndFetch = async () => {
       if (!id) return;
 
-      // A. Verificar si el usuario tiene "carnet" (sesión)
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
         console.warn("⛔ ACCESO DENEGADO: Redirigiendo al Login...");
-        
-        // B. Si no hay sesión, lo mandamos a Google DIRECTAMENTE
         await supabase.auth.signInWithOAuth({
           provider: 'google',
-          options: {
-            redirectTo: window.location.href, // Que vuelva aquí mismo después de entrar
-          },
+          options: { redirectTo: window.location.href },
         });
-        return; // Detenemos todo aquí, no cargamos nada más.
+        return;
       }
 
-      // C. Si pasó el control, guardamos usuario y cargamos datos
       setCurrentUser(session.user);
-      console.log("✅ ACCESO AUTORIZADO:", session.user.email);
 
       // Cargar Proyecto
       const { data: projectData, error } = await supabase
@@ -56,7 +51,6 @@ export default function ProjectDetailPage() {
 
       if (error) {
          console.error("Error cargando proyecto:", error);
-         // Probablemente RLS lo bloqueó si la sesión caducó justo ahora
       } else {
          setProject(projectData);
          fetchComments();
@@ -77,12 +71,57 @@ export default function ProjectDetailPage() {
     if (data) setComments(data);
   };
 
+  // 🗑️ FUNCIÓN DE BORRADO (Opción A)
+  const handleDeleteProject = async () => {
+    // 1. Confirmación de seguridad
+    if (!confirm("⚠️ ¿Estás seguro de que quieres ELIMINAR este proyecto permanentemente?\n\nEsta acción borrará el audio, los comentarios y no se puede deshacer.")) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      // 2. Extraer la ruta del archivo desde la URL completa
+      // La URL es tipo: .../storage/v1/object/public/projects/uploads/archivo.mp3
+      // Necesitamos solo: uploads/archivo.mp3
+      if (project.audio_url) {
+        const fileUrl = project.audio_url;
+        const filePath = fileUrl.split('/projects/')[1]; // Truco para sacar la ruta relativa
+
+        if (filePath) {
+           // Borrar de Storage
+           const { error: storageError } = await supabase.storage
+             .from('projects')
+             .remove([filePath]);
+           
+           if (storageError) console.error("Error borrando archivo:", storageError);
+        }
+      }
+
+      // 3. Borrar de la Base de Datos
+      const { error: dbError } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', id);
+
+      if (dbError) throw dbError;
+
+      // 4. Redirigir al Hub
+      alert("✅ Proyecto eliminado correctamente.");
+      router.push('/projects'); // Volver al inicio
+
+    } catch (error: any) {
+      console.error("Error al eliminar:", error);
+      alert("Error al eliminar el proyecto.");
+      setIsDeleting(false);
+    }
+  };
+
   const handleSendComment = async () => {
     if (!newComment.trim()) return;
 
     const exactTime = playerRef.current?.getCurrentTime() || "00:00";
     
-    // Captura de foto robusta
     const userAvatar = 
       currentUser?.user_metadata?.avatar_url || 
       currentUser?.user_metadata?.picture || 
@@ -104,15 +143,14 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // PANTALLA DE CARGA / VERIFICACIÓN
   if (loading) return (
     <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center text-zinc-500 gap-4">
       <Loader2 className="animate-spin text-amber-500" size={40} />
-      <p className="text-xs uppercase tracking-widest font-bold">Verificando Credenciales...</p>
+      <p className="text-xs uppercase tracking-widest font-bold">Cargando Estudio...</p>
     </div>
   );
 
-  if (!project) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-red-500">Proyecto no disponible o acceso denegado.</div>;
+  if (!project) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-red-500">Proyecto no encontrado.</div>;
 
   return (
     <div className={`min-h-screen bg-[#09090b] text-zinc-300 ${outfit.className} flex flex-col`}>
@@ -128,7 +166,18 @@ export default function ProjectDetailPage() {
             <p className="text-xs text-zinc-500 mt-1">{project.artist}</p>
           </div>
         </div>
+        
         <div className="flex items-center gap-3">
+           {/* BOTÓN ELIMINAR (Solo aparece si no se está borrando ya) */}
+           <button 
+             onClick={handleDeleteProject}
+             disabled={isDeleting}
+             className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+             title="Eliminar Proyecto"
+           >
+             {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+           </button>
+
            <button className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-black rounded-lg text-xs font-bold hover:bg-amber-400 transition-colors">
               <Download size={14} /> Descargar
            </button>
