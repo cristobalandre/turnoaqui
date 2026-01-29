@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Outfit } from "next/font/google";
 import { 
   ArrowLeft, Download, CheckCircle2, Send, Loader2, Trash2, Share2, Check, 
-  XCircle, AlertCircle, ThumbsUp, ThumbsDown, ShieldCheck 
+  XCircle, AlertCircle, ThumbsUp, ThumbsDown, ShieldCheck, History, UploadCloud, PlayCircle 
 } from "lucide-react"; 
 import { AudioPlayer, AudioPlayerRef } from "@/components/projects/AudioPlayer";
 import { createClient } from "@/lib/supabase/client";
@@ -21,47 +21,68 @@ export default function ProjectDetailPage() {
   const playerRef = useRef<AudioPlayerRef>(null);
   
   const [project, setProject] = useState<any>(null);
+  // 🆕 ESTADOS PARA VERSIONING (Time Travel)
+  const [versions, setVersions] = useState<any[]>([]);
+  const [currentVersion, setCurrentVersion] = useState<any>(null);
+  
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  
+  // Estados de carga
   const [isDeleting, setIsDeleting] = useState(false); 
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isUploadingVersion, setIsUploadingVersion] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // 1. CARGA INICIAL Y SEGURIDAD
+  // 1. CARGA INICIAL
   useEffect(() => {
     const checkSessionAndFetch = async () => {
       if (!id) return;
 
       const { data: { session } } = await supabase.auth.getSession();
-
       if (!session) {
-        // Redirigir a login si no hay sesión
         await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: { redirectTo: window.location.href },
+          provider: 'google', options: { redirectTo: window.location.href },
         });
         return;
       }
 
       setCurrentUser(session.user);
-      fetchProjectData(id as string);
+      await fetchProjectData(id as string);
     };
 
     checkSessionAndFetch();
   }, [id]);
 
   const fetchProjectData = async (projectId: string) => {
+    // A. Proyecto Base
     const { data: projectData, error } = await supabase
-      .from('projects')
-      .select('*')
-      .eq('id', projectId)
-      .single();
+      .from('projects').select('*').eq('id', projectId).single();
 
-    if (error) console.error("Error cargando:", error);
-    else {
+    if (error) {
+       console.error("Error cargando:", error);
+    } else {
        setProject(projectData);
+       
+       // B. Cargar Versiones (Historial)
+       const { data: versionsData } = await supabase
+         .from('project_versions')
+         .select('*')
+         .eq('project_id', projectId)
+         .order('created_at', { ascending: false }); // La más nueva primero
+       
+       if (versionsData && versionsData.length > 0) {
+         setVersions(versionsData);
+         setCurrentVersion(versionsData[0]); // Seleccionar la última por defecto
+       } else {
+         // Fallback de seguridad si no hay versiones aún
+         const fallback = { id: 'original', version_name: projectData.version, audio_url: projectData.audio_url, created_at: projectData.created_at };
+         setVersions([fallback]);
+         setCurrentVersion(fallback);
+       }
+
        fetchComments(projectId);
     }
     setLoading(false);
@@ -69,93 +90,115 @@ export default function ProjectDetailPage() {
 
   const fetchComments = async (projectId: string) => {
     const { data } = await supabase
-      .from('comments')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false });
+      .from('comments').select('*').eq('project_id', projectId).order('created_at', { ascending: false });
     if (data) setComments(data);
   };
 
-  // 👑 LÓGICA DE ROLES (SaaS) 👑
-  // 1. ¿Es Admin? Solo si tiene la etiqueta 'admin' en su metadata de Supabase
+  // 👑 ROLES
   const isAdmin = currentUser?.user_metadata?.role === 'admin';
-  
-  // 2. ¿Es el que lo subió? (Para dejarle borrar su propio archivo si se equivocó)
   const isUploader = currentUser && project && currentUser.id === project.user_id;
 
-  // ⚡️ AQUÍ ESTÁ EL CAMBIO CLAVE: GUARDAR IDENTIDAD DEL ADMIN
-  const handleReviewAction = async (newStatus: 'Aprobado' | 'Rechazado') => {
-    if (!isAdmin) return; // ¡SOLO EL ADMIN PASA!
-    setIsUpdatingStatus(true);
+  // 🔄 CAMBIAR DE VERSIÓN (TIME TRAVEL)
+  const handleSwitchVersion = (version: any) => {
+    setCurrentVersion(version);
+  };
 
-    // Capturamos TU nombre y TU foto real en este momento exacto
-    // Google suele guardar la foto en 'avatar_url' o 'picture' y el nombre en 'full_name'
+  // ⬆️ SUBIR NUEVA VERSIÓN (Corrección)
+  const handleUploadNewVersion = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0]) return;
+    const file = e.target.files[0];
+    
+    setIsUploadingVersion(true);
+    try {
+      // 1. Calcular nombre (ej: v1.0 -> v2.0)
+      const nextVersionNum = versions.length + 1;
+      const nextVersionName = `v${nextVersionNum}.0`;
+
+      // 2. Subir Audio
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${nextVersionName}.${fileExt}`;
+      const filePath = `uploads/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage.from('projects').upload(filePath, file);
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage.from('projects').getPublicUrl(filePath);
+
+      // 3. Guardar en Historial
+      await supabase.from('project_versions').insert({
+        project_id: id,
+        version_name: nextVersionName,
+        audio_url: publicUrl
+      });
+
+      // 4. Actualizar Proyecto Principal (Resetear a "En Revisión")
+      await supabase.from('projects').update({
+        version: nextVersionName,
+        audio_url: publicUrl,
+        status: 'En Revisión' 
+      }).eq('id', id);
+
+      alert(`✅ Versión ${nextVersionName} subida con éxito.`);
+      await fetchProjectData(id as string);
+
+    } catch (error: any) {
+      alert("Error subiendo versión: " + error.message);
+    } finally {
+      setIsUploadingVersion(false);
+    }
+  };
+
+  // 🛡️ REVISIÓN CON IDENTIDAD REAL
+  const handleReviewAction = async (newStatus: 'Aprobado' | 'Rechazado') => {
+    if (!isAdmin) return;
+    setIsUpdatingStatus(true);
+    
+    // Captura de Nombre y Foto Real
     const adminName = currentUser.user_metadata.full_name || currentUser.user_metadata.name || "Admin";
     const adminAvatar = currentUser.user_metadata.avatar_url || currentUser.user_metadata.picture;
 
-    const { error } = await supabase
-      .from('projects')
-      .update({
-        status: newStatus,
-        reviewed_by: currentUser.id,
+    const { error } = await supabase.from('projects').update({
+        status: newStatus, 
+        reviewed_by: currentUser.id, 
         reviewed_at: new Date().toISOString(),
-        reviewer_name: adminName,    // ✅ Guardamos: "Chris Andrez"
-        reviewer_avatar: adminAvatar // ✅ Guardamos: Tu foto de perfil
-      })
-      .eq('id', id);
+        reviewer_name: adminName,     // ✅
+        reviewer_avatar: adminAvatar  // ✅
+      }).eq('id', id);
 
-    if (error) alert("Error al actualizar");
-    else fetchProjectData(id as string);
-    
+    if (!error) fetchProjectData(id as string);
     setIsUpdatingStatus(false);
   };
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
+  const handleShare = () => { navigator.clipboard.writeText(window.location.href); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+  
   const handleDeleteProject = async () => {
-    // Permitimos borrar al Admin (siempre) O al Uploader (si se arrepintió)
-    if (!confirm("⚠️ ¿Estás seguro de ELIMINAR este proyecto?")) return;
-    setIsDeleting(true);
-    try {
-      if (project.audio_url) {
-        const filePath = project.audio_url.split('/projects/')[1]; 
-        if (filePath) await supabase.storage.from('projects').remove([filePath]);
-      }
-      await supabase.from('projects').delete().eq('id', id);
-      router.push('/projects'); 
-    } catch (error: any) {
-      alert("Error al eliminar.");
-      setIsDeleting(false);
-    }
+    if (!confirm("⚠️ ¿Eliminar proyecto completo?")) return; setIsDeleting(true);
+    try { 
+        // Borrar archivo actual
+        if (project.audio_url) {
+            const filePath = project.audio_url.split('/projects/')[1];
+            if (filePath) await supabase.storage.from('projects').remove([filePath]);
+        }
+        await supabase.from('projects').delete().eq('id', id); router.push('/projects'); 
+    } catch (error) { setIsDeleting(false); }
   };
 
   const handleSendComment = async () => {
     if (!newComment.trim()) return;
     const exactTime = playerRef.current?.getCurrentTime() || "00:00";
-    // Lógica inteligente para el avatar del comentario
     const userAvatar = currentUser?.user_metadata?.avatar_url || currentUser?.user_metadata?.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`;
-    
-    const { error } = await supabase.from('comments').insert({
-      project_id: id,
-      content: newComment,
-      user_email: currentUser?.email || "Usuario",
-      avatar_url: userAvatar, 
-      timestamp: exactTime
+    await supabase.from('comments').insert({
+      project_id: id, content: newComment, user_email: currentUser?.email || "Usuario", avatar_url: userAvatar, timestamp: exactTime
     });
-    if (!error) { setNewComment(""); fetchComments(id as string); }
+    setNewComment(""); fetchComments(id as string);
   };
 
-  // Helpers UI
+  // UI Helpers
   const getStatusColor = (status: string) => {
     if (status === 'Aprobado') return "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
     if (status === 'Rechazado') return "text-red-500 bg-red-500/10 border-red-500/20";
     return "text-amber-500 bg-amber-500/10 border-amber-500/20";
   };
-  
   const getStatusIcon = (status: string) => {
     if (status === 'Aprobado') return <CheckCircle2 size={16} />;
     if (status === 'Rechazado') return <XCircle size={16} />;
@@ -167,130 +210,129 @@ export default function ProjectDetailPage() {
 
   return (
     <div className={`min-h-screen bg-[#09090b] text-zinc-300 ${outfit.className} flex flex-col`}>
-      
       {/* HEADER */}
       <header className="border-b border-zinc-800 bg-[#0c0c0e] px-6 py-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <Link href="/projects" className="p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white">
-            <ArrowLeft size={20} />
-          </Link>
-          <div>
-            <h1 className="text-lg font-bold text-white leading-none">{project.title}</h1>
-            <p className="text-xs text-zinc-500 mt-1">{project.artist}</p>
-          </div>
+          <Link href="/projects" className="p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white"><ArrowLeft size={20} /></Link>
+          <div><h1 className="text-lg font-bold text-white leading-none">{project.title}</h1><p className="text-xs text-zinc-500 mt-1">{project.artist}</p></div>
         </div>
-        
         <div className="flex items-center gap-2">
-           <button onClick={handleShare} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${copied ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500' : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'}`}>
-             {copied ? <Check size={14} /> : <Share2 size={14} />} {copied ? "Copiado" : "Compartir"}
-           </button>
-           
-           {/* Admin o Uploader pueden borrar */}
-           {(isAdmin || isUploader) && (
-             <button onClick={handleDeleteProject} disabled={isDeleting} className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all" title="Eliminar Proyecto">
-               {isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
-             </button>
-           )}
-
-           <button className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-black rounded-lg text-xs font-bold hover:bg-amber-400 transition-colors">
-              <Download size={14} /> Descargar
-           </button>
+           <button onClick={handleShare} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${copied ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500' : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'}`}>{copied ? <Check size={14} /> : <Share2 size={14} />} {copied ? "Copiado" : "Compartir"}</button>
+           {(isAdmin || isUploader) && (<button onClick={handleDeleteProject} disabled={isDeleting} className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all">{isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}</button>)}
+           <button className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-black rounded-lg text-xs font-bold hover:bg-amber-400 transition-colors"><Download size={14} /> Descargar</button>
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 p-6 md:p-10 overflow-y-auto relative scrollbar-hide flex flex-col">
-           
            <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
-                 <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold uppercase tracking-wider mb-4 ${getStatusColor(project.status)}`}>
-                    {getStatusIcon(project.status)} {project.status}
-                 </div>
+                 <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-bold uppercase tracking-wider mb-4 ${getStatusColor(project.status)}`}>{getStatusIcon(project.status)} {project.status}</div>
                  <h2 className="text-4xl font-bold text-white mb-2">{project.title}</h2>
-                 <p className="text-zinc-400">Versión: {project.version}</p>
+                 <div className="flex items-center gap-3">
+                    <p className="text-zinc-400">Versión Actual:</p>
+                    <span className="px-2 py-1 bg-white text-black text-xs font-bold rounded">{currentVersion?.version_name || project.version}</span>
+                 </div>
               </div>
 
-              {/* 🎛️ ZONA DE CONTROL POR ROLES */}
+              {/* PANEL DE CONTROL (ADMIN/ROLES) */}
               <div className="w-full md:w-auto">
                 {project.status === 'En Revisión' ? (
-                  // ¿Es Admin? -> VE BOTONES
                   isAdmin ? (
                     <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 backdrop-blur-md">
-                      <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider text-center mb-2">
-                         Panel de Admin
-                      </p>
+                      <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider text-center mb-2">Panel de Admin</p>
                       <div className="flex gap-3">
-                        <button onClick={() => handleReviewAction('Aprobado')} disabled={isUpdatingStatus} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-500 hover:text-black rounded-xl font-bold text-sm transition-all">
-                          {isUpdatingStatus ? <Loader2 className="animate-spin" size={18} /> : <ThumbsUp size={18} />} Aprobar
-                        </button>
-                        <button onClick={() => handleReviewAction('Rechazado')} disabled={isUpdatingStatus} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-black rounded-xl font-bold text-sm transition-all">
-                           {isUpdatingStatus ? <Loader2 className="animate-spin" size={18} /> : <ThumbsDown size={18} />} Rechazar
-                        </button>
+                        <button onClick={() => handleReviewAction('Aprobado')} disabled={isUpdatingStatus} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-500 hover:text-black rounded-xl font-bold text-sm transition-all">{isUpdatingStatus ? <Loader2 className="animate-spin" size={18} /> : <ThumbsUp size={18} />} Aprobar</button>
+                        <button onClick={() => handleReviewAction('Rechazado')} disabled={isUpdatingStatus} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-black rounded-xl font-bold text-sm transition-all">{isUpdatingStatus ? <Loader2 className="animate-spin" size={18} /> : <ThumbsDown size={18} />} Rechazar</button>
                       </div>
                     </div>
                   ) : (
-                    // ¿Es Cliente? -> VE ESPERA
                     <div className="bg-zinc-900/50 border border-dashed border-zinc-700 rounded-2xl p-6 backdrop-blur-md text-center">
                        <Loader2 className="animate-spin text-amber-500 mx-auto mb-2" />
                        <p className="text-sm font-bold text-white">Esperando revisión...</p>
-                       <p className="text-xs text-zinc-500">
-                          {isUploader ? "Tu maqueta está en la cola." : "El estudio está revisando esta mezcla."}
-                       </p>
+                       <p className="text-xs text-zinc-500">{isUploader ? "Tu maqueta está en la cola." : "El estudio está revisando esta mezcla."}</p>
                     </div>
                   )
                 ) : (
-                  // ✅ TARJETA FINAL CON IDENTIDAD REAL
-                  <div className={`flex items-center gap-4 bg-black/50 p-4 rounded-2xl border backdrop-blur-xl transition-all duration-500
-                      ${project.status === 'Aprobado' ? 'border-amber-500/50 shadow-[0_0_30px_-5px_rgba(245,158,11,0.2)]' : 'border-zinc-800'}
-                  `}>
+                  // ✅ TARJETA APROBADO (CON FOTO REAL)
+                  <div className={`flex items-center gap-4 bg-black/50 p-4 rounded-2xl border backdrop-blur-xl transition-all duration-500 ${project.status === 'Aprobado' ? 'border-amber-500/50 shadow-[0_0_30px_-5px_rgba(245,158,11,0.2)]' : 'border-zinc-800'}`}>
                      <div className={`w-14 h-14 rounded-full overflow-hidden border-2 relative shadow-lg ${project.status === 'Aprobado' ? 'border-amber-400' : 'border-zinc-600'}`}>
-                        {/* FOTO REAL (O Fallback a Dicebear con el ID si falla) */}
-                        <Image 
-                           src={project.reviewer_avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${project.reviewed_by}`} 
-                           alt="Admin" fill className="object-cover" 
-                        />
+                        <Image src={project.reviewer_avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${project.reviewed_by}`} alt="Admin" fill className="object-cover" />
                      </div>
                      <div>
-                        <div className="flex items-center gap-2 mb-0.5">
-                           <p className="text-[10px] text-amber-500 uppercase font-extrabold tracking-widest border border-amber-500/30 bg-amber-500/10 px-1.5 rounded">
-                             STUDIO STAFF
-                           </p>
-                           {project.status === 'Aprobado' && <ShieldCheck size={14} className="text-amber-400" />}
-                        </div>
-                        {/* NOMBRE REAL */}
-                        <p className="text-white font-bold text-sm">
-                          {project.status} por <span className="text-amber-200">{project.reviewer_name || "Admin"}</span>
-                        </p>
-                        <p className="text-[10px] text-zinc-500">
-                           {new Date(project.reviewed_at).toLocaleDateString()}
-                        </p>
+                        <div className="flex items-center gap-2 mb-0.5"><p className="text-[10px] text-amber-500 uppercase font-extrabold tracking-widest border border-amber-500/30 bg-amber-500/10 px-1.5 rounded">STUDIO STAFF</p>{project.status === 'Aprobado' && <ShieldCheck size={14} className="text-amber-400" />}</div>
+                        <p className="text-white font-bold text-sm">{project.status} por <span className="text-amber-200">{project.reviewer_name || "Admin"}</span></p>
+                        <p className="text-[10px] text-zinc-500">{new Date(project.reviewed_at).toLocaleDateString()}</p>
                      </div>
                   </div>
                 )}
               </div>
            </div>
 
-           {/* PLAYER & COMMENTS */}
-           <div className="mb-12"><AudioPlayer url={project.audio_url} comments={comments} ref={playerRef} /></div>
-           <div className="max-w-3xl mx-auto w-full">
-              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">Comentarios <span className="text-zinc-600 text-sm font-normal">({comments.length})</span></h3>
-              <div className="flex gap-4 items-start mb-10">
-                 <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 relative overflow-hidden">
-                   <Image src={currentUser?.user_metadata?.avatar_url || currentUser?.user_metadata?.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`} alt="Me" fill className="object-cover" />
+           {/* ⏳ PLAYER + HISTORIAL DE VERSIONES */}
+           <div className="mb-12 flex flex-col lg:flex-row gap-6">
+              
+              {/* PLAYER PRINCIPAL */}
+              <div className="flex-1">
+                 {/* El Player reproduce la versión seleccionada (currentVersion) */}
+                 {currentVersion && <AudioPlayer url={currentVersion.audio_url} comments={comments} ref={playerRef} />}
+              </div>
+
+              {/* BARRA LATERAL: HISTORIAL */}
+              <div className="w-full lg:w-64 bg-zinc-900/30 border border-zinc-800 rounded-2xl p-4 flex flex-col">
+                 <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+                       <History size={14} /> Historial
+                    </h3>
+                    
+                    {/* BOTÓN SUBIR VERSIÓN (Solo Admin/Uploader) */}
+                    {(isAdmin || isUploader) && (
+                      <label className={`cursor-pointer p-1.5 bg-zinc-800 hover:bg-amber-500 hover:text-black rounded-lg transition-all ${isUploadingVersion ? 'opacity-50 pointer-events-none' : ''}`}>
+                         {isUploadingVersion ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+                         <input type="file" accept="audio/*" className="hidden" onChange={handleUploadNewVersion} disabled={isUploadingVersion} />
+                      </label>
+                    )}
                  </div>
+
+                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1 scrollbar-hide">
+                    {versions.map((ver) => (
+                       <button
+                         key={ver.id}
+                         onClick={() => handleSwitchVersion(ver)}
+                         className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all group
+                           ${currentVersion?.id === ver.id 
+                             ? 'bg-amber-500/10 border-amber-500/50 text-amber-500' 
+                             : 'bg-zinc-900/50 border-zinc-800 text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
+                       >
+                          <div className="flex flex-col">
+                             <span className="font-bold text-sm flex items-center gap-2">
+                                {ver.version_name}
+                                {currentVersion?.id === ver.id && <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
+                             </span>
+                             <span className="text-[10px] opacity-60">{new Date(ver.created_at).toLocaleDateString()}</span>
+                          </div>
+                          <PlayCircle size={16} className={`opacity-0 group-hover:opacity-100 transition-opacity ${currentVersion?.id === ver.id ? 'opacity-100' : ''}`} />
+                       </button>
+                    ))}
+                 </div>
+              </div>
+           </div>
+
+           {/* COMENTARIOS */}
+           <div className="max-w-3xl mx-auto w-full">
+              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">Comentarios ({comments.length})</h3>
+              <div className="flex gap-4 items-start mb-10">
+                 <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 relative overflow-hidden"><Image src={currentUser?.user_metadata?.avatar_url || currentUser?.user_metadata?.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`} alt="Me" fill className="object-cover" /></div>
                  <div className="flex-1 relative">
                     <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Deja un comentario..." className="w-full bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-all resize-none h-24" />
-                    <button onClick={handleSendComment} className="absolute bottom-3 right-3 p-2 bg-zinc-800 hover:bg-amber-500 hover:text-black text-zinc-400 rounded-lg transition-all"><Send size={16} /></button>
+                    <button onClick={handleSendComment} className="absolute bottom-3 right-3 p-2 bg-zinc-800 hover:bg-amber-500 hover:text-black text-zinc-400 rounded-lg"><Send size={16} /></button>
                  </div>
               </div>
               <div className="space-y-6 pb-20">
-                {comments.map((comment) => (
-                  <div key={comment.id} className="flex gap-4 group">
-                     <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 relative overflow-hidden mt-1"><Image src={comment.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${comment.user_email}`} alt="User" fill className="object-cover" /></div>
-                     <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white">{comment.user_email?.split('@')[0]}</span><span className="text-[10px] font-mono text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">{comment.timestamp}</span></div>
-                        <p className="text-zinc-400 text-sm leading-relaxed bg-zinc-900/30 p-3 rounded-xl border border-zinc-800/50">{comment.content}</p>
-                     </div>
+                {comments.map((c) => (
+                  <div key={c.id} className="flex gap-4 group">
+                     <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 overflow-hidden relative mt-1"><Image src={c.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${c.user_email}`} alt="User" fill className="object-cover" /></div>
+                     <div className="flex-1"><div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white">{c.user_email?.split('@')[0]}</span><span className="text-[10px] font-mono text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">{c.timestamp}</span></div><p className="text-zinc-400 text-sm bg-zinc-900/30 p-3 rounded-xl border border-zinc-800/50">{c.content}</p></div>
                   </div>
                 ))}
               </div>
