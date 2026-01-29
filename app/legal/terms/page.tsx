@@ -21,7 +21,7 @@ export default function TermsPage() {
         
         <div className="mb-16 text-center border-b border-white/5 pb-12">
           <div className="flex justify-center mb-6">
-            <Logo size="text-4xl" />
+            <Logo widthClass="w-[145px]" />
           </div>
           <h1 className="text-4xl font-bold text-white mb-4">Términos y Condiciones</h1>
           <p className="text-zinc-500">Última actualización: 28 de Enero, 2026</p>
