@@ -26,9 +26,21 @@ export default function ProjectDetailPage() {
     const fetchData = async () => {
       if (!id) return;
 
+      // 1. OBTENER USUARIO
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
+      
+      // LOG PARA DEPURAR (Míralo en la consola F12)
+      if (user) {
+        console.log("🔍 USUARIO DETECTADO:", user);
+        console.log("📸 METADATA:", user.user_metadata);
+        console.log("🖼️ POSIBLE FOTO 1 (avatar_url):", user.user_metadata?.avatar_url);
+        console.log("🖼️ POSIBLE FOTO 2 (picture):", user.user_metadata?.picture);
+      } else {
+        console.log("⚠️ NO SE DETECTA USUARIO LOGUEADO");
+      }
 
+      // 2. OBTENER PROYECTO
       const { data: projectData } = await supabase.from('projects').select('*').eq('id', id).single();
       setProject(projectData);
 
@@ -53,32 +65,48 @@ export default function ProjectDetailPage() {
 
     const exactTime = playerRef.current?.getCurrentTime() || "00:00";
     
-    // ✅ CAPTURAMOS LA FOTO REAL (O usamos una por defecto segura)
-    const userAvatar = currentUser?.user_metadata?.avatar_url || currentUser?.user_metadata?.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`;
+    // 🕵️ ZONA DE INVESTIGACIÓN
+    console.log("--- INTENTANDO ENVIAR COMENTARIO ---");
+    console.log("Metadata actual:", currentUser?.user_metadata);
+
+    // LÓGICA ROBUSTA PARA CAPTURAR FOTO
+    // 1. Intenta 'avatar_url' (Estándar Supabase)
+    // 2. Intenta 'picture' (Estándar Google OAuth directo)
+    // 3. Si falla, genera un avatar con la inicial del email
+    const userAvatar = 
+      currentUser?.user_metadata?.avatar_url || 
+      currentUser?.user_metadata?.picture || 
+      `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`;
+    
+    console.log("✅ FOTO SELECCIONADA:", userAvatar);
+
     const userEmail = currentUser?.email || "Usuario";
 
     const { error } = await supabase.from('comments').insert({
       project_id: id,
       content: newComment,
       user_email: userEmail,
-      avatar_url: userAvatar, // ✅ Guardamos la foto
+      avatar_url: userAvatar, 
       timestamp: exactTime
     });
 
     if (!error) {
+      console.log("🚀 Comentario enviado con éxito a la DB");
       setNewComment("");
       fetchComments(); 
     } else {
-      console.error("Error al comentar:", error);
+      console.error("❌ ERROR AL GUARDAR EN DB:", error);
+      alert("Error al enviar: Revisa la consola.");
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-zinc-500">Cargando...</div>;
-  if (!project) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-red-500">No encontrado</div>;
+  if (loading) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-zinc-500">Cargando estudio...</div>;
+  if (!project) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-red-500">Proyecto no encontrado</div>;
 
   return (
     <div className={`min-h-screen bg-[#09090b] text-zinc-300 ${outfit.className} flex flex-col`}>
       
+      {/* HEADER */}
       <header className="border-b border-zinc-800 bg-[#0c0c0e] px-6 py-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-4">
           <Link href="/projects" className="p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white">
@@ -97,6 +125,8 @@ export default function ProjectDetailPage() {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
+        
+        {/* MAIN */}
         <main className="flex-1 p-6 md:p-10 overflow-y-auto relative scrollbar-hide">
            
            <div className="mb-8">
@@ -106,16 +136,16 @@ export default function ProjectDetailPage() {
               <h2 className="text-3xl font-bold text-white mb-2">{project.title}</h2>
            </div>
 
-           {/* 🎵 PLAYER CON MARCADORES */}
+           {/* PLAYER */}
            <div className="mb-12">
               <AudioPlayer 
                 url={project.audio_url} 
-                comments={comments} // ✅ Pasamos los comentarios para que se vean en la onda
+                comments={comments} 
                 ref={playerRef} 
               />
            </div>
 
-           {/* 💬 COMENTARIOS */}
+           {/* COMENTARIOS */}
            <div className="max-w-3xl mx-auto">
               <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                 Comentarios <span className="text-zinc-600 text-sm font-normal">({comments.length})</span>
@@ -123,8 +153,9 @@ export default function ProjectDetailPage() {
 
               <div className="flex gap-4 items-start mb-10">
                  <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 relative overflow-hidden">
+                    {/* AVATAR INPUT USUARIO ACTUAL */}
                     <Image 
-                      src={currentUser?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`} 
+                      src={currentUser?.user_metadata?.avatar_url || currentUser?.user_metadata?.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`} 
                       alt="Me" 
                       fill 
                       className="object-cover" 
@@ -150,7 +181,7 @@ export default function ProjectDetailPage() {
                 {comments.map((comment) => (
                   <div key={comment.id} className="flex gap-4 group animate-in fade-in slide-in-from-bottom-2">
                      <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 relative overflow-hidden mt-1">
-                        {/* FOTO REAL EN LA LISTA */}
+                        {/* AVATAR COMENTARIO LISTADO */}
                         <Image 
                            src={comment.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${comment.user_email}`} 
                            alt="User" 
