@@ -1,16 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addDays,
-  addWeeks,
   differenceInMinutes,
   endOfDay,
   format,
-  isSameDay,
   startOfDay,
   startOfWeek,
-  subWeeks,
 } from "date-fns";
 import { es } from "date-fns/locale";
 import { supabase as sb } from "@/lib/supabaseClient";
@@ -29,7 +26,6 @@ const ORG_ID = "a573aa05-d62b-44c7-a878-b9138902a094";
 const START_HOUR = 0;
 const END_HOUR = 28;
 const SLOT_MIN = 30;
-const PX_PER_HOUR = 60;
 
 function dayKey(date: Date) { return format(date, "yyyy-MM-dd"); }
 function snapMinutes(mins: number) { return Math.round(mins / SLOT_MIN) * SLOT_MIN; }
@@ -266,9 +262,10 @@ export default function CalendarClient() {
       
       <div className="relative z-10 max-w-[1600px] mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          {/*  Logo maldito brr */}
           <Logo widthClass="w-[145px]" />
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 mt-6 md:mt-0">
             <button 
                 onClick={() => setShowMonthlyModal(true)}
                 className="relative group bg-zinc-900 border border-zinc-800 px-6 py-2 rounded-2xl overflow-hidden transition-all hover:border-emerald-500/50 hover:scale-105 active:scale-95 shadow-xl"
@@ -296,7 +293,6 @@ export default function CalendarClient() {
               <IconPlus size={16} strokeWidth={3} /> Nueva Reserva
             </button>
           </div>
-        </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-4 mb-6 bg-zinc-900/30 p-3 rounded-[28px] border border-zinc-800/50 backdrop-blur-sm">
