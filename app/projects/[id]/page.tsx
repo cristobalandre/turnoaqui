@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { Outfit } from "next/font/google";
+// ✅ CORRECCIÓN: Agregué "Plus" a los imports
 import { 
   ArrowLeft, Play, Pause, SkipBack, SkipForward, 
-  MessageSquare, Share2, Download, Clock, CheckCircle2 
+  MessageSquare, Share2, Download, Clock, CheckCircle2, Plus 
 } from "lucide-react";
 import { useState } from "react";
 
