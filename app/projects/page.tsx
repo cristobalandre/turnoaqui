@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Outfit } from "next/font/google";
 import { 
   Plus, Music4, Clock, Mic2, Search, 
-  BarChart3, Zap, Filter, LayoutGrid, Users, AlertTriangle, Shield 
+  BarChart3, Zap, Filter, LayoutGrid, Users, AlertTriangle, 
 } from "lucide-react";
 import NewProjectModal from "@/components/projects/NewProjectModal";
 import { createClient } from "@/lib/supabase/client";
@@ -110,14 +110,6 @@ export default function ProjectsPage() {
           </div>
           
           <div className="flex items-center gap-3">
-
-          {/* BOTÓN ENTERPRISE TEAM (Solo visible para Admin idealmente) */}
-<Link href="/admin/team">
-    <button className="group flex items-center gap-2 px-5 py-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-bold rounded-2xl transition-all hover:bg-emerald-500 hover:text-black hover:scale-[1.02] active:scale-95">
-        <Shield size={18} />
-        <span className="text-sm">TEAM</span>
-    </button>
-</Link>
 
             {/* BOTÓN ROSTER (ARTISTAS) */}
             <Link href="/artists">
