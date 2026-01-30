@@ -1,9 +1,8 @@
-﻿// lib/supabase/client.ts
-import { createBrowserClient } from '@supabase/ssr'
+﻿import { createBrowserClient } from '@supabase/ssr'
 
 let client: ReturnType<typeof createBrowserClient> | undefined;
 
-// El truco para evitar el AbortError
+// MANTENER EL TRUCO DE SEGURIDAD (Bypass Lock)
 async function bypassLock(name: string, timeout: number, func: () => Promise<any>) {
   return await func();
 }
@@ -16,9 +15,9 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: {
-        lock: bypassLock, // <--- ESTO ES VITAL
+        lock: bypassLock, // ✅ Vital para evitar AbortError
         persistSession: true,
-        detectSessionInUrl: false, // Importante para que no pelee con el callback manual
+        detectSessionInUrl: true, // 👈 CAMBIO CRÍTICO: Activado para leer el #access_token
         storageKey: 'sb-turnoaqui-auth',
       }
     } as any

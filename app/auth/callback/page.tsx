@@ -2,76 +2,78 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-// 🚨 CAMBIO CLAVE: Usamos TU cliente modificado, no el genérico
 import { createClient } from "@/lib/supabase/client"; 
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 
-// Componente interno que usa useSearchParams
 function CallbackHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [msg, setMsg] = useState("Verificando credenciales...");
+  const [msg, setMsg] = useState("Procesando acceso...");
   const [error, setError] = useState<string | null>(null);
-
-  // Usamos el cliente singleton que tiene el parche del candado
   const supabase = createClient();
 
   useEffect(() => {
-    const handleCallback = async () => {
+    const handleAuth = async () => {
       try {
+        // 1. Damos un respiro para que el cliente lea el hash (#access_token)
+        // Esto es automático cuando detectSessionInUrl es true.
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+
+        if (initialSession) {
+          return await finalizeLogin(initialSession.user.id);
+        }
+
+        // 2. Si no hay sesión automática, buscamos el código PKCE (?code=)
         const code = searchParams.get("code");
-        
-        if (!code) {
-          // Si no hay código, quizás ya tenemos sesión o es un error
-          const { data: { session } } = await supabase.auth.getSession();
+        if (code) {
+          setMsg("Canjeando código de seguridad...");
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          if (data.session) return await finalizeLogin(data.session.user.id);
+        }
+
+        // 3. Si no hay ni hash ni código, esperamos un evento de Auth (último recurso)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           if (session) {
-            router.push("/dashboard");
-          } else {
-            setError("No se recibió código de autenticación.");
-            setTimeout(() => router.push("/login"), 3000);
+            finalizeLogin(session.user.id);
           }
-          return;
-        }
+        });
 
-        setMsg("Intercambiando token...");
-        // Canjeamos el código por sesión
-        const { error: authError } = await supabase.auth.exchangeCodeForSession(code);
-        
-        if (authError) throw authError;
-
-        // Verificamos perfil
-        setMsg("Validando perfil...");
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('plan_status')
-            .eq('id', user.id)
-            .single();
-
-          if (profile?.plan_status === 'active') {
-            setMsg("✅ Todo listo. Entrando...");
-            router.push("/dashboard");
-          } else {
-            setMsg("⚠️ Cuenta en revisión o incompleta.");
-            setTimeout(() => router.push("/dashboard"), 1500); // Dejar pasar igual para que vea su estado
+        // Timeout de seguridad si nada funciona en 4 segundos
+        setTimeout(async () => {
+          const { data: { session: finalCheck } } = await supabase.auth.getSession();
+          if (!finalCheck) {
+            setError("No se pudo detectar ninguna credencial de acceso.");
           }
-        }
+        }, 4000);
+
+        return () => subscription.unsubscribe();
 
       } catch (err: any) {
-        console.error("Error crítico en callback:", err);
-        // Si es el famoso AbortError, lo ignoramos y probamos entrar igual
-        if (err.name === 'AbortError') {
-           console.warn("AbortError ignorado, forzando entrada...");
-           router.push("/dashboard");
-           return;
-        }
-        setError(err.message || "Error desconocido al iniciar sesión");
+        console.error("Error en callback:", err);
+        setError(err.message || "Error al procesar la entrada");
       }
     };
 
-    handleCallback();
+    const finalizeLogin = async (userId: string) => {
+      setMsg("Verificando perfil...");
+      // Verificamos si el usuario tiene perfil activo
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('plan_status')
+        .eq('id', userId)
+        .single();
+
+      if (profile?.plan_status === 'active') {
+        setMsg("¡Todo listo!");
+        router.replace("/dashboard"); // Usamos replace para no poder volver atrás
+      } else {
+        setMsg("Cuenta en revisión...");
+        setTimeout(() => router.replace("/dashboard"), 1500);
+      }
+    };
+
+    handleAuth();
   }, [searchParams, router, supabase]);
 
   if (error) {
@@ -88,17 +90,20 @@ function CallbackHandler() {
 
   return (
     <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-      <Loader2 className="h-10 w-10 animate-spin text-emerald-500" />
+      {msg === "¡Todo listo!" ? (
+        <CheckCircle2 className="h-10 w-10 text-emerald-500 animate-bounce" />
+      ) : (
+        <Loader2 className="h-10 w-10 animate-spin text-emerald-500" />
+      )}
       <p className="text-sm font-medium text-zinc-300 animate-pulse">{msg}</p>
     </div>
   );
 }
 
-// Componente Principal con Suspense (Requisito de Next.js para useSearchParams)
 export default function CallbackPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-[#09090b] text-white">
-      <Suspense fallback={<div className="text-zinc-500">Cargando autenticación...</div>}>
+      <Suspense fallback={<div className="text-zinc-500">Cargando...</div>}>
         <CallbackHandler />
       </Suspense>
     </div>
