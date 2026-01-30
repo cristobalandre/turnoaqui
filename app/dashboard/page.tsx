@@ -19,52 +19,71 @@ export default function DashboardPage() {
   const router = useRouter(); 
 
   useEffect(() => {
-    const getData = async () => {
+    let isMounted = true; // Bandera para evitar actualizaciones si el componente se desmonta
+
+    // Función auxiliar para cargar el perfil una vez tengamos sesión
+    const fetchProfile = async (userId: string) => {
       try {
-        console.log("🔄 Iniciando verificación de sesión...");
-        
-        // 1. OBTENER SESIÓN
-        const { data: { session }, error: authError } = await supabase.auth.getSession();
-        
-        if (authError || !session) {
-          console.warn("⚠️ Sesión no válida o expirada.");
-          router.replace("/login");
-          return;
-        }
-
-        console.log("✅ Usuario autenticado:", session.user.email);
-        setUser(session.user);
-
-        // 2. BUSCAR PERFIL (Sin bloquear si falla)
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', session.user.id)
+          .eq('id', userId)
           .maybeSingle();
         
         if (profileError) {
             console.error("❌ Error leyendo perfil de DB:", profileError.message);
         }
 
-        if (profileData) {
-          console.log("✅ Perfil cargado desde DB");
-          setProfile(profileData);
-        } else {
-            console.log("ℹ️ No se encontró perfil en DB, usando datos de Google.");
+        if (isMounted) {
+            if (profileData) {
+                console.log("✅ Perfil cargado desde DB");
+                setProfile(profileData);
+            } else {
+                console.log("ℹ️ No se encontró perfil en DB, usando datos de Google.");
+            }
         }
 
       } catch (error) {
-        console.error("💥 Error CRÍTICO en dashboard:", error);
+        console.error("💥 Error en fetchProfile:", error);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
-    getData();
-    
-    // 🛑 ARREGLO DEL BUCLE INFINITO:
-    // La lista de dependencias SOLO tiene 'router'. 
-    // Si pones 'supabase' aquí, la app entrará en bucle y morirá.
+    console.log("🔄 Iniciando listener de autenticación...");
+
+    // SOLUCIÓN BRAVE: Usamos el listener en lugar de getSession una sola vez
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log(`🔔 Evento Auth: ${event}`);
+
+      if (session) {
+        // Si hay sesión, procedemos a cargar datos
+        if (isMounted) {
+             // Solo actualizamos si el usuario cambió para evitar re-renders innecesarios
+             setUser((prev: any) => (prev?.id !== session.user.id ? session.user : prev));
+             
+             // Si aún no hemos cargado el perfil (o cambió el usuario), lo buscamos
+             if (loading || user?.id !== session.user.id) {
+                 fetchProfile(session.user.id);
+             }
+        }
+      } else if (event === 'SIGNED_OUT' || event === 'o' || !session) {
+        // Si no hay sesión y el evento confirma salida o fallo de carga inicial
+        // Nota: A veces INITIAL_SESSION viene sin sesión si no hay cookies
+        
+        // Damos un pequeño margen o verificamos si realmente no hay sesión para redirigir
+        if (isMounted) {
+            console.warn("⚠️ Sin sesión activa, redirigiendo a login...");
+            router.replace("/login");
+        }
+      }
+    });
+
+    // Cleanup function: Vital para evitar el "AbortError"
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]); 
 
@@ -81,7 +100,6 @@ export default function DashboardPage() {
     || 'Productor';
 
   // --- LÓGICA DE PODER (ADMIN) ---
-  // Si la DB falla, verificamos tu email directamente.
   const MY_EMAIL = "cristobal.andres.inta@gmail.com"; 
   const isAdmin = profile?.role === 'admin' || user?.email === MY_EMAIL;
 
@@ -116,7 +134,7 @@ export default function DashboardPage() {
               Hola, <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-emerald-400 font-bold">{displayName}</span>.
             </h1>
             
-            {/* BOTÓN PARA PROVOCAR ERROR (SOLO PARA PRUEBAS) */}
+            {/* BOTÓN PARA PROVOCAR ERROR (SOLO PARA PRUEBAS - PUEDES BORRARLO LUEGO) */}
             <button 
                 onClick={() => {
                     console.error("🚨 PRUEBA DE LOGS: El usuario presionó el botón de error.");
@@ -131,7 +149,7 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-3">
             
-            {/* BOTÓN ENTERPRISE (Aparece siempre para ti) */}
+            {/* BOTÓN ENTERPRISE */}
             {isAdmin && (
               <Link href="/admin/team">
                 <button className="group flex items-center gap-3 px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-full hover:border-amber-500/50 hover:bg-zinc-800 transition-all shadow-lg">
