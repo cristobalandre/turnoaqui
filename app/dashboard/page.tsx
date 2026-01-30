@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { Shield, Users, BarChart3, LogOut, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 
+// ✅ INSTANCIA GLOBAL: Movida fuera para evitar múltiples instancias en el navegador
+const supabase = createClient();
+
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
     const getData = async () => {
@@ -23,10 +25,10 @@ export default function Dashboard() {
       }
       setUser(user);
 
-      // 2. Obtener Perfil (incluyendo el nuevo campo 'role')
+      // 2. Obtener Perfil (incluyendo el campo 'role')
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("*") // Seleccionamos todo para traer el 'role'
+        .select("*")
         .eq("id", user.id)
         .single();
 
@@ -54,7 +56,7 @@ export default function Dashboard() {
     );
   }
 
-  // LÓGICA LIMPIA: Ahora ser admin depende de la base de datos, no de tu email hardcoded.
+  // Lógica de administrador basada en el rol de la base de datos
   const isAdmin = profile?.role === 'admin';
 
   return (
@@ -76,7 +78,7 @@ export default function Dashboard() {
             <div className="hidden md:flex items-center gap-3 px-4 py-1.5 bg-zinc-800/50 rounded-full border border-zinc-700/50">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-xs font-medium text-zinc-400">
-                {user?.email} {/* Muestra el email dinámicamente, sin hardcodear */}
+                {user?.email}
               </span>
             </div>
             <button 
@@ -131,7 +133,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Tarjeta ADMIN: Solo visible si isAdmin es true */}
+          {/* Tarjeta ADMIN */}
           {isAdmin && (
             <Link href="/admin/team">
               <div className="group p-6 rounded-2xl bg-zinc-900 border border-amber-500/20 hover:border-amber-500/50 transition-all hover:shadow-[0_0_30px_rgba(245,158,11,0.1)] cursor-pointer relative overflow-hidden h-full">
