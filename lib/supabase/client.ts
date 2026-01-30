@@ -2,6 +2,13 @@
 
 let client: ReturnType<typeof createBrowserClient> | undefined;
 
+// 🔓 LA SOLUCIÓN MAGICA:
+// Esta función reemplaza al sistema de bloqueo del navegador.
+// En lugar de esperar y fallar (AbortError), ejecuta la tarea inmediatamente.
+const envLock = async (name: string, acquireTimeout: number, fn: () => Promise<any>) => {
+  return await fn();
+};
+
 export function createClient() {
   if (client) return client;
 
@@ -10,16 +17,12 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: {
-        // 🗑️ Borramos la configuración 'lock' que daba error.
-        // El Dashboard ya está protegido contra el AbortError internamente.
+        // Aquí inyectamos nuestra función "anti-bloqueo"
+        lock: envLock,
         
-        // Evita conflictos con el Middleware al leer la URL
+        // Configuraciones estándar para que no choque con el middleware
         detectSessionInUrl: false, 
-        
-        // Mantiene la sesión activa
         persistSession: true,
-        
-        // Almacenamiento seguro en localStorage
         storageKey: 'sb-turnoaqui-auth',
       }
     }
