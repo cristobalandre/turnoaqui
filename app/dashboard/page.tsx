@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { 
   Calendar, Inbox, Users, Scissors, Package, 
-  Settings, ChevronRight, Activity, Zap, LayoutDashboard, LogOut, Music4, Shield 
+  Settings, Zap, LayoutDashboard, LogOut, Music4, Shield 
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -67,9 +67,8 @@ export default function DashboardPage() {
                  fetchProfile(session.user.id);
              }
         }
-      } else if (event === 'SIGNED_OUT' || event === 'o' || !session) {
+      } else if (event === 'SIGNED_OUT' || !session) {
         // Si no hay sesión y el evento confirma salida o fallo de carga inicial
-        // Nota: A veces INITIAL_SESSION viene sin sesión si no hay cookies
         
         // Damos un pequeño margen o verificamos si realmente no hay sesión para redirigir
         if (isMounted) {
@@ -133,18 +132,6 @@ export default function DashboardPage() {
             <h1 className="text-4xl md:text-5xl font-medium text-white tracking-tight">
               Hola, <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-emerald-400 font-bold">{displayName}</span>.
             </h1>
-            
-            {/* BOTÓN PARA PROVOCAR ERROR (SOLO PARA PRUEBAS - PUEDES BORRARLO LUEGO) */}
-            <button 
-                onClick={() => {
-                    console.error("🚨 PRUEBA DE LOGS: El usuario presionó el botón de error.");
-                    throw new Error("TEST DE VERCEL: Si lees esto en los logs, el sistema de reportes funciona.");
-                }}
-                className="mt-4 bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-2 rounded hover:bg-red-500 hover:text-white transition-all text-xs font-bold tracking-widest uppercase animate-pulse"
-            >
-                💥 Provocar Error para Vercel
-            </button>
-
           </div>
 
           <div className="flex items-center gap-3">
