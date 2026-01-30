@@ -57,7 +57,7 @@ function CallbackHandler() {
 
     const finalizeLogin = async (userId: string) => {
       setMsg("Verificando perfil...");
-      // Verificamos si el usuario tiene perfil activo
+      // Verificamos si el usuario tienew perfil activo
       const { data: profile } = await supabase
         .from('profiles')
         .select('plan_status')
