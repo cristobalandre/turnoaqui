@@ -172,7 +172,7 @@ export default function AgendaPage() {
 
     if (productorConflicts) {
       const hasConflict = productorConflicts.some(
-        (s) => s.id !== excludeId && s.estado !== 'cancelada'
+        (s: any) => s.id !== excludeId && s.estado !== 'cancelada'
       )
       if (hasConflict) {
         conflicts.push('El productor ya tiene una sesión en ese horario')
@@ -189,7 +189,7 @@ export default function AgendaPage() {
 
     if (artistaConflicts) {
       const hasConflict = artistaConflicts.some(
-        (s) => s.id !== excludeId && s.estado !== 'cancelada'
+        (s: any) => s.id !== excludeId && s.estado !== 'cancelada'
       )
       if (hasConflict) {
         conflicts.push('El artista ya tiene una sesión en ese horario')
