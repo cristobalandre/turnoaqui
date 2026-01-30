@@ -14,19 +14,20 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // 1. Crear cliente UNA VEZ (React lo manejará mejor, pero el truco está abajo)
+  // Instanciamos el cliente (React lo maneja, pero no debemos ponerlo en el useEffect)
   const supabase = createClient();
   const router = useRouter(); 
 
   useEffect(() => {
-    // Definimos la función dentro para usarla
     const getData = async () => {
       try {
-        // --- A. OBTENER SESIÓN ---
+        // --- A. OBTENER SESIÓN DE FORMA SEGURA ---
         const { data: { session }, error: authError } = await supabase.auth.getSession();
         
         if (authError || !session) {
-          console.warn("Sesión no válida, redirigiendo...");
+          console.warn("Sesión no válida o expirada.");
+          // No redirigimos agresivamente para evitar bucles si hay error de red,
+          // pero si no hay usuario, el render mostrará "Cargando..." o podrías redirigir aquí.
           router.replace("/login");
           return;
         }
@@ -34,6 +35,7 @@ export default function DashboardPage() {
         setUser(session.user);
 
         // --- B. BUSCAR PERFIL (Sin bloquear si falla) ---
+        // Usamos maybeSingle() para que no lance error si el perfil aún no se creó (por el trigger)
         const { data: profileData } = await supabase
           .from('profiles')
           .select('*')
@@ -53,10 +55,10 @@ export default function DashboardPage() {
 
     getData();
     
-    // 🛑 EL ARREGLO MÁGICO ESTÁ AQUÍ ABAJO 🛑
-    // Quitamos 'supabase' del array. Ahora solo se ejecuta al montar el componente.
+    // 🛑 IMPORTANTE: Aquí está el arreglo del bucle infinito.
+    // La lista de dependencias está vacía de 'supabase'. Solo 'router'.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]); // <--- ¡SIN 'supabase' AQUÍ!
+  }, [router]); 
 
   const handleLogout = async () => {
     await supabase.auth.signOut(); 
@@ -65,14 +67,14 @@ export default function DashboardPage() {
 
   // --- LÓGICA DE VISUALIZACIÓN ---
   
-  // 1. Nombre: Prioridad DB -> Metadata -> Email
+  // 1. Nombre: Prioridad DB -> Metadata de Google -> Email
   const meta = user?.user_metadata || {};
   const displayName = profile?.full_name?.split(' ')[0] 
     || meta.full_name?.split(' ')[0] 
     || user?.email?.split('@')[0] 
     || 'Productor';
 
-  // 2. Permisos: DB (si cargó) o Email (Hardcoded seguro)
+  // 2. Permisos: DB (si cargó) o Email (Hardcoded seguro para ti)
   // Esto asegura que veas el botón aunque la DB falle.
   const MY_EMAIL = "cristobal.andres.inta@gmail.com"; 
   const isAdmin = profile?.role === 'admin' || user?.email === MY_EMAIL;
@@ -89,7 +91,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-400 font-sans relative overflow-hidden">
       
-      {/* FONDO */}
+      {/* FONDO DECORATIVO */}
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-emerald-900/10 to-transparent pointer-events-none" />
       
       <div className="relative z-10 max-w-7xl mx-auto p-6 md:p-10">
@@ -112,7 +114,7 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-3">
             
-            {/* BOTÓN TEAM: Visible si eres Admin */}
+            {/* 🛡️ BOTÓN TEAM: Visible si eres Admin (o es tu email) */}
             {isAdmin && (
               <Link href="/admin/team">
                 <button className="group flex items-center gap-3 px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-full hover:border-amber-500/50 hover:bg-zinc-800 transition-all shadow-lg">
@@ -145,7 +147,7 @@ export default function DashboardPage() {
           <SpotlightCard href="/clients" title="Clientes" subtitle="CRM" icon={<Users />} color="purple" />
         </div>
         
-         {/* LINKS ABAJO (Tus admin links) */}
+         {/* LINKS DE CONFIGURACIÓN (Abajo) */}
          <div>
           <h2 className="text-[10px] uppercase tracking-[0.4em] text-zinc-600 mb-6 font-black flex items-center gap-3">
              <LayoutDashboard size={14} /> Configuración
@@ -163,7 +165,7 @@ export default function DashboardPage() {
   );
 }
 
-// COMPONENTES UI SIMPLES
+// COMPONENTES UI AUXILIARES
 function SpotlightCard({ href, title, subtitle, icon, badge, color = "emerald" }: any) {
   const colors: any = {
     emerald: "text-emerald-400", amber: "text-amber-400", blue: "text-blue-400", purple: "text-purple-400"
