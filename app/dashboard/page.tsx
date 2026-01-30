@@ -1,213 +1,162 @@
 ﻿"use client";
-
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { createClient } from "@/utils/supabase/client"; // Asegúrate que esta ruta sea correcta
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { 
-  Calendar, Inbox, Users, Scissors, Package, 
-  Settings, Zap, LayoutDashboard, LogOut, Music4, Shield 
-} from "lucide-react";
+import { Shield, Users, BarChart3, LogOut, User as UserIcon } from "lucide-react";
+import Link from "next/link";
 
-export default function DashboardPage() {
+export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Instanciamos el cliente
+  const router = useRouter();
   const supabase = createClient();
-  const router = useRouter(); 
 
   useEffect(() => {
-    let isMounted = true; // Bandera para evitar actualizaciones si el componente se desmonta
-
-    // Función auxiliar para cargar el perfil una vez tengamos sesión
-    const fetchProfile = async (userId: string) => {
-      try {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
-        
-        if (profileError) {
-            console.error("❌ Error leyendo perfil de DB:", profileError.message);
-        }
-
-        if (isMounted) {
-            if (profileData) {
-                console.log("✅ Perfil cargado desde DB");
-                setProfile(profileData);
-            } else {
-                console.log("ℹ️ No se encontró perfil en DB, usando datos de Google.");
-            }
-        }
-
-      } catch (error) {
-        console.error("💥 Error en fetchProfile:", error);
-      } finally {
-        if (isMounted) setLoading(false);
+    const getData = async () => {
+      // 1. Obtener Usuario Autenticado
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error || !user) {
+        router.push("/login");
+        return;
       }
+      setUser(user);
+
+      // 2. Obtener Perfil (incluyendo el nuevo campo 'role')
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*") // Seleccionamos todo para traer el 'role'
+        .eq("id", user.id)
+        .single();
+
+      if (!profileError) {
+        setProfile(profileData);
+      }
+      
+      setLoading(false);
     };
 
-    console.log("🔄 Iniciando listener de autenticación...");
-
-    // SOLUCIÓN BRAVE: Usamos el listener en lugar de getSession una sola vez
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log(`🔔 Evento Auth: ${event}`);
-
-      if (session) {
-        // Si hay sesión, procedemos a cargar datos
-        if (isMounted) {
-             // Solo actualizamos si el usuario cambió para evitar re-renders innecesarios
-             setUser((prev: any) => (prev?.id !== session.user.id ? session.user : prev));
-             
-             // Si aún no hemos cargado el perfil (o cambió el usuario), lo buscamos
-             if (loading || user?.id !== session.user.id) {
-                 fetchProfile(session.user.id);
-             }
-        }
-      } else if (event === 'SIGNED_OUT' || !session) {
-        // Si no hay sesión y el evento confirma salida o fallo de carga inicial
-        
-        // Damos un pequeño margen o verificamos si realmente no hay sesión para redirigir
-        if (isMounted) {
-            console.warn("⚠️ Sin sesión activa, redirigiendo a login...");
-            router.replace("/login");
-        }
-      }
-    });
-
-    // Cleanup function: Vital para evitar el "AbortError"
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
+    getData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]); 
+  }, [router]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut(); 
-    window.location.href = "/login";          
+    await supabase.auth.signOut();
+    router.push("/login");
   };
-
-  // --- LÓGICA VISUAL ---
-  const meta = user?.user_metadata || {};
-  const displayName = profile?.full_name?.split(' ')[0] 
-    || meta.full_name?.split(' ')[0] 
-    || user?.email?.split('@')[0] 
-    || 'Productor';
-
-  // --- LÓGICA DE PODER (ADMIN) ---
-  const MY_EMAIL = "cristobal.andres.inta@gmail.com"; 
-  const isAdmin = profile?.role === 'admin' || user?.email === MY_EMAIL;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center text-zinc-500 gap-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-emerald-500"></div>
-        <p className="text-xs tracking-widest uppercase animate-pulse">Cargando Sistema...</p>
+      <div className="flex items-center justify-center min-h-screen bg-[#09090b] text-white">
+        Cargando tu estudio...
       </div>
     );
   }
 
+  // LÓGICA LIMPIA: Ahora ser admin depende de la base de datos, no de tu email hardcoded.
+  const isAdmin = profile?.role === 'admin';
+
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-400 font-sans relative overflow-hidden">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans selection:bg-emerald-500/30">
       
-      {/* FONDO */}
-      <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-emerald-900/10 to-transparent pointer-events-none" />
-      
-      <div className="relative z-10 max-w-7xl mx-auto p-6 md:p-10">
-        
-        {/* HEADER */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-               <span className="flex h-2 w-2 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-               </span>
-               <p className="text-[10px] uppercase tracking-[0.3em] text-emerald-500 font-bold">Sistema Online</p>
+      {/* Navbar */}
+      <nav className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-xl sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-tr from-emerald-500 to-cyan-500 rounded-lg flex items-center justify-center font-bold text-black text-lg shadow-[0_0_15px_rgba(16,185,129,0.4)]">
+              T
             </div>
-            <h1 className="text-4xl md:text-5xl font-medium text-white tracking-tight">
-              Hola, <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-emerald-400 font-bold">{displayName}</span>.
-            </h1>
+            <span className="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">
+              TurnoAquí
+            </span>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="hidden md:flex items-center gap-3 px-4 py-1.5 bg-zinc-800/50 rounded-full border border-zinc-700/50">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-medium text-zinc-400">
+                {user?.email} {/* Muestra el email dinámicamente, sin hardcodear */}
+              </span>
+            </div>
+            <button 
+              onClick={handleLogout}
+              className="p-2 hover:bg-zinc-800 rounded-full transition-colors text-zinc-400 hover:text-white"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-6xl mx-auto px-6 py-12">
+        {/* Header de Bienvenida */}
+        <div className="mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white via-zinc-200 to-zinc-500">
+            Hola, {profile?.full_name?.split(' ')[0] || 'Productor'}.
+          </h1>
+          <p className="text-zinc-500 text-lg">
+            Aquí está el resumen de tu actividad hoy.
+          </p>
+        </div>
+
+        {/* Grid de Acciones */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          
+          {/* Tarjeta 1: Mi Perfil */}
+          <div className="group p-6 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all hover:shadow-[0_0_20px_rgba(0,0,0,0.4)] cursor-pointer relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <UserIcon className="w-24 h-24" />
+            </div>
+            <div className="relative z-10">
+              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 mb-4 group-hover:scale-110 transition-transform">
+                <UserIcon className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Mi Perfil</h3>
+              <p className="text-zinc-500 text-sm">Gestiona tus datos personales y configuración.</p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            
-            {/* BOTÓN ENTERPRISE lop */}
-            {isAdmin && (
-              <Link href="/admin/team">
-                <div className="group flex items-center gap-3 px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-full hover:border-amber-500/50 hover:bg-zinc-800 transition-all shadow-lg">
-                  <div className="p-1.5 bg-amber-500/10 rounded-full group-hover:bg-amber-500/20 transition-colors">
-                    <Shield className="w-3.5 h-3.5 text-amber-500" />
-                  </div>
-                  <div className="hidden md:flex flex-col text-left">
-                    <span className="text-[9px] uppercase font-bold text-zinc-500 group-hover:text-amber-500 transition-colors">Enterprise</span>
-                    <span className="text-xs font-bold text-zinc-300 group-hover:text-white">Equipo</span>
-                  </div>
+          {/* Tarjeta 2: Estadísticas */}
+          <div className="group p-6 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 transition-all hover:shadow-[0_0_20px_rgba(0,0,0,0.4)] cursor-pointer relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <BarChart3 className="w-24 h-24" />
+            </div>
+            <div className="relative z-10">
+              <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 mb-4 group-hover:scale-110 transition-transform">
+                <BarChart3 className="w-6 h-6" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Métricas</h3>
+              <p className="text-zinc-500 text-sm">Visualiza el rendimiento de tus salas.</p>
+            </div>
+          </div>
+
+          {/* Tarjeta ADMIN: Solo visible si isAdmin es true */}
+          {isAdmin && (
+            <Link href="/admin/team">
+              <div className="group p-6 rounded-2xl bg-zinc-900 border border-amber-500/20 hover:border-amber-500/50 transition-all hover:shadow-[0_0_30px_rgba(245,158,11,0.1)] cursor-pointer relative overflow-hidden h-full">
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <Shield className="w-24 h-24 text-amber-500" />
                 </div>
-              </Link>
-            )}
+                <div className="relative z-10">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 mb-4 group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+                    <Shield className="w-6 h-6" />
+                  </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xl font-bold text-amber-500">Panel Admin</h3>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-500 border border-amber-500/30">
+                      SOLO EQUIPO
+                    </span>
+                  </div>
+                  <p className="text-zinc-500 text-sm">Gestionar usuarios, permisos y base de datos global.</p>
+                </div>
+              </div>
+            </Link>
+          )}
 
-            <button onClick={() => alert("Link copiado")} className="group flex items-center gap-3 px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-full hover:bg-zinc-800 transition-all">
-               <Zap className="w-3.5 h-3.5 text-emerald-400" /><span className="text-xs font-bold text-white">Copiar Link</span>
-            </button>
-            
-            <button onClick={handleLogout} className="h-12 w-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center hover:bg-red-500/10 hover:text-red-500 transition-all">
-                <LogOut className="h-5 w-5" />
-            </button>
-          </div>
-        </header>
-
-        {/* CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          <SpotlightCard href="/calendar" title="Calendario" subtitle="Agenda" icon={<Calendar />} color="emerald" />
-          <SpotlightCard href="/projects" title="Studio Hub" subtitle="Mezclas" icon={<Music4 />} badge="BETA" color="amber" />
-          <SpotlightCard href="/requests" title="Solicitudes" subtitle="Entrada" icon={<Inbox />} color="blue" />
-          <SpotlightCard href="/clients" title="Clientes" subtitle="CRM" icon={<Users />} color="purple" />
         </div>
-        
-         {/* LINKS CONFIGURACIÓN */}
-         <div>
-          <h2 className="text-[10px] uppercase tracking-[0.4em] text-zinc-600 mb-6 font-black flex items-center gap-3">
-             <LayoutDashboard size={14} /> Configuración
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <AdminLink href="/services" title="Servicios" desc="Precios" icon={<Scissors />} />
-            <AdminLink href="/staff" title="Staff" desc="Equipo" icon={<Users />} />
-            <AdminLink href="/resources" title="Recursos" desc="Salas" icon={<Package />} />
-            <AdminLink href="/settings" title="Ajustes" desc="General" icon={<Settings />} />
-          </div>
-        </div>
-
-      </div>
+      </main>
     </div>
-  );
-}
-
-// COMPONENTES AUXILIARES
-function SpotlightCard({ href, title, subtitle, icon, badge, color = "emerald" }: any) {
-  const colors: any = {
-    emerald: "text-emerald-400", amber: "text-amber-400", blue: "text-blue-400", purple: "text-purple-400"
-  };
-  return (
-    <Link href={href} className="group relative bg-[#0F1112] border border-zinc-800 rounded-[2rem] p-8 transition-all hover:border-zinc-600 hover:-translate-y-1">
-      <div className="flex justify-between mb-4">
-         <div className={`h-12 w-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center ${colors[color]}`}>{icon}</div>
-         {badge && <span className="px-2 py-1 h-fit rounded bg-blue-500/10 text-[10px] text-blue-400 font-bold uppercase">{badge}</span>}
-      </div>
-      <p className="text-xs text-zinc-500 uppercase font-bold mb-1">{subtitle}</p>
-      <h3 className="text-xl font-bold text-white">{title}</h3>
-    </Link>
-  );
-}
-function AdminLink({ href, title, desc, icon }: any) {
-  return (
-    <Link href={href} className="flex items-center gap-4 p-4 rounded-2xl border border-zinc-800/50 bg-zinc-900/30 hover:bg-zinc-800 transition-all">
-      <div className="h-10 w-10 rounded-xl bg-black border border-zinc-800 flex items-center justify-center text-zinc-500">{icon}</div>
-      <div><h4 className="text-sm font-bold text-zinc-300 hover:text-white">{title}</h4><p className="text-[10px] text-zinc-600">{desc}</p></div>
-    </Link>
   );
 }
