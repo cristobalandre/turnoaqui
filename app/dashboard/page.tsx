@@ -136,7 +136,7 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-3">
             
-            {/* BOTÓN ENTERPRISE */}
+            {/* BOTÓN ENTERPRISE lop */}
             {isAdmin && (
               <Link href="/admin/team">
                 <div className="group flex items-center gap-3 px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-full hover:border-amber-500/50 hover:bg-zinc-800 transition-all shadow-lg">
