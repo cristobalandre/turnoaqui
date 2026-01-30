@@ -139,7 +139,7 @@ export default function DashboardPage() {
             {/* BOTÓN ENTERPRISE */}
             {isAdmin && (
               <Link href="/admin/team">
-                <button className="group flex items-center gap-3 px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-full hover:border-amber-500/50 hover:bg-zinc-800 transition-all shadow-lg">
+                <div className="group flex items-center gap-3 px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-full hover:border-amber-500/50 hover:bg-zinc-800 transition-all shadow-lg">
                   <div className="p-1.5 bg-amber-500/10 rounded-full group-hover:bg-amber-500/20 transition-colors">
                     <Shield className="w-3.5 h-3.5 text-amber-500" />
                   </div>
@@ -147,7 +147,7 @@ export default function DashboardPage() {
                     <span className="text-[9px] uppercase font-bold text-zinc-500 group-hover:text-amber-500 transition-colors">Enterprise</span>
                     <span className="text-xs font-bold text-zinc-300 group-hover:text-white">Equipo</span>
                   </div>
-                </button>
+                </div>
               </Link>
             )}
 
