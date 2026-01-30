@@ -1,4 +1,3 @@
-// lib/supabase/client.ts
 import { createBrowserClient } from '@supabase/ssr'
 
 let client: ReturnType<typeof createBrowserClient> | undefined;
@@ -11,15 +10,15 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: {
-        // CRÍTICO PARA VERCEL:
-        // Desactiva el sistema de bloqueo que causa el 'AbortError' y tiempos de espera.
+        // CRITICAL FOR VERCEL:
+        // Disables the lock system that causes AbortError and timeouts.
         lock: {
           length: 0, 
         },
-        // Evita conflictos con el Middleware al leer la URL
+        // Prevents conflicts with Middleware when reading URL
         detectSessionInUrl: false, 
         persistSession: true,
-        // Almacenamiento seguro en localStorage
+        // Safe storage in localStorage
         storageKey: 'sb-turnoaqui-auth',
       }
     }
