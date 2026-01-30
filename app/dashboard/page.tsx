@@ -11,7 +11,7 @@ export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState(""); // Para ver errores en pantalla
+  const [errorMsg, setErrorMsg] = useState(""); // Para ver errores en pantallallita
   const router = useRouter();
 
   useEffect(() => {
