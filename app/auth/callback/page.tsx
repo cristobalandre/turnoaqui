@@ -2,98 +2,104 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
-import { Loader2 } from "lucide-react";
+// 🚨 CAMBIO CLAVE: Usamos TU cliente modificado, no el genérico
+import { createClient } from "@/lib/supabase/client"; 
+import { Loader2, AlertCircle } from "lucide-react";
 
-function CallbackContent() {
+// Componente interno que usa useSearchParams
+function CallbackHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [msg, setMsg] = useState("Verificando permisos...");
+  const [msg, setMsg] = useState("Verificando credenciales...");
+  const [error, setError] = useState<string | null>(null);
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  // Usamos el cliente singleton que tiene el parche del candado
+  const supabase = createClient();
 
   useEffect(() => {
-    // Función para decidir a dónde mandar al usuario
-    const checkUserStatusAndRedirect = async (userId: string) => {
+    const handleCallback = async () => {
       try {
-        // Consultamos el estado en la tabla profiles
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('plan_status')
-          .eq('id', userId)
-          .single();
-
-        if (error || !profile) {
-          console.error("Error leyendo perfil:", error);
-          // Por seguridad, si falla, al Home
-          router.push("/");
+        const code = searchParams.get("code");
+        
+        if (!code) {
+          // Si no hay código, quizás ya tenemos sesión o es un error
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            router.push("/dashboard");
+          } else {
+            setError("No se recibió código de autenticación.");
+            setTimeout(() => router.push("/login"), 3000);
+          }
           return;
         }
 
-        if (profile.plan_status === 'active') {
-          setMsg("✅ Cuenta Activa. Entrando...");
-          setTimeout(() => router.push("/dashboard"), 800);
-        } else {
-          setMsg("🔒 Cuenta en Revisión. Redirigiendo...");
-          // Si está pending, lo mandamos al Home para que vea el candado
-          setTimeout(() => router.push("/"), 1500);
+        setMsg("Intercambiando token...");
+        // Canjeamos el código por sesión
+        const { error: authError } = await supabase.auth.exchangeCodeForSession(code);
+        
+        if (authError) throw authError;
+
+        // Verificamos perfil
+        setMsg("Validando perfil...");
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('plan_status')
+            .eq('id', user.id)
+            .single();
+
+          if (profile?.plan_status === 'active') {
+            setMsg("✅ Todo listo. Entrando...");
+            router.push("/dashboard");
+          } else {
+            setMsg("⚠️ Cuenta en revisión o incompleta.");
+            setTimeout(() => router.push("/dashboard"), 1500); // Dejar pasar igual para que vea su estado
+          }
         }
 
-      } catch (err) {
-        router.push("/");
-      }
-    };
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' || session) {
-        // Apenas detectamos sesión, revisamos el estado
-        await checkUserStatusAndRedirect(session!.user.id);
-      }
-    });
-
-    // Manejo de código manual (por si acaso)
-    const handleCode = async () => {
-      const code = searchParams.get("code");
-      if (code) {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-        if (!error && data.session) {
-          await checkUserStatusAndRedirect(data.session.user.id);
+      } catch (err: any) {
+        console.error("Error crítico en callback:", err);
+        // Si es el famoso AbortError, lo ignoramos y probamos entrar igual
+        if (err.name === 'AbortError') {
+           console.warn("AbortError ignorado, forzando entrada...");
+           router.push("/dashboard");
+           return;
         }
+        setError(err.message || "Error desconocido al iniciar sesión");
       }
     };
 
-    handleCode();
+    handleCallback();
+  }, [searchParams, router, supabase]);
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [router, searchParams, supabase]);
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-4 p-6 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-200">
+        <AlertCircle className="w-10 h-10" />
+        <p className="text-center text-sm">{error}</p>
+        <button onClick={() => router.push("/login")} className="px-4 py-2 bg-red-500/20 rounded-lg hover:bg-red-500/30 transition-colors">
+          Volver al Login
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
-      {msg.includes("🔒") ? (
-         <div className="h-12 w-12 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-400 text-2xl font-bold">🔒</div>
-      ) : msg.includes("✅") ? (
-         <div className="h-12 w-12 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-2xl font-bold">✓</div>
-      ) : (
-         <Loader2 className="h-10 w-10 animate-spin text-emerald-500" />
-      )}
-      
-      <p className={`text-sm font-medium ${msg.includes("Error") ? "text-red-400" : "text-gray-200"}`}>
-        {msg}
-      </p>
+      <Loader2 className="h-10 w-10 animate-spin text-emerald-500" />
+      <p className="text-sm font-medium text-zinc-300 animate-pulse">{msg}</p>
     </div>
   );
 }
 
-export default function AuthCallbackPage() {
+// Componente Principal con Suspense (Requisito de Next.js para useSearchParams)
+export default function CallbackPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0F1112] text-white">
-      <Suspense fallback={<div className="text-zinc-500 text-sm">Cargando...</div>}>
-        <CallbackContent />
+    <div className="flex items-center justify-center min-h-screen bg-[#09090b] text-white">
+      <Suspense fallback={<div className="text-zinc-500">Cargando autenticación...</div>}>
+        <CallbackHandler />
       </Suspense>
     </div>
   );

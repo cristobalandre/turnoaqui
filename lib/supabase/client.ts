@@ -1,10 +1,9 @@
-﻿import { createBrowserClient } from '@supabase/ssr'
+﻿// lib/supabase/client.ts
+import { createBrowserClient } from '@supabase/ssr'
 
 let client: ReturnType<typeof createBrowserClient> | undefined;
 
-// 🔓 LA LLAVE MAESTRA:
-// Esta función engaña a Supabase. En vez de pedir permiso al navegador (que falla),
-// le dice "Sí, sí, tienes permiso" y ejecuta todo de inmediato.
+// El truco para evitar el AbortError
 async function bypassLock(name: string, timeout: number, func: () => Promise<any>) {
   return await func();
 }
@@ -17,16 +16,12 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: {
-        // Inyectamos nuestra función de desbloqueo
-        lock: bypassLock,
-        
-        // Configuraciones de seguridad estándar
+        lock: bypassLock, // <--- ESTO ES VITAL
         persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: false,
+        detectSessionInUrl: false, // Importante para que no pelee con el callback manual
         storageKey: 'sb-turnoaqui-auth',
       }
-    } as any // 👈 EL TRUCO: Obligamos a TypeScript a aceptar nuestra configuración
+    } as any
   );
 
   return client;
