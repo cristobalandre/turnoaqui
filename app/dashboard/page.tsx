@@ -1,6 +1,6 @@
 ﻿"use client";
 import { useEffect, useState } from "react";
-import { createClient } from "@/utils/supabase/client"; // Asegúrate que esta ruta sea correcta
+import { createClient } from "@/lib/supabase/client"; // Asegúrate que esta ruta sea correcta
 import { useRouter } from "next/navigation";
 import { Shield, Users, BarChart3, LogOut, User as UserIcon } from "lucide-react";
 import Link from "next/link";
