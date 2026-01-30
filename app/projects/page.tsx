@@ -110,6 +110,15 @@ export default function ProjectsPage() {
           </div>
           
           <div className="flex items-center gap-3">
+
+          {/* BOTÓN ENTERPRISE TEAM (Solo visible para Admin idealmente) */}
+<Link href="/admin/team">
+    <button className="group flex items-center gap-2 px-5 py-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-bold rounded-2xl transition-all hover:bg-emerald-500 hover:text-black hover:scale-[1.02] active:scale-95">
+        <Shield size={18} />
+        <span className="text-sm">TEAM</span>
+    </button>
+</Link>
+
             {/* BOTÓN ROSTER (ARTISTAS) */}
             <Link href="/artists">
                 <button className="group flex items-center gap-2 px-5 py-4 bg-zinc-900 border border-zinc-800 text-zinc-300 font-bold rounded-2xl transition-all hover:bg-zinc-800 hover:text-white hover:border-zinc-700 hover:scale-[1.02] active:scale-95">
