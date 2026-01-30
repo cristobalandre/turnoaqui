@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { 
   Calendar, Inbox, Users, Scissors, Package, 
-  Settings, ChevronRight, Activity, Info, Zap, LayoutDashboard, LogOut, Music4, Shield 
+  Settings, ChevronRight, Activity, Zap, LayoutDashboard, LogOut, Music4, Shield 
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -14,40 +14,47 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // Instanciamos el cliente (React lo maneja, pero no debemos ponerlo en el useEffect)
+  // Instanciamos el cliente
   const supabase = createClient();
   const router = useRouter(); 
 
   useEffect(() => {
     const getData = async () => {
       try {
-        // --- A. OBTENER SESIÓN DE FORMA SEGURA ---
+        console.log("🔄 Iniciando verificación de sesión...");
+        
+        // 1. OBTENER SESIÓN
         const { data: { session }, error: authError } = await supabase.auth.getSession();
         
         if (authError || !session) {
-          console.warn("Sesión no válida o expirada.");
-          // No redirigimos agresivamente para evitar bucles si hay error de red,
-          // pero si no hay usuario, el render mostrará "Cargando..." o podrías redirigir aquí.
+          console.warn("⚠️ Sesión no válida o expirada.");
           router.replace("/login");
           return;
         }
 
+        console.log("✅ Usuario autenticado:", session.user.email);
         setUser(session.user);
 
-        // --- B. BUSCAR PERFIL (Sin bloquear si falla) ---
-        // Usamos maybeSingle() para que no lance error si el perfil aún no se creó (por el trigger)
-        const { data: profileData } = await supabase
+        // 2. BUSCAR PERFIL (Sin bloquear si falla)
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .maybeSingle();
         
+        if (profileError) {
+            console.error("❌ Error leyendo perfil de DB:", profileError.message);
+        }
+
         if (profileData) {
+          console.log("✅ Perfil cargado desde DB");
           setProfile(profileData);
+        } else {
+            console.log("ℹ️ No se encontró perfil en DB, usando datos de Google.");
         }
 
       } catch (error) {
-        console.error("Error cargando dashboard:", error);
+        console.error("💥 Error CRÍTICO en dashboard:", error);
       } finally {
         setLoading(false);
       }
@@ -55,8 +62,9 @@ export default function DashboardPage() {
 
     getData();
     
-    // 🛑 IMPORTANTE: Aquí está el arreglo del bucle infinito.
-    // La lista de dependencias está vacía de 'supabase'. Solo 'router'.
+    // 🛑 ARREGLO DEL BUCLE INFINITO:
+    // La lista de dependencias SOLO tiene 'router'. 
+    // Si pones 'supabase' aquí, la app entrará en bucle y morirá.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]); 
 
@@ -65,17 +73,15 @@ export default function DashboardPage() {
     window.location.href = "/login";          
   };
 
-  // --- LÓGICA DE VISUALIZACIÓN ---
-  
-  // 1. Nombre: Prioridad DB -> Metadata de Google -> Email
+  // --- LÓGICA VISUAL ---
   const meta = user?.user_metadata || {};
   const displayName = profile?.full_name?.split(' ')[0] 
     || meta.full_name?.split(' ')[0] 
     || user?.email?.split('@')[0] 
     || 'Productor';
 
-  // 2. Permisos: DB (si cargó) o Email (Hardcoded seguro para ti)
-  // Esto asegura que veas el botón aunque la DB falle.
+  // --- LÓGICA DE PODER (ADMIN) ---
+  // Si la DB falla, verificamos tu email directamente.
   const MY_EMAIL = "cristobal.andres.inta@gmail.com"; 
   const isAdmin = profile?.role === 'admin' || user?.email === MY_EMAIL;
 
@@ -83,7 +89,7 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen bg-[#09090b] flex flex-col items-center justify-center text-zinc-500 gap-4">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-emerald-500"></div>
-        <p className="text-xs tracking-widest uppercase animate-pulse">Cargando...</p>
+        <p className="text-xs tracking-widest uppercase animate-pulse">Cargando Sistema...</p>
       </div>
     );
   }
@@ -91,7 +97,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-400 font-sans relative overflow-hidden">
       
-      {/* FONDO DECORATIVO */}
+      {/* FONDO */}
       <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-emerald-900/10 to-transparent pointer-events-none" />
       
       <div className="relative z-10 max-w-7xl mx-auto p-6 md:p-10">
@@ -109,12 +115,23 @@ export default function DashboardPage() {
             <h1 className="text-4xl md:text-5xl font-medium text-white tracking-tight">
               Hola, <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-emerald-400 font-bold">{displayName}</span>.
             </h1>
-            <p className="text-sm text-zinc-500 mt-2">Bienvenido a tu consola.</p>
+            
+            {/* BOTÓN PARA PROVOCAR ERROR (SOLO PARA PRUEBAS) */}
+            <button 
+                onClick={() => {
+                    console.error("🚨 PRUEBA DE LOGS: El usuario presionó el botón de error.");
+                    throw new Error("TEST DE VERCEL: Si lees esto en los logs, el sistema de reportes funciona.");
+                }}
+                className="mt-4 bg-red-500/10 border border-red-500/50 text-red-500 px-4 py-2 rounded hover:bg-red-500 hover:text-white transition-all text-xs font-bold tracking-widest uppercase animate-pulse"
+            >
+                💥 Provocar Error para Vercel
+            </button>
+
           </div>
 
           <div className="flex items-center gap-3">
             
-            {/* 🛡️ BOTÓN TEAM: Visible si eres Admin (o es tu email) */}
+            {/* BOTÓN ENTERPRISE (Aparece siempre para ti) */}
             {isAdmin && (
               <Link href="/admin/team">
                 <button className="group flex items-center gap-3 px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-full hover:border-amber-500/50 hover:bg-zinc-800 transition-all shadow-lg">
@@ -139,7 +156,7 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {/* DASHBOARD CARDS */}
+        {/* CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
           <SpotlightCard href="/calendar" title="Calendario" subtitle="Agenda" icon={<Calendar />} color="emerald" />
           <SpotlightCard href="/projects" title="Studio Hub" subtitle="Mezclas" icon={<Music4 />} badge="BETA" color="amber" />
@@ -147,7 +164,7 @@ export default function DashboardPage() {
           <SpotlightCard href="/clients" title="Clientes" subtitle="CRM" icon={<Users />} color="purple" />
         </div>
         
-         {/* LINKS DE CONFIGURACIÓN (Abajo) */}
+         {/* LINKS CONFIGURACIÓN */}
          <div>
           <h2 className="text-[10px] uppercase tracking-[0.4em] text-zinc-600 mb-6 font-black flex items-center gap-3">
              <LayoutDashboard size={14} /> Configuración
@@ -165,7 +182,7 @@ export default function DashboardPage() {
   );
 }
 
-// COMPONENTES UI AUXILIARES
+// COMPONENTES AUXILIARES
 function SpotlightCard({ href, title, subtitle, icon, badge, color = "emerald" }: any) {
   const colors: any = {
     emerald: "text-emerald-400", amber: "text-amber-400", blue: "text-blue-400", purple: "text-purple-400"
