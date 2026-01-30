@@ -54,7 +54,7 @@ export default function ProjectsPage() {
           
           setStats({
             total: data.length,
-            active: data.filter(p => p.status === 'En Revisión').length,
+            active: data.filter((p: any) => p.status === 'En Revisión').length,
             // Cálculo estimado: 3.5MB por proyecto
             storage: `${(data.length * 3.5).toFixed(1)} MB`
           });
