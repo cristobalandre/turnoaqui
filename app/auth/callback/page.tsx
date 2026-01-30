@@ -16,7 +16,6 @@ function CallbackHandler() {
     const handleAuth = async () => {
       try {
         // 1. Damos un respiro para que el cliente lea el hash (#access_token)
-        // Esto es automático cuando detectSessionInUrl es true.
         const { data: { session: initialSession } } = await supabase.auth.getSession();
 
         if (initialSession) {
@@ -33,7 +32,8 @@ function CallbackHandler() {
         }
 
         // 3. Si no hay ni hash ni código, esperamos un evento de Auth (último recurso)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        // 🚨 AQUÍ ESTABA EL ERROR: Añadimos ': any' para callar a TypeScript
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => {
           if (session) {
             finalizeLogin(session.user.id);
           }
@@ -66,7 +66,7 @@ function CallbackHandler() {
 
       if (profile?.plan_status === 'active') {
         setMsg("¡Todo listo!");
-        router.replace("/dashboard"); // Usamos replace para no poder volver atrás
+        router.replace("/dashboard"); 
       } else {
         setMsg("Cuenta en revisión...");
         setTimeout(() => router.replace("/dashboard"), 1500);
