@@ -2,12 +2,12 @@
 
 let client: ReturnType<typeof createBrowserClient> | undefined;
 
-// 🔓 LA SOLUCIÓN MAGICA:
-// Esta función reemplaza al sistema de bloqueo del navegador.
-// En lugar de esperar y fallar (AbortError), ejecuta la tarea inmediatamente.
-const envLock = async (name: string, acquireTimeout: number, fn: () => Promise<any>) => {
-  return await fn();
-};
+// 🔓 LA LLAVE MAESTRA:
+// Esta función engaña a Supabase. En vez de pedir permiso al navegador (que falla),
+// le dice "Sí, sí, tienes permiso" y ejecuta todo de inmediato.
+async function bypassLock(name: string, timeout: number, func: () => Promise<any>) {
+  return await func();
+}
 
 export function createClient() {
   if (client) return client;
@@ -17,15 +17,16 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       auth: {
-        // Aquí inyectamos nuestra función "anti-bloqueo"
-        lock: envLock,
+        // Inyectamos nuestra función de desbloqueo
+        lock: bypassLock,
         
-        // Configuraciones estándar para que no choque con el middleware
-        detectSessionInUrl: false, 
+        // Configuraciones de seguridad estándar
         persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
         storageKey: 'sb-turnoaqui-auth',
       }
-    }
+    } as any // 👈 EL TRUCO: Obligamos a TypeScript a aceptar nuestra configuración
   );
 
   return client;
