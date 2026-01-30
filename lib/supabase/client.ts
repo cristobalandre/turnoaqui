@@ -1,6 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
 
-// Variable para almacenar la instancia única fuera de la función
 let supabaseInstance: any = null;
 
 export function createClient() {
