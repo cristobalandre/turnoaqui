@@ -155,7 +155,7 @@ export default function AgendaPage() {
 
     if (roomConflicts) {
       const hasConflict = roomConflicts.some(
-        (s) => s.id !== excludeId && s.estado !== 'cancelada'
+        (s: any) => s.id !== excludeId && s.estado !== 'cancelada'
       )
       if (hasConflict) {
         conflicts.push('La sala ya está ocupada en ese horario')
