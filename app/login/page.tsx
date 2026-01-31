@@ -3,23 +3,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Outfit } from "next/font/google";
-// 1. Agregamos ArrowLeft aquí 👇
 import { Loader2, Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
-import { createClient } from "@supabase/supabase-js";
-// 2. Importamos Link aquí 👇
+// 🔴 CAMBIO CLAVE: Usamos la librería correcta para Next.js App Router
+import { createBrowserClient } from "@supabase/ssr"; 
 import Link from "next/link";
 
 const outfit = Outfit({ subsets: ["latin"] });
 
-// Tu conexión directa que funciona bien
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export default function LoginPage() {
   const router = useRouter();
+  
+  // ✅ CREACIÓN CORRECTA DEL CLIENTE
+  // Este cliente guarda los tokens en COOKIES, no en LocalStorage.
+  // Así el servidor (route.ts) podrá validarlos.
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
@@ -29,10 +30,17 @@ export default function LoginPage() {
 
   const onGoogleLogin = async () => {
     setLoading(true);
+    // Usamos location.origin para asegurar que detecta si es localhost o vercel
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${location.origin}/auth/callback`,
+        redirectTo,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
       },
     });
     
@@ -51,7 +59,7 @@ export default function LoginPage() {
         email,
         password,
         options: {
-          emailRedirectTo: `${location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
@@ -79,7 +87,7 @@ export default function LoginPage() {
   return (
     <div className={`min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-[#0F1112] text-gray-100 ${outfit.className}`}>
       
-      {/* --- ✅ 3. NUEVO BOTÓN: VOLVER AL INICIO --- */}
+      {/* BOTÓN VOLVER AL INICIO */}
       <Link 
         href="/" 
         className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
@@ -87,7 +95,6 @@ export default function LoginPage() {
         <ArrowLeft className="w-4 h-4" />
         Volver al inicio
       </Link>
-      {/* --------------------------------------------- */}
 
       {/* FONDO AMBIENTAL */}
       <div className="absolute inset-0 z-0 pointer-events-none">
@@ -97,7 +104,6 @@ export default function LoginPage() {
 
       <div className="relative z-10 w-full max-w-[420px] px-6">
         
-        {/* LOGO GIGANTE Y HEADER */}
         <div className="text-center mb-10">
           <div className="flex justify-center mb-6 drop-shadow-2xl hover:scale-105 transition-transform duration-500">
             <Logo widthClass="w-64 md:w-96" />
