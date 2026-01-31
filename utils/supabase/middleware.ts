@@ -1,7 +1,7 @@
-import { createServerClient } from @supabasessr;
-import { NextResponse, type NextRequest } from nextserver;
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 
-export async function updateSession(request NextRequest) {
+export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -10,18 +10,18 @@ export async function updateSession(request NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      cookies {
+      cookies: {
         getAll() {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =
+          cookiesToSet.forEach(({ name, value, options }) =>
             request.cookies.set(name, value)
           );
           supabaseResponse = NextResponse.next({
             request,
           });
-          cookiesToSet.forEach(({ name, value, options }) =
+          cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
         },
@@ -29,22 +29,19 @@ export async function updateSession(request NextRequest) {
     }
   );
 
-   ⚠️ ESTA LÍNEA ES LA MAGIA Refresca el token de usuario
   const {
-    data { user },
+    data: { user },
   } = await supabase.auth.getUser();
 
-   PROTECCIÓN DE RUTAS
-   Si NO hay usuario y quiere entrar a dashboard o projects - Al Login
   if (
     !user &&
-    !request.nextUrl.pathname.startsWith(login) &&
-    !request.nextUrl.pathname.startsWith(auth) &&
-    (request.nextUrl.pathname.startsWith(dashboard)  
-     request.nextUrl.pathname.startsWith(projects))
+    !request.nextUrl.pathname.startsWith("/login") &&
+    !request.nextUrl.pathname.startsWith("/auth") &&
+    (request.nextUrl.pathname.startsWith("/dashboard") || 
+     request.nextUrl.pathname.startsWith("/projects"))
   ) {
     const url = request.nextUrl.clone();
-    url.pathname = login;
+    url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
