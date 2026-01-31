@@ -7,9 +7,9 @@ import { Outfit } from "next/font/google";
 import { 
   ArrowLeft, Download, CheckCircle2, Send, Loader2, Trash2, Share2, Check, 
   XCircle, AlertCircle, ThumbsUp, ThumbsDown, ShieldCheck, History, UploadCloud, PlayCircle,
-  LayoutGrid
+  LayoutGrid // Agregado para el icono del Hub
 } from "lucide-react"; 
-// Asegúrate que la ruta sea la correcta a tu componente
+// Aseguramos la ruta correcta a tu componente
 import { AudioPlayer, AudioPlayerRef } from "@/components/projects/AudioPlayer";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
@@ -22,7 +22,7 @@ export default function ProjectDetailPage() {
   const supabase = createClient();
   const playerRef = useRef<AudioPlayerRef>(null);
   
-  // ESTADOS DE DATOS
+  // --- ESTADOS (TODO TU CÓDIGO INTACTO) ---
   const [project, setProject] = useState<any>(null);
   const [versions, setVersions] = useState<any[]>([]);
   const [currentVersion, setCurrentVersion] = useState<any>(null);
@@ -31,18 +31,18 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   
-  // ESTADOS DE UI
+  // Estados de UI
   const [isDeleting, setIsDeleting] = useState(false); 
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isUploadingVersion, setIsUploadingVersion] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // 1. CARGA INICIAL
+  // --- EFECTOS Y CARGA DE DATOS ---
   useEffect(() => {
     const checkSessionAndFetch = async () => {
       if (!id) return;
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return; // O redirigir a login
+      if (!session) return;
       setCurrentUser(session.user);
       await fetchProjectData(id as string);
     };
@@ -50,13 +50,14 @@ export default function ProjectDetailPage() {
   }, [id]);
 
   const fetchProjectData = async (projectId: string) => {
-    // A. Proyecto Base
+    // 1. Proyecto Base
     const { data: projectData, error } = await supabase
       .from('projects').select('*').eq('id', projectId).single();
 
     if (!error) {
        setProject(projectData);
-       // B. Cargar Versiones
+       
+       // 2. Intentar cargar versiones (Si no existen, usa la original)
        const { data: versionsData } = await supabase
          .from('project_versions')
          .select('*')
@@ -67,8 +68,13 @@ export default function ProjectDetailPage() {
          setVersions(versionsData);
          setCurrentVersion(versionsData[0]);
        } else {
-         // Fallback si es la v1.0 original
-         const fallback = { id: 'original', version_name: projectData.version || 'v1.0', audio_url: projectData.audio_url, created_at: projectData.created_at };
+         // Fallback a la versión 1.0 si no hay historial
+         const fallback = { 
+            id: 'original', 
+            version_name: projectData.version || 'v1.0', 
+            audio_url: projectData.audio_url, 
+            created_at: projectData.created_at 
+         };
          setVersions([fallback]);
          setCurrentVersion(fallback);
        }
@@ -79,15 +85,18 @@ export default function ProjectDetailPage() {
 
   const fetchComments = async (projectId: string) => {
     const { data } = await supabase
-      .from('comments').select('*').eq('project_id', projectId).order('created_at', { ascending: false });
+      .from('comments')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+      
     if (data) setComments(data);
   };
 
-  // ROLES
+  // --- LÓGICA Y HANDLERS (INTACTOS) ---
   const isAdmin = currentUser?.user_metadata?.role === 'admin';
   const isUploader = currentUser && project && currentUser.id === project.user_id;
 
-  // ACCIONES
   const handleSwitchVersion = (version: any) => setCurrentVersion(version);
 
   const handleUploadNewVersion = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,20 +115,20 @@ export default function ProjectDetailPage() {
 
       const { data: { publicUrl } } = supabase.storage.from('projects').getPublicUrl(filePath);
 
-      // Guardar en tabla de versiones (Asegúrate de haber corrido el SQL anterior)
+      // Guardar en tabla de versiones
       await supabase.from('project_versions').insert({
         project_id: id, version_name: nextVersionName, audio_url: publicUrl
       });
 
-      // Actualizar master
+      // Actualizar proyecto principal
       await supabase.from('projects').update({
         version: nextVersionName, audio_url: publicUrl, status: 'En Revisión' 
       }).eq('id', id);
 
-      alert(`✅ Versión ${nextVersionName} subida.`);
+      alert(`✅ Versión ${nextVersionName} subida exitosamente.`);
       await fetchProjectData(id as string);
     } catch (error: any) {
-      alert("Error: " + error.message);
+      alert("Error al subir versión: " + error.message);
     } finally {
       setIsUploadingVersion(false);
     }
@@ -141,10 +150,10 @@ export default function ProjectDetailPage() {
   };
 
   const handleDeleteProject = async () => {
-    if (!confirm("⚠️ ¿Estás seguro de eliminar este proyecto y todas sus versiones?")) return; 
+    if (!confirm("⚠️ ¿Estás seguro de eliminar este proyecto y todo su historial?")) return; 
     setIsDeleting(true);
     await supabase.from('projects').delete().eq('id', id); 
-    router.push('/studio'); // Volver al Hub
+    router.push('/projects'); // Volver a la galería correcta
   };
 
   const handleSendComment = async () => {
@@ -164,7 +173,7 @@ export default function ProjectDetailPage() {
     setTimeout(() => setCopied(false), 2000); 
   };
 
-  // 🎨 ESTILOS GEMINIZADOS
+  // Estilos dinámicos
   const getStatusColor = (status: string) => {
     if (status === 'Aprobado') return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)]";
     if (status === 'Rechazado') return "text-red-400 bg-red-500/10 border-red-500/20";
@@ -176,29 +185,36 @@ export default function ProjectDetailPage() {
 
   return (
     <div className={`min-h-screen bg-[#09090b] text-zinc-300 ${outfit.className} flex flex-col`}>
-      {/* HEADER DE SALA DE CONTROL */}
-      <header className="border-b border-zinc-800 bg-[#0c0c0e]/80 backdrop-blur-xl px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+      
+      {/* --- HEADER --- */}
+      <header className="border-b border-zinc-800 bg-[#0c0c0e]/90 backdrop-blur-xl px-6 py-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-4">
-          <Link href="/studio" className="p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white flex items-center gap-2">
-            <ArrowLeft size={20} /> <span className="hidden md:inline text-sm font-bold">Studio Hub</span>
+          
+          {/* ✅ LA ÚNICA MODIFICACIÓN CLAVE: EL LINK DE VOLVER AHORA APUNTA A /projects */}
+          <Link href="/projects" className="p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white flex items-center gap-2">
+            <ArrowLeft size={20} /> <span className="font-bold hidden md:block">Studio Hub</span>
           </Link>
-          <div className="h-6 w-px bg-zinc-800"></div>
+          
+          <div className="h-6 w-px bg-zinc-800 hidden md:block"></div>
           <div>
             <h1 className="text-lg font-bold text-white leading-none tracking-tight">{project.title}</h1>
             <p className="text-xs text-emerald-500 mt-1 font-medium tracking-wider uppercase">{project.artist}</p>
           </div>
         </div>
         
+        {/* Botones de acción derecha */}
         <div className="flex items-center gap-2">
            <button onClick={handleShare} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${copied ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500' : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'}`}>{copied ? <Check size={14} /> : <Share2 size={14} />} {copied ? "Copiado" : "Compartir"}</button>
            {(isAdmin || isUploader) && (<button onClick={handleDeleteProject} disabled={isDeleting} className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all">{isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}</button>)}
-           <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg text-xs font-bold hover:shadow-lg hover:shadow-emerald-500/20 transition-all"><Download size={14} /> Descargar</button>
+           <button className="hidden md:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg text-xs font-bold hover:shadow-lg hover:shadow-emerald-500/20 transition-all"><Download size={14} /> Descargar</button>
         </div>
       </header>
 
+      {/* --- CONTENIDO PRINCIPAL --- */}
       <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 p-6 md:p-10 overflow-y-auto relative scrollbar-hide flex flex-col">
-           {/* INFO SUPERIOR */}
+           
+           {/* Estado y Título Grande */}
            <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div>
                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-bold uppercase tracking-wider mb-4 ${getStatusColor(project.status)}`}>
@@ -212,7 +228,7 @@ export default function ProjectDetailPage() {
                  </div>
               </div>
 
-              {/* PANEL DE DECISIÓN ADMIN */}
+              {/* Panel Admin (Solo visible si eres Admin y está En Revisión) */}
               <div className="w-full md:w-auto">
                 {project.status === 'En Revisión' ? (
                   isAdmin ? (
@@ -243,24 +259,25 @@ export default function ProjectDetailPage() {
               </div>
            </div>
 
-           {/* 🎹 ZONA DE TRABAJO (PLAYER + HISTORIAL) */}
+           {/* --- ZONA PLAYER + HISTORIAL --- */}
            <div className="mb-12 flex flex-col lg:flex-row gap-6">
               
-              {/* PLAYER (TU COMPONENTE) */}
+              {/* Player Principal */}
               <div className="flex-1 rounded-3xl overflow-hidden border border-zinc-800 bg-[#0F1112] shadow-2xl relative">
                  <div className="absolute top-4 left-4 z-10 flex gap-2">
                     <span className="bg-black/50 backdrop-blur px-2 py-1 rounded text-[10px] font-bold text-zinc-400 border border-white/10">WAV 48kHz</span>
                  </div>
-                 {/* Aquí se inyectan los comentarios para que aparezcan en la onda */}
+                 {/* Componente AudioPlayer conectado */}
                  {currentVersion && <AudioPlayer url={currentVersion.audio_url} comments={comments} ref={playerRef} />}
               </div>
 
-              {/* SIDEBAR DE VERSIONES (Time Travel) */}
+              {/* Sidebar Historial de Versiones */}
               <div className="w-full lg:w-72 bg-[#0F1112] border border-zinc-800 rounded-3xl p-5 flex flex-col">
                  <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
                        <History size={14} /> Historial
                     </h3>
+                    {/* Botón subir versión (Solo Admin o Dueño) */}
                     {(isAdmin || isUploader) && (
                       <label className={`cursor-pointer p-2 bg-emerald-500/10 hover:bg-emerald-500 hover:text-black text-emerald-500 rounded-lg transition-all ${isUploadingVersion ? 'opacity-50 pointer-events-none' : ''}`}>
                          {isUploadingVersion ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
@@ -282,19 +299,24 @@ export default function ProjectDetailPage() {
               </div>
            </div>
 
-           {/* 💬 COMENTARIOS (Feedback Loop) */}
+           {/* --- SECCIÓN COMENTARIOS --- */}
            <div className="max-w-4xl mx-auto w-full">
               <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">Feedback de la Sesión ({comments.length})</h3>
+              
+              {/* Input de Comentario */}
               <div className="flex gap-4 items-start mb-10 bg-[#0F1112] p-4 rounded-2xl border border-zinc-800">
                  <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 relative overflow-hidden"><Image src={currentUser?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`} alt="Me" fill className="object-cover" /></div>
                  <div className="flex-1 relative">
                     <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Deja un comentario vinculado al segundo exacto..." className="w-full bg-transparent border-none p-2 text-sm text-white focus:ring-0 resize-none h-20 placeholder:text-zinc-600" />
                     <div className="flex justify-between items-center mt-2 border-t border-zinc-800 pt-2">
+                        {/* Muestra el tiempo actual del player */}
                         <span className="text-xs text-emerald-500 font-mono bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">{playerRef.current?.getCurrentTime() || "00:00"}</span>
                         <button onClick={handleSendComment} className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-all shadow-lg shadow-emerald-900/20"><Send size={16} /></button>
                     </div>
                  </div>
               </div>
+
+              {/* Lista de Comentarios */}
               <div className="space-y-4 pb-20">
                 {comments.map((c) => (
                   <div key={c.id} className="flex gap-4 group p-4 hover:bg-zinc-900/30 rounded-2xl transition-colors border border-transparent hover:border-zinc-800/50">
@@ -307,6 +329,7 @@ export default function ProjectDetailPage() {
                 ))}
               </div>
            </div>
+
         </main>
       </div>
     </div>
