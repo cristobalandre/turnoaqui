@@ -6,8 +6,10 @@ import { Outfit } from "next/font/google";
 import { 
   Plus, Music4, Clock, Mic2, Search, 
   BarChart3, Zap, Filter, LayoutGrid, Users, AlertTriangle, 
+  PlayCircle, PauseCircle 
 } from "lucide-react";
 import NewProjectModal from "@/components/projects/NewProjectModal";
+import { AudioPlayer } from "@/components/projects/AudioPlayer"; // 🔌 CABLE CONECTADO
 import { createClient } from "@/lib/supabase/client";
 
 const outfit = Outfit({ subsets: ["latin"] });
@@ -21,13 +23,15 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState("");
   const [user, setUser] = useState<any>(null);
   
+  // Estado para saber qué proyecto se está reproduciendo
+  const [playingProjectId, setPlayingProjectId] = useState<string | null>(null);
+  
   // Estadísticas
   const [stats, setStats] = useState({ total: 0, active: 0, storage: "0 MB" });
 
   const supabase = createClient();
 
   const fetchProjects = async () => {
-    // TEMPORIZADOR DE SEGURIDAD: Si en 5s no carga, forzamos la salida para que no se quede pegado
     const safetyTimer = setTimeout(() => {
         if (loading) {
             setLoading(false);
@@ -36,11 +40,9 @@ export default function ProjectsPage() {
     }, 5000);
 
     try {
-        // 1. Obtener Usuario
         const { data: { session } } = await supabase.auth.getSession();
         if (session) setUser(session.user);
 
-        // 2. Obtener Proyectos
         const { data, error: dbError } = await supabase
           .from('projects')
           .select('*')
@@ -55,7 +57,6 @@ export default function ProjectsPage() {
           setStats({
             total: data.length,
             active: data.filter((p: any) => p.status === 'En Revisión').length,
-            // Cálculo estimado: 3.5MB por proyecto
             storage: `${(data.length * 3.5).toFixed(1)} MB`
           });
         }
@@ -72,7 +73,6 @@ export default function ProjectsPage() {
     fetchProjects();
   }, []);
 
-  // Filtro en tiempo real
   useEffect(() => {
     const results = projects.filter(p => 
       p.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -81,11 +81,11 @@ export default function ProjectsPage() {
     setFilteredProjects(results);
   }, [search, projects]);
 
+  // 🎨 GEMINIZACIÓN: Gradientes verdes y cian
   const generateGradient = (id: string) => {
     const colors = [
-      "from-pink-500 to-rose-500", "from-amber-500 to-orange-600",
-      "from-emerald-400 to-cyan-600", "from-violet-600 to-indigo-600",
-      "from-blue-400 to-blue-600", "from-fuchsia-500 to-purple-600",
+      "from-emerald-500 to-teal-600", "from-cyan-500 to-blue-600",
+      "from-green-400 to-emerald-700", "from-teal-400 to-cyan-600",
     ];
     const index = id.charCodeAt(id.length - 1) % colors.length;
     return colors[index];
@@ -93,103 +93,115 @@ export default function ProjectsPage() {
 
   return (
     <div className={`min-h-screen bg-[#09090b] text-zinc-300 ${outfit.className} p-6 pb-20 md:p-10 relative overflow-hidden`}>
-      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-zinc-900/50 to-[#09090b] pointer-events-none z-0" />
+      {/* Fondo Geminizado */}
+      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-emerald-900/20 to-[#09090b] pointer-events-none z-0" />
       
       <div className="relative z-10 max-w-7xl mx-auto space-y-10">
         
-        {/* HEADER */}
+        {/* HEADER CON LOGO */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="flex items-center gap-4">
-            <div className="p-3 rounded-2xl border border-zinc-800 bg-zinc-900/50"><LayoutGrid size={24} className="text-white" /></div>
+            {/* LOGO */}
+            <div className="w-12 h-12 bg-gradient-to-tr from-emerald-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                <span className="font-bold text-black text-xl">T</span>
+            </div>
             <div>
-               <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">Centro de Mando</p>
+               <p className="text-emerald-500/80 text-xs font-bold uppercase tracking-widest mb-1">Studio Hub</p>
                <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-                 Hola, <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500">{user?.user_metadata?.full_name?.split(" ")[0] || "Productor"}</span> 👋
+                 Hola, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 to-cyan-400">{user?.user_metadata?.full_name?.split(" ")[0] || "Productor"}</span>
                </h1>
             </div>
           </div>
           
           <div className="flex items-center gap-3">
-
-            {/* BOTÓN ROSTER (ARTISTAS) */}
-            <Link href="/artists">
-                <button className="group flex items-center gap-2 px-5 py-4 bg-zinc-900 border border-zinc-800 text-zinc-300 font-bold rounded-2xl transition-all hover:bg-zinc-800 hover:text-white hover:border-zinc-700 hover:scale-[1.02] active:scale-95">
-                    <Users size={18} /><span className="text-sm">ROSTER</span>
+            <Link href="/dashboard">
+                <button className="px-5 py-4 bg-zinc-900 border border-zinc-800 text-zinc-400 font-bold rounded-2xl hover:text-white hover:border-zinc-600 transition-all">
+                    Volver
                 </button>
             </Link>
-            {/* BOTÓN SUBIR PROYECTO */}
             <button onClick={() => setIsModalOpen(true)} className="group flex items-center gap-3 px-6 py-4 bg-white text-black font-bold rounded-2xl transition-all shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] hover:scale-[1.02] active:scale-95">
-                <div className="bg-black text-white p-1 rounded-full"><Plus size={14} /></div><span>SUBIR PROYECTO</span>
+                <div className="bg-black text-white p-1 rounded-full"><Plus size={14} /></div><span>SUBIR TRACK</span>
             </button>
           </div>
         </div>
 
-        {/* 🚨 AVISO DE ERROR (Si ocurre) */}
         {errorMsg && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
-                <AlertTriangle size={20} />
-                <span className="font-bold">{errorMsg}</span>
+            <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in">
+                <AlertTriangle size={20} /> <span className="font-bold">{errorMsg}</span>
             </div>
         )}
 
-        {/* 📊 STATS */}
+        {/* 📊 STATS GEMINIZADOS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-           <div className="p-5 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex items-center gap-4 hover:border-zinc-700 transition-colors">
-              <div className="p-3 rounded-xl bg-amber-500/10 text-amber-500"><Music4 size={24} /></div>
-              <div><p className="text-xs text-zinc-500 uppercase font-bold">Total Proyectos</p><p className="text-2xl font-bold text-white">{stats.total}</p></div>
+           <div className="p-5 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex items-center gap-4 hover:border-emerald-500/30 transition-colors">
+              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-500"><Music4 size={24} /></div>
+              <div><p className="text-xs text-zinc-500 uppercase font-bold">Proyectos</p><p className="text-2xl font-bold text-white">{stats.total}</p></div>
            </div>
-           <div className="p-5 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex items-center gap-4 hover:border-zinc-700 transition-colors">
-              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-500"><Zap size={24} /></div>
-              <div><p className="text-xs text-zinc-500 uppercase font-bold">En Revisión</p><p className="text-2xl font-bold text-white">{stats.active}</p></div>
+           <div className="p-5 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex items-center gap-4 hover:border-cyan-500/30 transition-colors">
+              <div className="p-3 rounded-xl bg-cyan-500/10 text-cyan-500"><Zap size={24} /></div>
+              <div><p className="text-xs text-zinc-500 uppercase font-bold">Activos</p><p className="text-2xl font-bold text-white">{stats.active}</p></div>
            </div>
-           <div className="p-5 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex items-center gap-4 hover:border-zinc-700 transition-colors">
+           <div className="p-5 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex items-center gap-4 hover:border-violet-500/30 transition-colors">
               <div className="p-3 rounded-xl bg-violet-500/10 text-violet-500"><BarChart3 size={24} /></div>
-              <div><p className="text-xs text-zinc-500 uppercase font-bold">Espacio Usado</p><p className="text-2xl font-bold text-white">{stats.storage}</p></div>
+              <div><p className="text-xs text-zinc-500 uppercase font-bold">Almacenamiento</p><p className="text-2xl font-bold text-white">{stats.storage}</p></div>
            </div>
         </div>
 
         {/* 🔍 BÚSQUEDA */}
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-center sticky top-4 z-20">
-           <div className="relative w-full md:w-96 group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-amber-500 transition-colors" size={18} />
-              <input type="text" placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-[#0F1112]/90 backdrop-blur-xl border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-all shadow-xl" />
-           </div>
-           <div className="flex gap-2">
-              <button className="p-3 rounded-xl border border-zinc-800 bg-[#0F1112] text-zinc-400 hover:text-white transition-colors"><Filter size={18} /></button>
-           </div>
+        <div className="relative w-full md:w-96 group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-emerald-500 transition-colors" size={18} />
+            <input type="text" placeholder="Buscar artista o track..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-[#0F1112]/90 backdrop-blur-xl border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-all shadow-xl" />
         </div>
 
-        {/* 📀 GRID DE PROYECTOS */}
+        {/* 📀 GRID DE PROYECTOS CON REPRODUCTOR INTEGRADO */}
         {loading ? (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
               {[1,2,3].map(i => <div key={i} className="h-64 bg-zinc-900 rounded-3xl border border-zinc-800"></div>)}
            </div>
         ) : filteredProjects.length === 0 ? (
            <div className="flex flex-col items-center justify-center py-32 border border-dashed border-zinc-800 rounded-3xl bg-zinc-900/20">
-              <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-4"><Music4 className="text-zinc-600" size={32} /></div>
-              <h3 className="text-lg font-bold text-white">No se encontraron pistas</h3>
-              <p className="text-zinc-500 text-sm">Sube algo nuevo o cambia el filtro.</p>
+              <Music4 className="text-zinc-600 mb-4" size={48} />
+              <h3 className="text-lg font-bold text-white">Tu estudio está vacío</h3>
+              <p className="text-zinc-500 text-sm">Sube tu primer proyecto para empezar.</p>
            </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredProjects.map((project) => (
-              <Link key={project.id} href={`/projects/${project.id}`} className="group relative flex flex-col bg-[#0F1112] border border-zinc-800 rounded-3xl overflow-hidden hover:border-zinc-600 transition-all hover:-translate-y-2 hover:shadow-2xl duration-300">
-                <div className={`h-40 w-full bg-gradient-to-br ${generateGradient(project.id)} relative p-6 flex flex-col justify-between`}>
-                   <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
+              <div key={project.id} className={`group relative flex flex-col bg-[#0F1112] border ${playingProjectId === project.id ? 'border-emerald-500/50 shadow-[0_0_30px_-10px_rgba(16,185,129,0.3)]' : 'border-zinc-800 hover:border-zinc-600'} rounded-3xl overflow-hidden transition-all duration-300`}>
+                
+                {/* TARJETA VISUAL */}
+                <div 
+                    onClick={() => setPlayingProjectId(playingProjectId === project.id ? null : project.id)}
+                    className={`h-40 w-full bg-gradient-to-br ${generateGradient(project.id)} relative p-6 flex flex-col justify-between cursor-pointer`}
+                >
+                   <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
                    <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white uppercase tracking-wider">{project.status}</div>
+                   
+                   {/* Ícono de Play Gigante al hacer Hover */}
                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
-                      <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-2xl"><Music4 size={24} className="text-black ml-1" /></div>
+                      <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-2xl">
+                        {playingProjectId === project.id ? <PauseCircle size={28} className="text-black" /> : <PlayCircle size={28} className="text-black" />}
+                      </div>
                    </div>
                 </div>
+
                 <div className="p-5 flex-1 flex flex-col">
-                   <h3 className="text-lg font-bold text-white mb-1 truncate leading-tight group-hover:text-amber-500 transition-colors">{project.title}</h3>
-                   <p className="text-sm text-zinc-500 mb-6 truncate">{project.artist}</p>
+                   <h3 className="text-lg font-bold text-white mb-1 truncate leading-tight group-hover:text-emerald-400 transition-colors">{project.title}</h3>
+                   <p className="text-sm text-zinc-500 mb-4 truncate">{project.artist}</p>
+                   
+                   {/* 🔌 ZONA DE REPRODUCTOR (Se despliega si está seleccionado) */}
+                   {playingProjectId === project.id && (
+                       <div className="mb-4 animate-in slide-in-from-top-2 duration-300">
+                           <AudioPlayer url={project.audio_url} />
+                       </div>
+                   )}
+
                    <div className="mt-auto flex items-center justify-between pt-4 border-t border-zinc-800/50">
                       <div className="flex items-center gap-1.5 text-xs text-zinc-400"><Clock size={12} /><span>{new Date(project.created_at).toLocaleDateString()}</span></div>
                       <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-1 rounded border border-zinc-800"><Mic2 size={10} /><span>{project.version}</span></div>
                    </div>
                 </div>
-              </Link>
+              </div>
             ))}
           </div>
         )}
