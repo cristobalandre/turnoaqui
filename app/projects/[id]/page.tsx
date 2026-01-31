@@ -6,10 +6,9 @@ import { useParams, useRouter } from "next/navigation";
 import { Outfit } from "next/font/google";
 import { 
   ArrowLeft, Download, CheckCircle2, Send, Loader2, Trash2, Share2, Check, 
-  XCircle, AlertCircle, ThumbsUp, ThumbsDown, ShieldCheck, History, UploadCloud, PlayCircle,
-  LayoutGrid // Agregado para el icono del Hub
+  XCircle, AlertCircle, ThumbsUp, ThumbsDown, History, UploadCloud, PlayCircle,
+  MoreVertical, Clock, Music2
 } from "lucide-react"; 
-// Aseguramos la ruta correcta a tu componente
 import { AudioPlayer, AudioPlayerRef } from "@/components/projects/AudioPlayer";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
@@ -22,7 +21,7 @@ export default function ProjectDetailPage() {
   const supabase = createClient();
   const playerRef = useRef<AudioPlayerRef>(null);
   
-  // --- ESTADOS (TODO TU CÓDIGO INTACTO) ---
+  // --- ESTADOS DE DATOS (LÓGICA INTACTA) ---
   const [project, setProject] = useState<any>(null);
   const [versions, setVersions] = useState<any[]>([]);
   const [currentVersion, setCurrentVersion] = useState<any>(null);
@@ -37,7 +36,7 @@ export default function ProjectDetailPage() {
   const [isUploadingVersion, setIsUploadingVersion] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // --- EFECTOS Y CARGA DE DATOS ---
+  // --- EFECTOS ---
   useEffect(() => {
     const checkSessionAndFetch = async () => {
       if (!id) return;
@@ -50,14 +49,12 @@ export default function ProjectDetailPage() {
   }, [id]);
 
   const fetchProjectData = async (projectId: string) => {
-    // 1. Proyecto Base
     const { data: projectData, error } = await supabase
       .from('projects').select('*').eq('id', projectId).single();
 
     if (!error) {
        setProject(projectData);
        
-       // 2. Intentar cargar versiones (Si no existen, usa la original)
        const { data: versionsData } = await supabase
          .from('project_versions')
          .select('*')
@@ -68,7 +65,6 @@ export default function ProjectDetailPage() {
          setVersions(versionsData);
          setCurrentVersion(versionsData[0]);
        } else {
-         // Fallback a la versión 1.0 si no hay historial
          const fallback = { 
             id: 'original', 
             version_name: projectData.version || 'v1.0', 
@@ -93,7 +89,7 @@ export default function ProjectDetailPage() {
     if (data) setComments(data);
   };
 
-  // --- LÓGICA Y HANDLERS (INTACTOS) ---
+  // --- HANDLERS (LÓGICA INTACTA) ---
   const isAdmin = currentUser?.user_metadata?.role === 'admin';
   const isUploader = currentUser && project && currentUser.id === project.user_id;
 
@@ -115,20 +111,18 @@ export default function ProjectDetailPage() {
 
       const { data: { publicUrl } } = supabase.storage.from('projects').getPublicUrl(filePath);
 
-      // Guardar en tabla de versiones
       await supabase.from('project_versions').insert({
         project_id: id, version_name: nextVersionName, audio_url: publicUrl
       });
 
-      // Actualizar proyecto principal
       await supabase.from('projects').update({
         version: nextVersionName, audio_url: publicUrl, status: 'En Revisión' 
       }).eq('id', id);
 
-      alert(`✅ Versión ${nextVersionName} subida exitosamente.`);
+      alert(`✅ Versión ${nextVersionName} subida.`);
       await fetchProjectData(id as string);
     } catch (error: any) {
-      alert("Error al subir versión: " + error.message);
+      alert("Error: " + error.message);
     } finally {
       setIsUploadingVersion(false);
     }
@@ -137,12 +131,10 @@ export default function ProjectDetailPage() {
   const handleReviewAction = async (newStatus: 'Aprobado' | 'Rechazado') => {
     if (!isAdmin) return;
     setIsUpdatingStatus(true);
-    const adminName = currentUser.user_metadata.full_name || "Admin";
-    const adminAvatar = currentUser.user_metadata.avatar_url;
-
     await supabase.from('projects').update({
         status: newStatus, reviewed_by: currentUser.id, reviewed_at: new Date().toISOString(),
-        reviewer_name: adminName, reviewer_avatar: adminAvatar
+        reviewer_name: currentUser.user_metadata.full_name || "Admin", 
+        reviewer_avatar: currentUser.user_metadata.avatar_url
       }).eq('id', id);
 
     await fetchProjectData(id as string);
@@ -150,19 +142,18 @@ export default function ProjectDetailPage() {
   };
 
   const handleDeleteProject = async () => {
-    if (!confirm("⚠️ ¿Estás seguro de eliminar este proyecto y todo su historial?")) return; 
+    if (!confirm("⚠️ ¿Estás seguro de eliminar este proyecto?")) return; 
     setIsDeleting(true);
     await supabase.from('projects').delete().eq('id', id); 
-    router.push('/projects'); // Volver a la galería correcta
+    router.push('/projects'); 
   };
 
   const handleSendComment = async () => {
     if (!newComment.trim()) return;
     const exactTime = playerRef.current?.getCurrentTime() || "00:00";
-    const userAvatar = currentUser?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`;
-    
     await supabase.from('comments').insert({
-      project_id: id, content: newComment, user_email: currentUser?.email, avatar_url: userAvatar, timestamp: exactTime
+      project_id: id, content: newComment, user_email: currentUser?.email, 
+      avatar_url: currentUser?.user_metadata?.avatar_url, timestamp: exactTime
     });
     setNewComment(""); fetchComments(id as string);
   };
@@ -173,156 +164,175 @@ export default function ProjectDetailPage() {
     setTimeout(() => setCopied(false), 2000); 
   };
 
-  // Estilos dinámicos
   const getStatusColor = (status: string) => {
-    if (status === 'Aprobado') return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)]";
-    if (status === 'Rechazado') return "text-red-400 bg-red-500/10 border-red-500/20";
-    return "text-cyan-400 bg-cyan-500/10 border-cyan-500/20 animate-pulse";
+    if (status === 'Aprobado') return "text-emerald-400 bg-emerald-900/20 border-emerald-500/20";
+    if (status === 'Rechazado') return "text-red-400 bg-red-900/20 border-red-500/20";
+    return "text-cyan-400 bg-cyan-900/20 border-cyan-500/20 animate-pulse";
   };
 
-  if (loading) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center"><Loader2 className="animate-spin text-emerald-500" /></div>;
-  if (!project) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-zinc-500">Proyecto no encontrado.</div>;
+  if (loading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center"><Loader2 className="animate-spin text-fuchsia-500" /></div>;
+  if (!project) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-zinc-500">Proyecto no encontrado.</div>;
 
   return (
-    <div className={`min-h-screen bg-[#09090b] text-zinc-300 ${outfit.className} flex flex-col`}>
+    <div className={`min-h-screen bg-[#050505] text-zinc-300 ${outfit.className} flex flex-col overflow-hidden selection:bg-fuchsia-500/30`}>
       
-      {/* --- HEADER --- */}
-      <header className="border-b border-zinc-800 bg-[#0c0c0e]/90 backdrop-blur-xl px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-4">
-          
-          {/* ✅ LA ÚNICA MODIFICACIÓN CLAVE: EL LINK DE VOLVER AHORA APUNTA A /projects */}
-          <Link href="/projects" className="p-2 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-500 hover:text-white flex items-center gap-2">
-            <ArrowLeft size={20} /> <span className="font-bold hidden md:block">Studio Hub</span>
+      {/* 🎨 FONDO ARTÍSTICO (Igual que el Dashboard) */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+          <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-emerald-900/10 rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-fuchsia-900/10 rounded-full blur-[120px]" />
+      </div>
+
+      {/* HEADER TOOLBAR */}
+      <header className="relative z-10 border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl px-6 py-4 flex items-center justify-between sticky top-0">
+        <div className="flex items-center gap-6">
+          <Link href="/projects" className="p-2 rounded-xl bg-zinc-900/50 hover:bg-zinc-800 border border-white/5 hover:border-white/10 transition-colors flex items-center gap-2 text-sm font-medium text-zinc-400 hover:text-white group">
+            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" /> <span className="hidden sm:inline">Galería</span>
           </Link>
-          
-          <div className="h-6 w-px bg-zinc-800 hidden md:block"></div>
+          <div className="h-8 w-[1px] bg-white/5 hidden sm:block"></div>
           <div>
-            <h1 className="text-lg font-bold text-white leading-none tracking-tight">{project.title}</h1>
-            <p className="text-xs text-emerald-500 mt-1 font-medium tracking-wider uppercase">{project.artist}</p>
+            <h1 className="text-xl font-bold text-white leading-none tracking-tight mb-1">{project.title}</h1>
+            <p className="text-xs text-fuchsia-500 font-bold uppercase tracking-widest flex items-center gap-2">
+                <Music2 size={10} /> {project.artist}
+            </p>
           </div>
         </div>
         
-        {/* Botones de acción derecha */}
         <div className="flex items-center gap-2">
-           <button onClick={handleShare} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${copied ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500' : 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800'}`}>{copied ? <Check size={14} /> : <Share2 size={14} />} {copied ? "Copiado" : "Compartir"}</button>
-           {(isAdmin || isUploader) && (<button onClick={handleDeleteProject} disabled={isDeleting} className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all">{isDeleting ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}</button>)}
-           <button className="hidden md:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg text-xs font-bold hover:shadow-lg hover:shadow-emerald-500/20 transition-all"><Download size={14} /> Descargar</button>
+           <button onClick={handleShare} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all border ${copied ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500' : 'bg-zinc-900/50 border-white/5 hover:bg-zinc-800 text-zinc-400 hover:text-white'}`}>{copied ? <Check size={14} /> : <Share2 size={14} />}</button>
+           {(isAdmin || isUploader) && (<button onClick={handleDeleteProject} className="p-2 text-zinc-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"><Trash2 size={16} /></button>)}
+           <button className="hidden sm:flex items-center gap-2 px-5 py-2 bg-white text-black rounded-xl text-xs font-bold hover:bg-zinc-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:scale-105"><Download size={14} /> Master</button>
         </div>
       </header>
 
-      {/* --- CONTENIDO PRINCIPAL --- */}
-      <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 p-6 md:p-10 overflow-y-auto relative scrollbar-hide flex flex-col">
+      {/* CONTENIDO PRINCIPAL */}
+      <div className="flex-1 flex flex-col relative z-10 overflow-hidden">
+        <main className="flex-1 p-6 md:p-8 overflow-y-auto relative scrollbar-thin scrollbar-thumb-zinc-800">
            
-           {/* Estado y Título Grande */}
+           {/* BARRA DE ESTADO & ADMIN */}
            <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div>
-                 <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-bold uppercase tracking-wider mb-4 ${getStatusColor(project.status)}`}>
-                    {project.status === 'Aprobado' ? <CheckCircle2 size={16} /> : project.status === 'Rechazado' ? <XCircle size={16} /> : <AlertCircle size={16} />} 
+              <div className="flex items-center gap-4">
+                 <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-widest ${getStatusColor(project.status)}`}>
+                    {project.status === 'Aprobado' ? <CheckCircle2 size={14} /> : project.status === 'Rechazado' ? <XCircle size={14} /> : <AlertCircle size={14} />} 
                     {project.status}
                  </div>
-                 <h2 className="text-4xl md:text-5xl font-bold text-white mb-2 tracking-tight">{project.title}</h2>
-                 <div className="flex items-center gap-3">
-                    <p className="text-zinc-500 text-sm">Versión en reproducción:</p>
-                    <span className="px-2 py-0.5 bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs font-mono rounded">{currentVersion?.version_name || project.version}</span>
+                 <div className="flex items-center gap-2 text-xs text-zinc-500 font-mono bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+                    <Clock size={12} /> Versión actual: <span className="text-white font-bold">{currentVersion?.version_name || project.version}</span>
                  </div>
               </div>
 
-              {/* Panel Admin (Solo visible si eres Admin y está En Revisión) */}
+              {/* Panel Admin (Solo visible para Admin) */}
               <div className="w-full md:w-auto">
                 {project.status === 'En Revisión' ? (
                   isAdmin ? (
-                    <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-4 backdrop-blur-md">
-                      <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider text-center mb-2">Acción Requerida</p>
-                      <div className="flex gap-3">
-                        <button onClick={() => handleReviewAction('Aprobado')} disabled={isUpdatingStatus} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 hover:bg-emerald-500 hover:text-black rounded-xl font-bold text-sm transition-all">{isUpdatingStatus ? <Loader2 className="animate-spin" size={18} /> : <ThumbsUp size={18} />} Aprobar</button>
-                        <button onClick={() => handleReviewAction('Rechazado')} disabled={isUpdatingStatus} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500 hover:text-black rounded-xl font-bold text-sm transition-all">{isUpdatingStatus ? <Loader2 className="animate-spin" size={18} /> : <ThumbsDown size={18} />} Rechazar</button>
-                      </div>
+                    <div className="bg-[#0F0F11] border border-fuchsia-500/20 rounded-xl p-3 flex gap-3 shadow-[0_0_30px_-10px_rgba(217,70,239,0.15)]">
+                        <button onClick={() => handleReviewAction('Aprobado')} disabled={isUpdatingStatus} className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-black rounded-lg text-xs font-bold transition-all uppercase tracking-wide">{isUpdatingStatus ? <Loader2 className="animate-spin" size={14} /> : <ThumbsUp size={14} />} Aprobar</button>
+                        <button onClick={() => handleReviewAction('Rechazado')} disabled={isUpdatingStatus} className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-black rounded-lg text-xs font-bold transition-all uppercase tracking-wide">{isUpdatingStatus ? <Loader2 className="animate-spin" size={14} /> : <ThumbsDown size={14} />} Rechazar</button>
                     </div>
                   ) : (
-                    <div className="bg-emerald-900/10 border border-dashed border-emerald-500/30 rounded-2xl p-6 backdrop-blur-md text-center">
-                       <Loader2 className="animate-spin text-emerald-500 mx-auto mb-2" />
-                       <p className="text-sm font-bold text-emerald-100">En Cola de Revisión</p>
+                    <div className="flex items-center gap-2 text-fuchsia-500 bg-fuchsia-500/10 px-4 py-2 rounded-xl border border-fuchsia-500/20 animate-pulse">
+                       <Loader2 size={14} className="animate-spin" /> <span className="text-xs font-bold uppercase tracking-widest">Esperando Revisión</span>
                     </div>
                   )
                 ) : (
-                  <div className={`flex items-center gap-4 bg-black/50 p-4 rounded-2xl border backdrop-blur-xl ${project.status === 'Aprobado' ? 'border-emerald-500/30 shadow-[0_0_30px_-5px_rgba(16,185,129,0.1)]' : 'border-zinc-800'}`}>
-                     <div className="w-12 h-12 rounded-full overflow-hidden border border-zinc-700 relative">
-                        <Image src={project.reviewer_avatar || "/default-avatar.png"} alt="Admin" fill className="object-cover" />
-                     </div>
-                     <div>
-                        <div className="flex items-center gap-2 mb-0.5"><p className="text-[10px] text-emerald-500 uppercase font-extrabold tracking-widest border border-emerald-500/30 bg-emerald-500/10 px-1.5 rounded">STAFF</p></div>
-                        <p className="text-white font-bold text-sm">{project.status} por <span className="text-emerald-200">{project.reviewer_name || "Admin"}</span></p>
-                     </div>
+                  <div className="flex items-center gap-3 bg-[#0F0F11] px-4 py-2 rounded-xl border border-white/5">
+                     <div className="w-6 h-6 rounded-full overflow-hidden relative border border-white/10"><Image src={project.reviewer_avatar || "/default-avatar.png"} alt="Admin" fill className="object-cover" /></div>
+                     <p className="text-zinc-400 text-xs"><span className="text-emerald-500 font-bold uppercase text-[10px] mr-2">STAFF</span> Revisado por <span className="text-white font-medium">{project.reviewer_name || "Admin"}</span></p>
                   </div>
                 )}
               </div>
            </div>
 
-           {/* --- ZONA PLAYER + HISTORIAL --- */}
-           <div className="mb-12 flex flex-col lg:flex-row gap-6">
+           {/* --- AREA PRINCIPAL (Player + Versiones) --- */}
+           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
               
-              {/* Player Principal */}
-              <div className="flex-1 rounded-3xl overflow-hidden border border-zinc-800 bg-[#0F1112] shadow-2xl relative">
-                 <div className="absolute top-4 left-4 z-10 flex gap-2">
-                    <span className="bg-black/50 backdrop-blur px-2 py-1 rounded text-[10px] font-bold text-zinc-400 border border-white/10">WAV 48kHz</span>
+              {/* 1. REPRODUCTOR (Ocupa 2 columnas) */}
+              <div className="lg:col-span-2 relative group">
+                 {/* Borde Brillante Decorativo */}
+                 <div className="absolute -inset-0.5 bg-gradient-to-r from-fuchsia-600 to-emerald-600 rounded-3xl opacity-20 group-hover:opacity-40 blur transition duration-500"></div>
+                 
+                 <div className="relative bg-[#0A0A0A] border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+                     {/* Header del Player */}
+                     <div className="absolute top-0 left-0 right-0 p-6 bg-gradient-to-b from-black/80 to-transparent z-10 flex justify-between items-start pointer-events-none">
+                        <span className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-lg text-[10px] font-bold text-white border border-white/10">MASTER AUDIO</span>
+                     </div>
+                     
+                     {/* El Componente AudioPlayer */}
+                     <div className="p-1">
+                        {currentVersion && <AudioPlayer url={currentVersion.audio_url} comments={comments} ref={playerRef} />}
+                     </div>
                  </div>
-                 {/* Componente AudioPlayer conectado */}
-                 {currentVersion && <AudioPlayer url={currentVersion.audio_url} comments={comments} ref={playerRef} />}
               </div>
 
-              {/* Sidebar Historial de Versiones */}
-              <div className="w-full lg:w-72 bg-[#0F1112] border border-zinc-800 rounded-3xl p-5 flex flex-col">
-                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+              {/* 2. BARRA LATERAL (Historial) */}
+              <div className="bg-[#0A0A0A] border border-white/5 rounded-3xl p-6 flex flex-col h-[500px]">
+                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/5">
+                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-[0.2em] flex items-center gap-2">
                        <History size={14} /> Historial
                     </h3>
-                    {/* Botón subir versión (Solo Admin o Dueño) */}
                     {(isAdmin || isUploader) && (
-                      <label className={`cursor-pointer p-2 bg-emerald-500/10 hover:bg-emerald-500 hover:text-black text-emerald-500 rounded-lg transition-all ${isUploadingVersion ? 'opacity-50 pointer-events-none' : ''}`}>
-                         {isUploadingVersion ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
+                      <label className="cursor-pointer text-fuchsia-500 hover:text-white transition-colors p-2 hover:bg-fuchsia-500 rounded-lg">
+                         {isUploadingVersion ? <Loader2 size={18} className="animate-spin" /> : <UploadCloud size={18} />}
                          <input type="file" accept="audio/*" className="hidden" onChange={handleUploadNewVersion} disabled={isUploadingVersion} />
                       </label>
                     )}
                  </div>
-                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+                 
+                 <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-zinc-800 space-y-2">
                     {versions.map((ver) => (
-                       <button key={ver.id} onClick={() => handleSwitchVersion(ver)} className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all group ${currentVersion?.id === ver.id ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500' : 'bg-zinc-900/30 border-zinc-800/50 text-zinc-400 hover:bg-zinc-800'}`}>
+                       <button 
+                          key={ver.id} 
+                          onClick={() => handleSwitchVersion(ver)} 
+                          className={`w-full flex items-center justify-between p-4 rounded-xl border text-left transition-all duration-300 group ${currentVersion?.id === ver.id ? 'bg-white/5 border-fuchsia-500/50 shadow-[0_0_15px_-5px_rgba(217,70,239,0.3)]' : 'bg-transparent border-transparent hover:bg-white/5 hover:border-white/10'}`}
+                       >
                           <div className="flex flex-col">
-                             <span className="font-bold text-sm flex items-center gap-2">{ver.version_name} {currentVersion?.id === ver.id && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}</span>
-                             <span className="text-[10px] opacity-50">{new Date(ver.created_at).toLocaleDateString()}</span>
+                             <span className={`font-bold text-sm tracking-wide ${currentVersion?.id === ver.id ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-200'}`}>{ver.version_name}</span>
+                             <span className="text-[10px] text-zinc-600 group-hover:text-zinc-500">{new Date(ver.created_at).toLocaleDateString()}</span>
                           </div>
-                          <PlayCircle size={16} className={`opacity-0 group-hover:opacity-100 transition-opacity ${currentVersion?.id === ver.id ? 'opacity-100' : ''}`} />
+                          {currentVersion?.id === ver.id ? (
+                              <div className="w-2 h-2 rounded-full bg-fuchsia-500 shadow-[0_0_10px_#d946ef] animate-pulse" />
+                          ) : (
+                              <PlayCircle size={16} className="text-zinc-600 group-hover:text-white transition-colors" />
+                          )}
                        </button>
                     ))}
                  </div>
               </div>
            </div>
 
-           {/* --- SECCIÓN COMENTARIOS --- */}
-           <div className="max-w-4xl mx-auto w-full">
-              <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">Feedback de la Sesión ({comments.length})</h3>
+           {/* --- SECCIÓN COMENTARIOS (Estilo Chat) --- */}
+           <div className="max-w-3xl mx-auto w-full pb-20">
+              <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">Comentarios de la Sesión</h3>
               
-              {/* Input de Comentario */}
-              <div className="flex gap-4 items-start mb-10 bg-[#0F1112] p-4 rounded-2xl border border-zinc-800">
-                 <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex-shrink-0 relative overflow-hidden"><Image src={currentUser?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`} alt="Me" fill className="object-cover" /></div>
+              {/* Input */}
+              <div className="flex gap-4 items-start mb-10 bg-[#0F0F11] p-1 rounded-2xl border border-white/10 shadow-lg focus-within:border-fuchsia-500/50 transition-colors">
+                 <div className="w-10 h-10 rounded-xl bg-zinc-800 overflow-hidden relative m-3"><Image src={currentUser?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`} alt="Me" fill className="object-cover" /></div>
                  <div className="flex-1 relative">
-                    <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Deja un comentario vinculado al segundo exacto..." className="w-full bg-transparent border-none p-2 text-sm text-white focus:ring-0 resize-none h-20 placeholder:text-zinc-600" />
-                    <div className="flex justify-between items-center mt-2 border-t border-zinc-800 pt-2">
-                        {/* Muestra el tiempo actual del player */}
-                        <span className="text-xs text-emerald-500 font-mono bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">{playerRef.current?.getCurrentTime() || "00:00"}</span>
-                        <button onClick={handleSendComment} className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-all shadow-lg shadow-emerald-900/20"><Send size={16} /></button>
+                    <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Escribe un comentario..." className="w-full bg-transparent border-none p-4 text-sm text-white focus:ring-0 resize-none h-20 placeholder:text-zinc-600" />
+                    <div className="flex justify-between items-center px-4 pb-3">
+                        <div className="flex items-center gap-2">
+                             <span className="text-[10px] font-mono text-fuchsia-400 bg-fuchsia-500/10 px-2 py-1 rounded border border-fuchsia-500/20">{playerRef.current?.getCurrentTime() || "00:00"}</span>
+                        </div>
+                        <button onClick={handleSendComment} className="p-2 bg-white hover:bg-zinc-200 text-black rounded-lg transition-all shadow-lg hover:scale-105"><Send size={16} /></button>
                     </div>
                  </div>
               </div>
 
-              {/* Lista de Comentarios */}
-              <div className="space-y-4 pb-20">
+              {/* Lista */}
+              <div className="space-y-6 relative">
+                <div className="absolute left-5 top-0 bottom-0 w-[1px] bg-zinc-800 z-0"></div> {/* Línea de tiempo conectora */}
+                
                 {comments.map((c) => (
-                  <div key={c.id} className="flex gap-4 group p-4 hover:bg-zinc-900/30 rounded-2xl transition-colors border border-transparent hover:border-zinc-800/50">
-                     <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 overflow-hidden relative mt-1"><Image src={c.avatar_url || "/default-avatar.png"} alt="User" fill className="object-cover" /></div>
-                     <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1"><span className="text-xs font-bold text-white">{c.user_email?.split('@')[0]}</span><span className="text-[10px] font-mono text-cyan-500 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">{c.timestamp}</span></div>
+                  <div key={c.id} className="relative z-10 pl-12 group">
+                     {/* Avatar flotante en la línea */}
+                     <div className="absolute left-0 top-0 w-10 h-10 rounded-full bg-[#050505] border-2 border-zinc-800 flex items-center justify-center group-hover:border-fuchsia-500/50 transition-colors overflow-hidden">
+                        <Image src={c.avatar_url || "/default-avatar.png"} alt="User" width={40} height={40} className="object-cover" />
+                     </div>
+                     
+                     <div className="bg-[#0A0A0A] border border-white/5 p-4 rounded-xl rounded-tl-none hover:bg-[#0F0F11] transition-colors">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-bold text-white">{c.user_email?.split('@')[0]}</span>
+                            <span className="text-[10px] font-mono text-zinc-500 group-hover:text-fuchsia-500 transition-colors">{c.timestamp}</span>
+                        </div>
                         <p className="text-zinc-300 text-sm leading-relaxed">{c.content}</p>
                      </div>
                   </div>

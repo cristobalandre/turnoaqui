@@ -5,11 +5,10 @@ import Link from "next/link";
 import { Outfit } from "next/font/google";
 import { 
   Plus, Music4, Clock, Mic2, Search, 
-  BarChart3, Zap, Filter, LayoutGrid, Users, AlertTriangle, 
-  PlayCircle, ArrowRight // Agregué ArrowRight para indicar navegación
+  BarChart3, Zap, LayoutGrid, AlertTriangle, 
+  Play, ArrowRight, Disc, Layers
 } from "lucide-react";
 import NewProjectModal from "@/components/projects/NewProjectModal";
-// import { AudioPlayer } from "@/components/projects/AudioPlayer"; // 🔌 Ya no lo usamos aquí, el player está en la sala de control
 import { createClient } from "@/lib/supabase/client";
 
 const outfit = Outfit({ subsets: ["latin"] });
@@ -23,7 +22,7 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState("");
   const [user, setUser] = useState<any>(null);
   
-  // Estadísticas
+  // Estadísticas (Lógica intacta)
   const [stats, setStats] = useState({ total: 0, active: 0, storage: "0 MB" });
 
   const supabase = createClient();
@@ -78,117 +77,134 @@ export default function ProjectsPage() {
     setFilteredProjects(results);
   }, [search, projects]);
 
-  // 🎨 GEMINIZACIÓN: Gradientes verdes y cian
+  // 🎨 Generador de Gradientes "Artísticos"
   const generateGradient = (id: string) => {
-    const colors = [
-      "from-emerald-500 to-teal-600", "from-cyan-500 to-blue-600",
-      "from-green-400 to-emerald-700", "from-teal-400 to-cyan-600",
+    const arts = [
+      "from-purple-900 via-fuchsia-900 to-black",
+      "from-emerald-900 via-teal-900 to-black",
+      "from-blue-900 via-indigo-900 to-black",
+      "from-rose-900 via-red-900 to-black",
+      "from-amber-900 via-orange-900 to-black",
     ];
-    const index = id.charCodeAt(id.length - 1) % colors.length;
-    return colors[index];
+    const index = id.charCodeAt(id.length - 1) % arts.length;
+    return arts[index];
   };
 
   return (
-    <div className={`min-h-screen bg-[#09090b] text-zinc-300 ${outfit.className} p-6 pb-20 md:p-10 relative overflow-hidden`}>
-      {/* Fondo Geminizado */}
-      <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-emerald-900/20 to-[#09090b] pointer-events-none z-0" />
+    <div className={`min-h-screen bg-[#050505] text-zinc-300 ${outfit.className} p-6 pb-20 md:p-10 relative overflow-hidden selection:bg-emerald-500/30`}>
+      
+      {/* 🎨 FONDO "FINE ART" (Coincide con Dashboard) */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-emerald-900/10 rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-900/10 rounded-full blur-[120px]" />
+      </div>
       
       <div className="relative z-10 max-w-7xl mx-auto space-y-10">
         
-        {/* HEADER CON LOGO */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-white/5 pb-8">
           <div className="flex items-center gap-4">
-            {/* LOGO */}
-            <div className="w-12 h-12 bg-gradient-to-tr from-emerald-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-                <span className="font-bold text-black text-xl">T</span>
+            <div className="w-12 h-12 bg-gradient-to-tr from-white to-zinc-400 rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                <span className="font-bold text-black text-xl">S</span>
             </div>
             <div>
-               <p className="text-emerald-500/80 text-xs font-bold uppercase tracking-widest mb-1">Studio Hub</p>
+               <p className="text-emerald-500 text-[10px] font-bold uppercase tracking-[0.3em] mb-1">Colección</p>
                <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-                 Hola, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 to-cyan-400">{user?.user_metadata?.full_name?.split(" ")[0] || "Productor"}</span>
+                 Studio Hub
                </h1>
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-full md:w-auto">
             <Link href="/dashboard">
-                <button className="px-5 py-4 bg-zinc-900 border border-zinc-800 text-zinc-400 font-bold rounded-2xl hover:text-white hover:border-zinc-600 transition-all">
+                <button className="px-5 py-3 bg-[#0A0A0A] border border-zinc-800 text-zinc-400 font-bold rounded-xl hover:text-white hover:border-zinc-600 transition-all text-sm">
                     Volver
                 </button>
             </Link>
-            <button onClick={() => setIsModalOpen(true)} className="group flex items-center gap-3 px-6 py-4 bg-white text-black font-bold rounded-2xl transition-all shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] hover:scale-[1.02] active:scale-95">
-                <div className="bg-black text-white p-1 rounded-full"><Plus size={14} /></div><span>SUBIR TRACK</span>
+            <button onClick={() => setIsModalOpen(true)} className="flex-1 md:flex-none group flex items-center justify-center gap-3 px-6 py-3 bg-white text-black font-bold rounded-xl transition-all shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] hover:scale-[1.02] active:scale-95 text-sm">
+                <Plus size={16} /> <span>NUEVO</span>
             </button>
           </div>
         </div>
 
         {errorMsg && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in">
-                <AlertTriangle size={20} /> <span className="font-bold">{errorMsg}</span>
+            <div className="bg-red-500/5 border border-red-500/20 text-red-400 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in backdrop-blur-md">
+                <AlertTriangle size={20} /> <span className="font-bold text-sm">{errorMsg}</span>
             </div>
         )}
 
-        {/* 📊 STATS GEMINIZADOS */}
+        {/* 📊 STATS (Estilo Widget de Cristal) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-           <div className="p-5 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex items-center gap-4 hover:border-emerald-500/30 transition-colors">
-              <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-500"><Music4 size={24} /></div>
-              <div><p className="text-xs text-zinc-500 uppercase font-bold">Proyectos</p><p className="text-2xl font-bold text-white">{stats.total}</p></div>
-           </div>
-           <div className="p-5 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex items-center gap-4 hover:border-cyan-500/30 transition-colors">
-              <div className="p-3 rounded-xl bg-cyan-500/10 text-cyan-500"><Zap size={24} /></div>
-              <div><p className="text-xs text-zinc-500 uppercase font-bold">Activos</p><p className="text-2xl font-bold text-white">{stats.active}</p></div>
-           </div>
-           <div className="p-5 rounded-3xl bg-zinc-900/40 border border-zinc-800/50 backdrop-blur-md flex items-center gap-4 hover:border-violet-500/30 transition-colors">
-              <div className="p-3 rounded-xl bg-violet-500/10 text-violet-500"><BarChart3 size={24} /></div>
-              <div><p className="text-xs text-zinc-500 uppercase font-bold">Almacenamiento</p><p className="text-2xl font-bold text-white">{stats.storage}</p></div>
-           </div>
+           {[
+             { label: "Proyectos Totales", val: stats.total, icon: Layers, color: "text-emerald-400", bg: "bg-emerald-500/5", border: "border-emerald-500/10" },
+             { label: "En Revisión", val: stats.active, icon: Zap, color: "text-amber-400", bg: "bg-amber-500/5", border: "border-amber-500/10" },
+             { label: "Almacenamiento", val: stats.storage, icon: BarChart3, color: "text-fuchsia-400", bg: "bg-fuchsia-500/5", border: "border-fuchsia-500/10" }
+           ].map((stat, i) => (
+             <div key={i} className={`p-5 rounded-2xl ${stat.bg} border ${stat.border} backdrop-blur-md flex items-center gap-4`}>
+                <div className={`p-3 rounded-xl bg-black/20 ${stat.color}`}><stat.icon size={20} /></div>
+                <div><p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">{stat.label}</p><p className="text-xl font-bold text-white">{stat.val}</p></div>
+             </div>
+           ))}
         </div>
 
-        {/* 🔍 BÚSQUEDA */}
-        <div className="relative w-full md:w-96 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-emerald-500 transition-colors" size={18} />
-            <input type="text" placeholder="Buscar artista o track..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-[#0F1112]/90 backdrop-blur-xl border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-all shadow-xl" />
+        {/* 🔍 BARRA DE FILTRO */}
+        <div className="relative w-full group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-white transition-colors" size={18} />
+            <input type="text" placeholder="Filtrar por artista o nombre del track..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-[#0A0A0A] border border-zinc-800/50 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-zinc-700 transition-all placeholder:text-zinc-600" />
         </div>
 
-        {/* 📀 GRID DE PROYECTOS */}
+        {/* 📀 GRID DE OBRAS DE ARTE */}
         {loading ? (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
-              {[1,2,3].map(i => <div key={i} className="h-64 bg-zinc-900 rounded-3xl border border-zinc-800"></div>)}
+              {[1,2,3].map(i => <div key={i} className="h-48 bg-zinc-900/30 rounded-3xl border border-zinc-800/50"></div>)}
            </div>
         ) : filteredProjects.length === 0 ? (
-           <div className="flex flex-col items-center justify-center py-32 border border-dashed border-zinc-800 rounded-3xl bg-zinc-900/20">
-              <Music4 className="text-zinc-600 mb-4" size={48} />
-              <h3 className="text-lg font-bold text-white">Tu estudio está vacío</h3>
-              <p className="text-zinc-500 text-sm">Sube tu primer proyecto para empezar.</p>
+           <div className="flex flex-col items-center justify-center py-32 border-2 border-dashed border-zinc-900 rounded-3xl bg-zinc-900/10">
+              <Disc className="text-zinc-700 mb-4" size={48} />
+              <p className="text-zinc-500 text-sm">Tu galería está vacía.</p>
            </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredProjects.map((project) => (
-              // 🔗 AQUÍ ESTÁ EL CAMBIO CLAVE: Enlace a la sala de control
               <Link key={project.id} href={`/projects/${project.id}`}>
-                <div className={`group relative flex flex-col bg-[#0F1112] border border-zinc-800 hover:border-emerald-500/50 rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-900/10 cursor-pointer h-full`}>
+                <div className="group relative flex flex-col bg-[#0A0A0A] border border-white/5 hover:border-emerald-500/30 rounded-3xl overflow-hidden transition-all duration-500 hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] cursor-pointer h-full">
                   
-                  {/* TARJETA VISUAL */}
-                  <div className={`h-40 w-full bg-gradient-to-br ${generateGradient(project.id)} relative p-6 flex flex-col justify-between`}>
-                     <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
-                     <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white uppercase tracking-wider">{project.status}</div>
+                  {/* ARTE VISUAL (Gradiente) */}
+                  <div className={`h-48 w-full bg-gradient-to-br ${generateGradient(project.id)} relative p-6 flex flex-col justify-between overflow-hidden`}>
+                     {/* Ruido de fondo para textura */}
+                     <div className="absolute inset-0 opacity-20 bg-[url('https://grainy-gradients.vercel.org/noise.svg')]" />
                      
-                     {/* Ícono de Entrar al hacer Hover */}
-                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
-                        <div className="px-4 py-2 bg-white rounded-full flex items-center gap-2 shadow-2xl">
-                          <span className="text-black font-bold text-xs">ABRIR SALA</span>
-                          <ArrowRight size={16} className="text-black" />
+                     <div className="relative z-10 flex justify-between items-start">
+                        <div className="p-2 bg-black/30 backdrop-blur-md rounded-lg text-white/80 border border-white/5">
+                           <Music4 size={16} />
+                        </div>
+                        <div className="bg-black/50 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white uppercase tracking-wider">
+                           {project.status}
+                        </div>
+                     </div>
+                     
+                     {/* Overlay Play */}
+                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-[2px] bg-black/20">
+                        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-xl transform scale-90 group-hover:scale-100 transition-transform">
+                          <Play size={20} fill="black" className="text-black ml-1" />
                         </div>
                      </div>
                   </div>
 
+                  {/* INFO */}
                   <div className="p-5 flex-1 flex flex-col">
-                     <h3 className="text-lg font-bold text-white mb-1 truncate leading-tight group-hover:text-emerald-400 transition-colors">{project.title}</h3>
-                     <p className="text-sm text-zinc-500 mb-4 truncate">{project.artist}</p>
+                     <div className="flex-1">
+                        <h3 className="text-lg font-bold text-white mb-1 truncate group-hover:text-emerald-400 transition-colors">{project.title}</h3>
+                        <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold mb-4 truncate">{project.artist}</p>
+                     </div>
                      
-                     <div className="mt-auto flex items-center justify-between pt-4 border-t border-zinc-800/50">
-                        <div className="flex items-center gap-1.5 text-xs text-zinc-400"><Clock size={12} /><span>{new Date(project.created_at).toLocaleDateString()}</span></div>
-                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-1 rounded border border-zinc-800"><Mic2 size={10} /><span>{project.version}</span></div>
+                     <div className="mt-auto flex items-center justify-between pt-4 border-t border-white/5">
+                        <div className="flex items-center gap-1.5 text-xs text-zinc-500 font-mono">
+                            <Clock size={12} /> {new Date(project.created_at).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-zinc-400 bg-zinc-900 px-2 py-1 rounded border border-zinc-800">
+                            <Mic2 size={10} /> {project.version}
+                        </div>
                      </div>
                   </div>
                 </div>
@@ -198,12 +214,12 @@ export default function ProjectsPage() {
         )}
 
         <div className="text-center py-10 opacity-30 hover:opacity-100 transition-opacity">
-           <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-zinc-500">TurnoAqui Studio OS • v2.6.0</p>
+           <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-zinc-600">TurnoAqui OS • Gallery Mode</p>
         </div>
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-300">
            <div className="absolute inset-0 cursor-pointer" onClick={() => setIsModalOpen(false)} />
            <div className="relative z-10 w-full max-w-md animate-in zoom-in-95 duration-300">
               <NewProjectModal onClose={() => { setIsModalOpen(false); fetchProjects(); }} />
