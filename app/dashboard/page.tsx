@@ -7,7 +7,7 @@ import Image from "next/image";
 import { Outfit } from "next/font/google";
 import { 
   LogOut, LayoutGrid, Calendar, Box, Users, Settings, ArrowRight, 
-  Music2, PlayCircle, Layers
+  Music2, PlayCircle, Layers, Shield
 } from "lucide-react";
 
 const outfit = Outfit({ subsets: ["latin"] });
