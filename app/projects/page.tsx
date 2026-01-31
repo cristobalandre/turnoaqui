@@ -6,10 +6,10 @@ import { Outfit } from "next/font/google";
 import { 
   Plus, Music4, Clock, Mic2, Search, 
   BarChart3, Zap, Filter, LayoutGrid, Users, AlertTriangle, 
-  PlayCircle, PauseCircle 
+  PlayCircle, ArrowRight // Agregué ArrowRight para indicar navegación
 } from "lucide-react";
 import NewProjectModal from "@/components/projects/NewProjectModal";
-import { AudioPlayer } from "@/components/projects/AudioPlayer"; // 🔌 CABLE CONECTADO
+// import { AudioPlayer } from "@/components/projects/AudioPlayer"; // 🔌 Ya no lo usamos aquí, el player está en la sala de control
 import { createClient } from "@/lib/supabase/client";
 
 const outfit = Outfit({ subsets: ["latin"] });
@@ -22,9 +22,6 @@ export default function ProjectsPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [search, setSearch] = useState("");
   const [user, setUser] = useState<any>(null);
-  
-  // Estado para saber qué proyecto se está reproduciendo
-  const [playingProjectId, setPlayingProjectId] = useState<string | null>(null);
   
   // Estadísticas
   const [stats, setStats] = useState({ total: 0, active: 0, storage: "0 MB" });
@@ -57,7 +54,7 @@ export default function ProjectsPage() {
           setStats({
             total: data.length,
             active: data.filter((p: any) => p.status === 'En Revisión').length,
-            storage: `${(data.length * 3.5).toFixed(1)} MB`
+            storage: `${(data.length * 3.5).toFixed(1)} MB` // Cálculo simulado
           });
         }
     } catch (err: any) {
@@ -153,7 +150,7 @@ export default function ProjectsPage() {
             <input type="text" placeholder="Buscar artista o track..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full bg-[#0F1112]/90 backdrop-blur-xl border border-zinc-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-all shadow-xl" />
         </div>
 
-        {/* 📀 GRID DE PROYECTOS CON REPRODUCTOR INTEGRADO */}
+        {/* 📀 GRID DE PROYECTOS */}
         {loading ? (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
               {[1,2,3].map(i => <div key={i} className="h-64 bg-zinc-900 rounded-3xl border border-zinc-800"></div>)}
@@ -167,41 +164,35 @@ export default function ProjectsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredProjects.map((project) => (
-              <div key={project.id} className={`group relative flex flex-col bg-[#0F1112] border ${playingProjectId === project.id ? 'border-emerald-500/50 shadow-[0_0_30px_-10px_rgba(16,185,129,0.3)]' : 'border-zinc-800 hover:border-zinc-600'} rounded-3xl overflow-hidden transition-all duration-300`}>
-                
-                {/* TARJETA VISUAL */}
-                <div 
-                    onClick={() => setPlayingProjectId(playingProjectId === project.id ? null : project.id)}
-                    className={`h-40 w-full bg-gradient-to-br ${generateGradient(project.id)} relative p-6 flex flex-col justify-between cursor-pointer`}
-                >
-                   <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
-                   <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white uppercase tracking-wider">{project.status}</div>
-                   
-                   {/* Ícono de Play Gigante al hacer Hover */}
-                   <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
-                      <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-2xl">
-                        {playingProjectId === project.id ? <PauseCircle size={28} className="text-black" /> : <PlayCircle size={28} className="text-black" />}
-                      </div>
-                   </div>
-                </div>
+              // 🔗 AQUÍ ESTÁ EL CAMBIO CLAVE: Enlace a la sala de control
+              <Link key={project.id} href={`/projects/${project.id}`}>
+                <div className={`group relative flex flex-col bg-[#0F1112] border border-zinc-800 hover:border-emerald-500/50 rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-900/10 cursor-pointer h-full`}>
+                  
+                  {/* TARJETA VISUAL */}
+                  <div className={`h-40 w-full bg-gradient-to-br ${generateGradient(project.id)} relative p-6 flex flex-col justify-between`}>
+                     <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
+                     <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 text-[10px] font-bold text-white uppercase tracking-wider">{project.status}</div>
+                     
+                     {/* Ícono de Entrar al hacer Hover */}
+                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100">
+                        <div className="px-4 py-2 bg-white rounded-full flex items-center gap-2 shadow-2xl">
+                          <span className="text-black font-bold text-xs">ABRIR SALA</span>
+                          <ArrowRight size={16} className="text-black" />
+                        </div>
+                     </div>
+                  </div>
 
-                <div className="p-5 flex-1 flex flex-col">
-                   <h3 className="text-lg font-bold text-white mb-1 truncate leading-tight group-hover:text-emerald-400 transition-colors">{project.title}</h3>
-                   <p className="text-sm text-zinc-500 mb-4 truncate">{project.artist}</p>
-                   
-                   {/* 🔌 ZONA DE REPRODUCTOR (Se despliega si está seleccionado) */}
-                   {playingProjectId === project.id && (
-                       <div className="mb-4 animate-in slide-in-from-top-2 duration-300">
-                           <AudioPlayer url={project.audio_url} />
-                       </div>
-                   )}
-
-                   <div className="mt-auto flex items-center justify-between pt-4 border-t border-zinc-800/50">
-                      <div className="flex items-center gap-1.5 text-xs text-zinc-400"><Clock size={12} /><span>{new Date(project.created_at).toLocaleDateString()}</span></div>
-                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-1 rounded border border-zinc-800"><Mic2 size={10} /><span>{project.version}</span></div>
-                   </div>
+                  <div className="p-5 flex-1 flex flex-col">
+                     <h3 className="text-lg font-bold text-white mb-1 truncate leading-tight group-hover:text-emerald-400 transition-colors">{project.title}</h3>
+                     <p className="text-sm text-zinc-500 mb-4 truncate">{project.artist}</p>
+                     
+                     <div className="mt-auto flex items-center justify-between pt-4 border-t border-zinc-800/50">
+                        <div className="flex items-center gap-1.5 text-xs text-zinc-400"><Clock size={12} /><span>{new Date(project.created_at).toLocaleDateString()}</span></div>
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-1 rounded border border-zinc-800"><Mic2 size={10} /><span>{project.version}</span></div>
+                     </div>
+                  </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
