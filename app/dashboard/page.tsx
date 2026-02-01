@@ -1,4 +1,5 @@
 ﻿"use client";
+
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client"; 
 import { useRouter } from "next/navigation";
@@ -7,13 +8,13 @@ import Image from "next/image";
 import { Outfit } from "next/font/google";
 import { 
   LogOut, LayoutGrid, Calendar, Box, Users, Settings, ArrowRight, 
-  Music2, PlayCircle, Layers, Shield, Scissors
+  Music2, PlayCircle, Layers, Shield, Scissors, Clock, ShieldAlert // <--- Agregamos iconos nuevos
 } from "lucide-react";
 
 const outfit = Outfit({ subsets: ["latin"] });
 const supabase = createClient();
 
-// 📸 TUS NUEVAS FOTOS DE ARTE (Guárdalas en 'public' con estos nombres)
+// 📸 TUS NUEVAS FOTOS DE ARTE
 const studioImages = [
   "/art-1.jpg",
   "/art-2.jpg",
@@ -23,16 +24,39 @@ const studioImages = [
 export default function Dashboard() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isPending, setIsPending] = useState(false); // <--- Nuevo estado para controlar el bloqueo
   const router = useRouter();
 
   useEffect(() => {
     const init = async () => {
+      // 1. Verificamos sesión (Evita pedir login si ya está conectado)
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.replace("/login"); return; }
-      const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-      if (data) setProfile(data);
+      
+      if (!session) { 
+        router.replace("/login"); 
+        return; 
+      }
+
+      // 2. Obtenemos el perfil con la política de seguridad que creamos
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", session.user.id)
+        .single();
+
+      if (data) {
+        setProfile(data);
+
+        // 🛡️ LÓGICA DE SEGURIDAD ENTERPRISE 🛡️
+        // Si no tiene plan activo O no tiene organización asignada -> BLOQUEO
+        if (data.plan_status !== 'active' || !data.org_id) {
+          setIsPending(true);
+        }
+      }
+      
       setLoading(false);
     };
+
     init();
   }, [router]);
 
@@ -41,26 +65,76 @@ export default function Dashboard() {
     router.replace("/login");
   };
 
-  if (loading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-zinc-500">Cargando Studio...</div>;
+  // PANTALLA DE CARGA (Minimalista)
+  if (loading) return (
+    <div className="min-h-screen bg-[#050505] flex items-center justify-center text-zinc-500 font-mono animate-pulse">
+      CARGANDO STUDIO HUB...
+    </div>
+  );
 
+  // 🔒 PANTALLA DE CUENTA PENDIENTE (Bloqueo elegante)
+  if (isPending) {
+    return (
+      <div className={`min-h-screen bg-[#09090b] flex flex-col items-center justify-center p-4 font-sans text-zinc-300 ${outfit.className}`}>
+        {/* Aura Decorativa */}
+        <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="relative z-10 max-w-md w-full bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 text-center backdrop-blur-xl shadow-2xl">
+          <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-amber-500/20">
+            <Clock className="w-8 h-8 text-amber-500" />
+          </div>
+
+          <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">Cuenta Pendiente</h1>
+          <p className="text-zinc-500 mb-8 leading-relaxed text-sm">
+            Hola <span className="text-white font-medium">{profile?.full_name?.split(' ')[0]}</span>, tu solicitud ha sido registrada. 
+            Un administrador de <span className="text-emerald-400 font-bold ml-1">StudioHub</span> debe activar tu acceso Enterprise.
+          </p>
+
+          <div className="bg-black/40 rounded-xl p-4 mb-8 text-left border border-zinc-800/50">
+            <div className="flex items-start gap-3">
+              <ShieldAlert className="w-5 h-5 text-zinc-500 mt-0.5 shrink-0" />
+              <div>
+                 <p className="text-sm font-medium text-zinc-300">Estado: En espera</p>
+                 <p className="text-xs text-zinc-500 mt-1">
+                   No necesitas hacer nada más. El sistema te dará acceso automáticamente cuando tu organización te autorice.
+                 </p>
+              </div>
+            </div>
+          </div>
+
+          <button 
+            onClick={handleLogout}
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition-all text-sm group border border-zinc-700 hover:border-zinc-600"
+          >
+            <LogOut size={16} className="text-zinc-500 group-hover:text-white transition-colors"/>
+            Cerrar Sesión
+          </button>
+        </div>
+        
+        <p className="fixed bottom-8 text-[10px] text-zinc-600 uppercase tracking-widest font-bold opacity-50">
+          StudioHub Enterprise Security
+        </p>
+      </div>
+    );
+  }
+
+  // ✅ SI PASA LA SEGURIDAD, MOSTRAMOS EL DASHBOARD ORIGINAL
   const isAdmin = profile?.role === 'admin';
 
   return (
     <div className={`min-h-screen bg-[#050505] text-zinc-100 ${outfit.className} overflow-x-hidden selection:bg-emerald-500/30`}>
       
-      {/* 🎨 FONDO SUTIL (Geminizado limpio) */}
+      {/* 🎨 FONDO SUTIL */}
       <div className="fixed inset-0 z-0 pointer-events-none">
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-900/10 rounded-full blur-[120px]" />
           <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-900/10 rounded-full blur-[120px]" />
       </div>
 
-      {/* 🎞️ CORREDOR DE FOTOS (Marquee Horizontal Artístico) */}
+      {/* 🎞️ CORREDOR DE FOTOS */}
       <div className="relative z-10 w-full h-48 md:h-64 overflow-hidden border-b border-white/5 bg-zinc-900/50">
         <div className="absolute inset-0 flex items-center animate-marquee gap-0">
-             {/* Duplicamos el array 4 veces para asegurar que cubra pantallas grandes sin cortes */}
              {[...studioImages, ...studioImages, ...studioImages, ...studioImages].map((src, i) => (
                 <div key={i} className="relative w-[300px] md:w-[500px] h-full flex-shrink-0 group overflow-hidden border-r border-white/5 bg-black">
-                    {/* Placeholder visual por si la imagen aún no existe */}
                     <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center text-zinc-800 text-xs font-bold uppercase tracking-widest">
                         {src}
                     </div>
@@ -70,7 +144,6 @@ export default function Dashboard() {
                         fill 
                         className="object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700 grayscale group-hover:grayscale-0"
                         onError={(e) => {
-                            // Si falla la carga, ocultamos la imagen rota para mantener la estética
                             (e.target as HTMLImageElement).style.opacity = '0';
                         }}
                     />
@@ -78,7 +151,6 @@ export default function Dashboard() {
                 </div>
              ))}
         </div>
-        {/* Overlay Texto Flotante */}
         <div className="absolute bottom-6 left-6 md:left-12 z-20">
             <h2 className="text-3xl md:text-5xl font-bold tracking-tighter text-white drop-shadow-xl">
                 Studio <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500">Hub</span>
@@ -96,13 +168,12 @@ export default function Dashboard() {
 
       <main className="relative z-10 max-w-7xl mx-auto p-6 md:p-12">
         
-        {/* GRID PRINCIPAL (Diseño limpio vectorial) */}
+        {/* GRID PRINCIPAL */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           
-          {/* 1. STUDIO HUB (Tarjeta Principal) */}
+          {/* 1. STUDIO HUB */}
           <Link href="/projects" className="col-span-1 md:col-span-2 group">
             <div className="relative h-64 md:h-80 rounded-3xl bg-[#0A0A0A] border border-white/10 hover:border-emerald-500/50 transition-all duration-500 overflow-hidden shadow-2xl group-hover:shadow-emerald-900/20">
-              {/* Vector de fondo */}
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/20 to-black opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:opacity-20 transition-transform duration-700 group-hover:scale-110">
                   <LayoutGrid size={200} className="text-white" />
@@ -169,7 +240,7 @@ export default function Dashboard() {
       <style jsx global>{`
         @keyframes marquee {
           0% { transform: translateX(0); }
-          100% { transform: translateX(-100%); } /* Ajuste para scroll infinito suave */
+          100% { transform: translateX(-100%); }
         }
         .animate-marquee {
           animation: marquee 80s linear infinite;
