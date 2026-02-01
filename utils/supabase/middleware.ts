@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
+  // Creamos la respuesta inicial
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -15,6 +16,7 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
+          // Esto actualiza las cookies en el navegador
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
@@ -29,30 +31,8 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // PROTECCIÓN DE RUTAS
-  // 1. Si NO hay usuario y quiere entrar a zonas privadas -> Login
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth") &&
-    (request.nextUrl.pathname.startsWith("/dashboard") || 
-     request.nextUrl.pathname.startsWith("/projects"))
-  ) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-
-  // 2. Si SÍ hay usuario y está en el Login -> Dashboard
-  if (user && request.nextUrl.pathname.startsWith("/login")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
-  }
+  // ⚡️ ESTO ES LO QUE FALTABA: Refresca el token de usuario
+  await supabase.auth.getUser();
 
   return supabaseResponse;
 }
