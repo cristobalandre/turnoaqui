@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Outfit } from "next/font/google";
 import { Loader2, Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/ui/Logo";
-// 🔴 CAMBIO CLAVE: Usamos la librería correcta para Next.js App Router
+// 🔴 IMPORTANTE: Usamos 'createBrowserClient' para que guarde en COOKIES
 import { createBrowserClient } from "@supabase/ssr"; 
 import Link from "next/link";
 
@@ -14,9 +14,9 @@ const outfit = Outfit({ subsets: ["latin"] });
 export default function LoginPage() {
   const router = useRouter();
   
-  // ✅ CREACIÓN CORRECTA DEL CLIENTE
-  // Este cliente guarda los tokens en COOKIES, no en LocalStorage.
-  // Así el servidor (route.ts) podrá validarlos.
+  // ✅ ESTA ES LA SOLUCIÓN:
+  // Al usar createBrowserClient, Supabase guarda la sesión en las cookies automáticamente.
+  // Así el servidor (route.ts) podrá leerla cuando vuelvas de Google.
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -30,7 +30,7 @@ export default function LoginPage() {
 
   const onGoogleLogin = async () => {
     setLoading(true);
-    // Usamos location.origin para asegurar que detecta si es localhost o vercel
+    // Usamos window.location.origin para que funcione tanto en localhost como en Vercel
     const redirectTo = `${window.location.origin}/auth/callback`;
     
     const { error } = await supabase.auth.signInWithOAuth({
@@ -87,7 +87,6 @@ export default function LoginPage() {
   return (
     <div className={`min-h-screen w-full flex flex-col items-center justify-center relative overflow-hidden bg-[#0F1112] text-gray-100 ${outfit.className}`}>
       
-      {/* BOTÓN VOLVER AL INICIO */}
       <Link 
         href="/" 
         className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
@@ -96,7 +95,6 @@ export default function LoginPage() {
         Volver al inicio
       </Link>
 
-      {/* FONDO AMBIENTAL */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[800px] bg-emerald-500/10 blur-[150px] rounded-full opacity-50" />
         <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-teal-500/5 blur-[120px] rounded-full opacity-30" />
