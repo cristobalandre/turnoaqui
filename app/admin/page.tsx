@@ -17,66 +17,66 @@ import { fromZonedTime, toZonedTime } from "date-fns-tz";
 
 const timezone = 'America/Santiago'
 
-// --- INTERFACES (Lógica Original Intacta) ---
+// --- INTERFACES EN INGLÉS (Actualizadas) ---
 interface Room {
   id: string
   name: string
 }
 
-interface Productor {
+interface Producer { // Antes Productor
   id: string
   name: string
 }
 
-interface Artista {
+interface Artist { // Antes Artista
   id: string
   name: string
 }
 
-interface Sesion {
+interface Booking { // Antes Sesion
   id: string
   room_id: string
-  productor_id: string
-  artista_id: string
-  fecha_inicio: string
-  fecha_fin: string
-  notas: string | null
-  estado: 'programada' | 'en_curso' | 'completada' | 'cancelada'
+  producer_id: string // Antes productor_id
+  artist_id: string   // Antes artista_id
+  starts_at: string   // Antes fecha_inicio
+  ends_at: string     // Antes fecha_fin
+  notes: string | null // Antes notas
+  status: 'scheduled' | 'active' | 'completed' | 'cancelled' // Antes estado
   rooms: { name: string }
-  productores: { name: string }
-  artistas: { name: string }
+  producers: { name: string } // Relación con tabla producers
+  artists: { name: string }   // Relación con tabla artists
 }
 
 export default function AgendaPage() {
-  // --- ESTADOS (Lógica Original Intacta) ---
+  // --- ESTADOS ---
   const [currentWeek, setCurrentWeek] = useState(new Date())
-  const [sesiones, setSesiones] = useState<Sesion[]>([])
+  const [bookings, setBookings] = useState<Booking[]>([]) // Antes sesiones
   const [rooms, setRooms] = useState<Room[]>([])
-  const [productores, setProductores] = useState<Productor[]>([])
-  const [artistas, setArtistas] = useState<Artista[]>([])
+  const [producers, setProducers] = useState<Producer[]>([]) // Antes productores
+  const [artists, setArtists] = useState<Artist[]>([]) // Antes artistas
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingSesion, setEditingSesion] = useState<Sesion | null>(null)
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null) // Antes editingSesion
   
   const [filters, setFilters] = useState({
     room_id: '',
-    productor_id: '',
-    artista_id: '',
+    producer_id: '',
+    artist_id: '',
   })
   
   const [formData, setFormData] = useState({
     room_id: '',
-    productor_id: '',
-    artista_id: '',
-    fecha_inicio: '',
-    fecha_fin: '',
-    notas: '',
-    estado: 'programada' as const,
+    producer_id: '',
+    artist_id: '',
+    starts_at: '',
+    ends_at: '',
+    notes: '',
+    status: 'scheduled' as const,
   })
   const [errors, setErrors] = useState<string[]>([])
   const supabase = createClient()
 
-  // Configuración de Calendario (24 HORAS SOLICITADO)
+  // Configuración de Calendario (24 HORAS SOLICITADO - Intacto)
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 })
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
   const hours = Array.from({ length: 24 }, (_, i) => i) // 00:00 a 23:00
@@ -89,52 +89,52 @@ export default function AgendaPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      // Fetch rooms, productores, artistas
-      const [roomsRes, productoresRes, artistasRes] = await Promise.all([
+      // 1. Fetch Tablas Maestras (En Inglés)
+      const [roomsRes, producersRes, artistsRes] = await Promise.all([
         supabase.from('rooms').select('*').order('name'),
-        supabase.from('productores').select('*').order('name'),
-        supabase.from('artistas').select('*').order('name'),
+        supabase.from('producers').select('*').order('name'), // Tabla producers
+        supabase.from('artists').select('*').order('name'),   // Tabla artists
       ])
 
       if (roomsRes.error) throw roomsRes.error
-      if (productoresRes.error) throw productoresRes.error
-      if (artistasRes.error) throw artistasRes.error
+      if (producersRes.error) throw producersRes.error
+      if (artistsRes.error) throw artistsRes.error
 
       setRooms(roomsRes.data || [])
-      setProductores(productoresRes.data || [])
-      setArtistas(artistasRes.data || [])
+      setProducers(producersRes.data || [])
+      setArtists(artistsRes.data || [])
 
-      // Fetch sesiones for the week
+      // 2. Fetch Agenda (Tabla bookings)
       const weekStartUTC = fromZonedTime(weekStart, timezone)
       const weekEnd = addDays(weekStart, 7)
       const weekEndUTC = fromZonedTime(weekEnd, timezone)
 
       let query = supabase
-        .from('sesiones')
+        .from('bookings') // Tabla bookings
         .select(`
           *,
           rooms(name),
-          productores(name),
-          artistas(name)
+          producers(name),
+          artists(name)
         `)
-        .gte('fecha_inicio', weekStartUTC.toISOString())
-        .lt('fecha_inicio', weekEndUTC.toISOString())
-        .order('fecha_inicio', { ascending: true })
+        .gte('starts_at', weekStartUTC.toISOString())
+        .lt('starts_at', weekEndUTC.toISOString())
+        .order('starts_at', { ascending: true })
 
       if (filters.room_id) {
         query = query.eq('room_id', filters.room_id)
       }
-      if (filters.productor_id) {
-        query = query.eq('productor_id', filters.productor_id)
+      if (filters.producer_id) {
+        query = query.eq('producer_id', filters.producer_id)
       }
-      if (filters.artista_id) {
-        query = query.eq('artista_id', filters.artista_id)
+      if (filters.artist_id) {
+        query = query.eq('artist_id', filters.artist_id)
       }
 
       const { data, error } = await query
 
       if (error) throw error
-      setSesiones(data || [])
+      setBookings(data || [])
     } catch (error) {
       console.error('Error fetching data:', error)
     } finally {
@@ -142,38 +142,37 @@ export default function AgendaPage() {
     }
   }
 
-  // --- LÓGICA DE CONFLICTOS (IMPORTANTE: NO TOCAR) ---
+  // --- LÓGICA DE CONFLICTOS (Adaptada a columnas en inglés) ---
   const checkConflicts = async (
     roomId: string,
-    productorId: string,
-    artistaId: string,
-    fechaInicio: string,
-    fechaFin: string,
+    producerId: string,
+    artistId: string,
+    start: string,
+    end: string,
     excludeId?: string
   ): Promise<string[]> => {
     const conflicts: string[] = []
 
-    // Helper para reducir repetición, misma lógica que tu código original
-    const checkTable = async (field: string, value: string, errorMsg: string) => {
+    const checkOverlap = async (column: string, value: string, errorMsg: string) => {
         const { data } = await supabase
-          .from('sesiones')
+          .from('bookings') // Tabla bookings
           .select('*')
-          .eq(field, value)
-          .neq('estado', 'cancelada')
-          .or(`and(fecha_inicio.lt.${fechaFin},fecha_fin.gt.${fechaInicio})`)
+          .eq(column, value)
+          .neq('status', 'cancelled')
+          .or(`and(starts_at.lt.${end},ends_at.gt.${start})`) // Lógica de superposición
 
         if (data) {
           const hasConflict = data.some(
-            (s: any) => s.id !== excludeId && s.estado !== 'cancelada'
+            (b: any) => b.id !== excludeId && b.status !== 'cancelled'
           )
           if (hasConflict) conflicts.push(errorMsg)
         }
     }
 
     await Promise.all([
-        checkTable('room_id', roomId, 'La sala ya está ocupada en ese horario'),
-        checkTable('productor_id', productorId, 'El productor ya tiene una sesión en ese horario'),
-        checkTable('artista_id', artistaId, 'El artista ya tiene una sesión en ese horario')
+        checkOverlap('room_id', roomId, 'La sala ya está ocupada en ese horario'),
+        checkOverlap('producer_id', producerId, 'El productor ya tiene una sesión en ese horario'),
+        checkOverlap('artist_id', artistId, 'El artista ya tiene una sesión en ese horario')
     ])
 
     return conflicts
@@ -184,17 +183,17 @@ export default function AgendaPage() {
     e.preventDefault()
     setErrors([])
 
-    const fechaInicioUTC = fromZonedTime(
-      parseISO(formData.fecha_inicio),
+    const startUTC = fromZonedTime(
+      parseISO(formData.starts_at),
       timezone
     ).toISOString()
-    const fechaFinUTC = fromZonedTime(
-      parseISO(formData.fecha_fin),
+    const endUTC = fromZonedTime(
+      parseISO(formData.ends_at),
       timezone
     ).toISOString()
 
     // Validate dates
-    if (new Date(fechaFinUTC) <= new Date(fechaInicioUTC)) {
+    if (new Date(endUTC) <= new Date(startUTC)) {
       setErrors(['La fecha de fin debe ser posterior a la fecha de inicio'])
       return
     }
@@ -202,11 +201,11 @@ export default function AgendaPage() {
     // Check conflicts
     const conflicts = await checkConflicts(
       formData.room_id,
-      formData.productor_id,
-      formData.artista_id,
-      fechaInicioUTC,
-      fechaFinUTC,
-      editingSesion?.id
+      formData.producer_id,
+      formData.artist_id,
+      startUTC,
+      endUTC,
+      editingBooking?.id
     )
 
     if (conflicts.length > 0) {
@@ -217,24 +216,25 @@ export default function AgendaPage() {
     try {
       const data = {
         room_id: formData.room_id,
-        productor_id: formData.productor_id,
-        artista_id: formData.artista_id,
-        fecha_inicio: fechaInicioUTC,
-        fecha_fin: fechaFinUTC,
-        notas: formData.notas || null,
-        estado: formData.estado,
-        updated_at: new Date().toISOString(),
+        producer_id: formData.producer_id,
+        artist_id: formData.artist_id,
+        starts_at: startUTC,
+        ends_at: endUTC,
+        notes: formData.notes || null,
+        status: formData.status,
+        // updated_at se suele manejar automático en Supabase, pero si lo necesitas:
+        // updated_at: new Date().toISOString(),
       }
 
-      if (editingSesion) {
+      if (editingBooking) {
         const { error } = await supabase
-          .from('sesiones')
+          .from('bookings')
           .update(data)
-          .eq('id', editingSesion.id)
+          .eq('id', editingBooking.id)
 
         if (error) throw error
       } else {
-        const { error } = await supabase.from('sesiones').insert([data])
+        const { error } = await supabase.from('bookings').insert([data])
         if (error) throw error
       }
 
@@ -242,31 +242,31 @@ export default function AgendaPage() {
       resetForm()
       fetchData()
     } catch (error: any) {
-      console.error('Error saving sesion:', error)
+      console.error('Error saving booking:', error)
       setErrors([error.message || 'Error al guardar la sesión'])
     }
   }
 
   // --- ACCIONES DE UI ---
-  const handleEdit = (sesion: Sesion) => {
+  const handleEdit = (bk: Booking) => {
     // BLINDAJE: Si la fecha es inválida, no permitimos editar para evitar crash
-    if (!sesion.fecha_inicio || !sesion.fecha_fin) return;
+    if (!bk.starts_at || !bk.ends_at) return;
 
-    setEditingSesion(sesion)
-    const fechaInicioLocal = toZonedTime(
-      parseISO(sesion.fecha_inicio),
+    setEditingBooking(bk)
+    const startLocal = toZonedTime(
+      parseISO(bk.starts_at),
       timezone
     )
-    const fechaFinLocal = toZonedTime(parseISO(sesion.fecha_fin), timezone)
+    const endLocal = toZonedTime(parseISO(bk.ends_at), timezone)
 
     setFormData({
-      room_id: sesion.room_id,
-      productor_id: sesion.productor_id,
-      artista_id: sesion.artista_id,
-      fecha_inicio: format(fechaInicioLocal, "yyyy-MM-dd'T'HH:mm"),
-      fecha_fin: format(fechaFinLocal, "yyyy-MM-dd'T'HH:mm"),
-      notas: sesion.notas || '',
-      estado: sesion.estado as any,
+      room_id: bk.room_id,
+      producer_id: bk.producer_id,
+      artist_id: bk.artist_id,
+      starts_at: format(startLocal, "yyyy-MM-dd'T'HH:mm"),
+      ends_at: format(endLocal, "yyyy-MM-dd'T'HH:mm"),
+      notes: bk.notes || '',
+      status: bk.status as any,
     })
     setDialogOpen(true)
   }
@@ -276,14 +276,14 @@ export default function AgendaPage() {
 
     try {
       const { error } = await supabase
-        .from('sesiones')
-        .update({ estado: 'cancelada', updated_at: new Date().toISOString() })
+        .from('bookings')
+        .update({ status: 'cancelled' }) // updated_at si es necesario
         .eq('id', id)
 
       if (error) throw error
       fetchData()
     } catch (error) {
-      console.error('Error canceling sesion:', error)
+      console.error('Error canceling booking:', error)
       alert('Error al cancelar la sesión')
     }
   }
@@ -291,14 +291,14 @@ export default function AgendaPage() {
   const resetForm = () => {
     setFormData({
       room_id: '',
-      productor_id: '',
-      artista_id: '',
-      fecha_inicio: '',
-      fecha_fin: '',
-      notas: '',
-      estado: 'programada',
+      producer_id: '',
+      artist_id: '',
+      starts_at: '',
+      ends_at: '',
+      notes: '',
+      status: 'scheduled',
     })
-    setEditingSesion(null)
+    setEditingBooking(null)
     setErrors([])
   }
 
@@ -309,50 +309,50 @@ export default function AgendaPage() {
     }
   }
 
-  // --- LÓGICA DE RENDERIZADO (Aquí estaba el error del 'split') ---
-  const getSesionesForSlot = (day: Date, hour: number) => {
-    return sesiones.filter((sesion) => {
+  // --- LÓGICA DE RENDERIZADO ---
+  const getBookingsForSlot = (day: Date, hour: number) => {
+    return bookings.filter((bk) => {
       // 🛡️ PROTECCIÓN ANTI-CRASH 🛡️
-      // Si la base de datos devuelve una sesión sin fecha (null), la ignoramos.
-      if (!sesion.fecha_inicio || !sesion.fecha_fin) return false;
+      if (!bk.starts_at || !bk.ends_at) return false;
       
-      if (sesion.estado === 'cancelada') return false
+      if (bk.status === 'cancelled') return false
       
       try {
-        const inicio = toZonedTime(parseISO(sesion.fecha_inicio), timezone)
-        const fin = toZonedTime(parseISO(sesion.fecha_fin), timezone)
+        const start = toZonedTime(parseISO(bk.starts_at), timezone)
+        const end = toZonedTime(parseISO(bk.ends_at), timezone)
         return (
-            isSameDay(inicio, day) &&
-            inicio.getHours() <= hour &&
-            fin.getHours() > hour
+            isSameDay(start, day) &&
+            start.getHours() <= hour &&
+            end.getHours() > hour
         )
       } catch (e) {
-          return false; // Si falla el parseo de fecha, no rompemos la app
+          return false; 
       }
     })
   }
 
-  const getSesionStyle = (sesion: Sesion) => {
-    // Protección aquí también
-    if (!sesion.fecha_inicio || !sesion.fecha_fin) return {};
+  const getBookingStyle = (bk: Booking) => {
+    if (!bk.starts_at || !bk.ends_at) return {};
 
-    const inicio = toZonedTime(parseISO(sesion.fecha_inicio), timezone)
-    const fin = toZonedTime(parseISO(sesion.fecha_fin), timezone)
-    const duration = (fin.getTime() - inicio.getTime()) / (1000 * 60 * 60)
-    const startHour = inicio.getHours() + inicio.getMinutes() / 60
+    const start = toZonedTime(parseISO(bk.starts_at), timezone)
+    const end = toZonedTime(parseISO(bk.ends_at), timezone)
+    const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+    const startHour = start.getHours() + start.getMinutes() / 60
 
-    // COLORES ENTERPRISE (TEMA OSCURO)
+    // COLORES ENTERPRISE (Mapeados a estados en Inglés)
     const colors: Record<string, string> = {
-      programada: 'bg-emerald-500/20 border-emerald-500 text-emerald-100 hover:bg-emerald-500/30',
-      en_curso: 'bg-amber-500/20 border-amber-500 text-amber-100 hover:bg-amber-500/30 animate-pulse',
-      completada: 'bg-zinc-800/80 border-zinc-600 text-zinc-400 grayscale',
-      cancelada: 'hidden', // No las mostramos en el calendario
+      scheduled: 'bg-emerald-500/20 border-emerald-500 text-emerald-100 hover:bg-emerald-500/30',
+      active: 'bg-amber-500/20 border-amber-500 text-amber-100 hover:bg-amber-500/30 animate-pulse',
+      completed: 'bg-zinc-800/80 border-zinc-600 text-zinc-400 grayscale',
+      cancelled: 'hidden', 
     }
+    // Fallback por seguridad
+    const finalColor = colors[bk.status] || colors.scheduled
 
     return {
       top: `${(startHour % 1) * 60}px`,
       height: `${duration * 60}px`,
-      className: `absolute left-0.5 right-0.5 border p-2 rounded-md text-[10px] leading-tight backdrop-blur-md transition-all z-10 cursor-pointer shadow-sm overflow-hidden ${colors[sesion.estado] || colors.programada}`
+      className: `absolute left-0.5 right-0.5 border p-2 rounded-md text-[10px] leading-tight backdrop-blur-md transition-all z-10 cursor-pointer shadow-sm overflow-hidden ${finalColor}`
     }
   }
 
@@ -395,11 +395,11 @@ export default function AgendaPage() {
             <DialogContent className="bg-[#0F1112] border-zinc-800 text-white sm:max-w-[600px] shadow-2xl">
               <DialogHeader>
                 <DialogTitle className="text-xl flex items-center gap-2">
-                    {editingSesion ? <Pencil className="w-5 h-5 text-emerald-500"/> : <Plus className="w-5 h-5 text-emerald-500"/>}
-                    {editingSesion ? 'Editar Sesión' : 'Agendar Nueva Sesión'}
+                    {editingBooking ? <Pencil className="w-5 h-5 text-emerald-500"/> : <Plus className="w-5 h-5 text-emerald-500"/>}
+                    {editingBooking ? 'Editar Sesión' : 'Agendar Nueva Sesión'}
                 </DialogTitle>
                 <DialogDescription className="text-zinc-500">
-                  {editingSesion ? 'Modifica los detalles del evento.' : 'Reserva un espacio en el estudio.'}
+                  {editingBooking ? 'Modifica los detalles del evento.' : 'Reserva un espacio en el estudio.'}
                 </DialogDescription>
               </DialogHeader>
               
@@ -407,7 +407,7 @@ export default function AgendaPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label htmlFor="room_id" className="text-xs font-bold text-zinc-400 uppercase">Sala</Label>
-                      {/* Usamos select nativo con estilos Tailwind para asegurar modo oscuro */}
+                      {/* Usamos select nativo */}
                       <select id="room_id" className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
                         value={formData.room_id} onChange={(e) => setFormData({ ...formData, room_id: e.target.value })} required>
                         <option value="">Seleccionar sala...</option>
@@ -415,53 +415,53 @@ export default function AgendaPage() {
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="estado" className="text-xs font-bold text-zinc-400 uppercase">Estado</Label>
-                      <select id="estado" className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                        value={formData.estado} onChange={(e) => setFormData({ ...formData, estado: e.target.value as any })}>
-                        <option value="programada">📅 Programada</option>
-                        <option value="en_curso">🔴 En Curso</option>
-                        <option value="completada">✅ Completada</option>
-                        <option value="cancelada">❌ Cancelada</option>
+                      <Label htmlFor="status" className="text-xs font-bold text-zinc-400 uppercase">Estado</Label>
+                      <select id="status" className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                        value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}>
+                        <option value="scheduled">📅 Programada</option>
+                        <option value="active">🔴 En Curso</option>
+                        <option value="completed">✅ Completada</option>
+                        <option value="cancelled">❌ Cancelada</option>
                       </select>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="productor_id" className="text-xs font-bold text-zinc-400 uppercase">Productor</Label>
-                      <select id="productor_id" className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                        value={formData.productor_id} onChange={(e) => setFormData({ ...formData, productor_id: e.target.value })} required>
+                      <Label htmlFor="producer_id" className="text-xs font-bold text-zinc-400 uppercase">Productor</Label>
+                      <select id="producer_id" className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                        value={formData.producer_id} onChange={(e) => setFormData({ ...formData, producer_id: e.target.value })} required>
                         <option value="">Seleccionar...</option>
-                        {productores.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        {producers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="artista_id" className="text-xs font-bold text-zinc-400 uppercase">Artista</Label>
-                      <select id="artista_id" className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-                        value={formData.artista_id} onChange={(e) => setFormData({ ...formData, artista_id: e.target.value })} required>
+                      <Label htmlFor="artist_id" className="text-xs font-bold text-zinc-400 uppercase">Artista</Label>
+                      <select id="artist_id" className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                        value={formData.artist_id} onChange={(e) => setFormData({ ...formData, artist_id: e.target.value })} required>
                         <option value="">Seleccionar...</option>
-                        {artistas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        {artists.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                       </select>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="fecha_inicio" className="text-xs font-bold text-zinc-400 uppercase">Inicio</Label>
-                      <Input id="fecha_inicio" type="datetime-local" className="bg-zinc-900 border-zinc-800 text-white focus:ring-emerald-500"
-                        value={formData.fecha_inicio} onChange={(e) => setFormData({ ...formData, fecha_inicio: e.target.value })} required />
+                      <Label htmlFor="starts_at" className="text-xs font-bold text-zinc-400 uppercase">Inicio</Label>
+                      <Input id="starts_at" type="datetime-local" className="bg-zinc-900 border-zinc-800 text-white focus:ring-emerald-500"
+                        value={formData.starts_at} onChange={(e) => setFormData({ ...formData, starts_at: e.target.value })} required />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="fecha_fin" className="text-xs font-bold text-zinc-400 uppercase">Fin</Label>
-                      <Input id="fecha_fin" type="datetime-local" className="bg-zinc-900 border-zinc-800 text-white focus:ring-emerald-500"
-                        value={formData.fecha_fin} onChange={(e) => setFormData({ ...formData, fecha_fin: e.target.value })} required />
+                      <Label htmlFor="ends_at" className="text-xs font-bold text-zinc-400 uppercase">Fin</Label>
+                      <Input id="ends_at" type="datetime-local" className="bg-zinc-900 border-zinc-800 text-white focus:ring-emerald-500"
+                        value={formData.ends_at} onChange={(e) => setFormData({ ...formData, ends_at: e.target.value })} required />
                     </div>
                   </div>
                   
                   <div className="space-y-1.5">
-                    <Label htmlFor="notas" className="text-xs font-bold text-zinc-400 uppercase">Notas</Label>
-                    <Textarea id="notas" className="bg-zinc-900 border-zinc-800 text-white resize-none focus:ring-emerald-500"
-                      value={formData.notas} onChange={(e) => setFormData({ ...formData, notas: e.target.value })} rows={3} placeholder="Detalles técnicos, requerimientos, etc..." />
+                    <Label htmlFor="notes" className="text-xs font-bold text-zinc-400 uppercase">Notas</Label>
+                    <Textarea id="notes" className="bg-zinc-900 border-zinc-800 text-white resize-none focus:ring-emerald-500"
+                      value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} rows={3} placeholder="Detalles técnicos, requerimientos, etc..." />
                   </div>
 
                   {errors.length > 0 && (
@@ -475,7 +475,7 @@ export default function AgendaPage() {
                       Cancelar
                     </Button>
                     <Button type="submit" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold px-6">
-                      {editingSesion ? 'Guardar Cambios' : 'Crear Sesión'}
+                      {editingBooking ? 'Guardar Cambios' : 'Crear Sesión'}
                     </Button>
                   </DialogFooter>
               </form>
@@ -501,19 +501,19 @@ export default function AgendaPage() {
                 </select>
              </div>
              <div>
-                <Label htmlFor="filter_productor" className="text-[10px] text-zinc-600 uppercase font-bold mb-1 block">Por Productor</Label>
-                <select id="filter_productor" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1.5 text-xs text-zinc-300 focus:border-emerald-500 outline-none"
-                    value={filters.productor_id} onChange={(e) => setFilters({ ...filters, productor_id: e.target.value })}>
+                <Label htmlFor="filter_producer" className="text-[10px] text-zinc-600 uppercase font-bold mb-1 block">Por Productor</Label>
+                <select id="filter_producer" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1.5 text-xs text-zinc-300 focus:border-emerald-500 outline-none"
+                    value={filters.producer_id} onChange={(e) => setFilters({ ...filters, producer_id: e.target.value })}>
                     <option value="">Todos los productores</option>
-                    {productores.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {producers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
              </div>
              <div>
-                <Label htmlFor="filter_artista" className="text-[10px] text-zinc-600 uppercase font-bold mb-1 block">Por Artista</Label>
-                <select id="filter_artista" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1.5 text-xs text-zinc-300 focus:border-emerald-500 outline-none"
-                    value={filters.artista_id} onChange={(e) => setFilters({ ...filters, artista_id: e.target.value })}>
+                <Label htmlFor="filter_artist" className="text-[10px] text-zinc-600 uppercase font-bold mb-1 block">Por Artista</Label>
+                <select id="filter_artist" className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-2 py-1.5 text-xs text-zinc-300 focus:border-emerald-500 outline-none"
+                    value={filters.artist_id} onChange={(e) => setFilters({ ...filters, artist_id: e.target.value })}>
                     <option value="">Todos los artistas</option>
-                    {artistas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    {artists.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
              </div>
           </div>
@@ -558,40 +558,40 @@ export default function AgendaPage() {
                 
                 {/* Celdas de Días */}
                 {weekDays.map((day) => {
-                  const sesionesEnSlot = getSesionesForSlot(day, hour)
+                  const bookingsEnSlot = getBookingsForSlot(day, hour)
                   const isToday = isSameDay(day, new Date())
                   
                   return (
                     <div key={`${day.toISOString()}-${hour}`} className={`relative border-r border-b border-zinc-800/30 transition-colors group ${isToday ? 'bg-emerald-500/5' : 'hover:bg-zinc-800/20'}`}>
                       {/* Renderizado de Sesiones */}
-                      {sesionesEnSlot.map((sesion) => {
-                        const style = getSesionStyle(sesion)
+                      {bookingsEnSlot.map((bk) => {
+                        const style = getBookingStyle(bk)
                         return (
                           <div
-                            key={sesion.id}
+                            key={bk.id}
                             className={style.className}
                             style={style as any}
-                            onClick={() => handleEdit(sesion)}
-                            title={`${sesion.rooms.name} - ${sesion.productores.name} / ${sesion.artistas.name}`}
+                            onClick={() => handleEdit(bk)}
+                            title={`${bk.rooms.name} - ${bk.producers.name} / ${bk.artists.name}`}
                           >
                             <div className="font-bold truncate text-[11px] mb-0.5 text-white shadow-black drop-shadow-md">
-                              {sesion.rooms.name}
+                              {bk.rooms.name}
                             </div>
                             <div className="truncate text-[9px] opacity-90 font-medium">
-                              {sesion.productores.name}
+                              {bk.producers.name}
                             </div>
                             <div className="truncate text-[9px] opacity-75">
-                              ft. {sesion.artistas.name}
+                              ft. {bk.artists.name}
                             </div>
 
                             {/* Acciones Rápidas (Hover) */}
                             <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded p-0.5 backdrop-blur-sm">
                               <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-zinc-300 hover:text-white hover:bg-white/20"
-                                  onClick={(e) => { e.stopPropagation(); handleEdit(sesion) }}>
+                                  onClick={(e) => { e.stopPropagation(); handleEdit(bk) }}>
                                   <Pencil className="h-3 w-3" />
                               </Button>
                               <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/20"
-                                  onClick={(e) => { e.stopPropagation(); handleCancel(sesion.id) }}>
+                                  onClick={(e) => { e.stopPropagation(); handleCancel(bk.id) }}>
                                   <X className="h-3 w-3" />
                               </Button>
                             </div>
