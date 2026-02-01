@@ -152,7 +152,7 @@ export default function Dashboard() {
            {[
              { name: "Recursos", icon: Box, link: "/resources" },
              { name: "Staff", icon: Users, link: "/team" },
-             { name: "Ajustes", icon: Settings, link: "/settings" },
+             { name: "Servicios", icon: Scissors, link: "/services" },
              ...(isAdmin ? [{ name: "Admin", icon: Shield, link: "/admin/team" }] : [])
            ].map((item) => (
              <Link href={item.link} key={item.name}>
