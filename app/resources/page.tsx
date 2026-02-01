@@ -13,10 +13,10 @@ import {
   Layers
 } from "lucide-react";
 import Link from "next/link";
+// IMPORTANTE: Asegúrate de que esta ruta sea correcta en tu proyecto
+import { supabase } from "@/lib/supabaseClient"; 
 
-// 1. Eliminamos la dependencia de Supabase que fallaba
-// import { supabase } from "@/lib/supabaseClient"; 
-
+// Usamos el ID fijo que sabemos que funciona por ahora
 const ORG_ID = "a573aa05-d62b-44c7-a878-b9138902a094";
 
 type Room = {
@@ -28,13 +28,7 @@ type Room = {
 
 export default function ResourcesPage() {
   const [loading, setLoading] = useState(true);
-  
-  // 2. Datos iniciales de prueba (para que no salga vacío)
-  const [rooms, setRooms] = useState<Room[]>([
-    { id: "1", name: "Sala A - Control Room", org_id: ORG_ID, created_at: new Date().toISOString() },
-    { id: "2", name: "Cabina de Voces 1", org_id: ORG_ID, created_at: new Date().toISOString() },
-    { id: "3", name: "Estudio de Mastering", org_id: ORG_ID, created_at: new Date().toISOString() }
-  ]);
+  const [rooms, setRooms] = useState<Room[]>([]); // Empezamos vacío, llenamos desde BD
   
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -42,46 +36,96 @@ export default function ResourcesPage() {
 
   const canAdd = useMemo(() => newName.trim().length >= 2, [newName]);
 
-  // Simulación de carga para el efecto visual
+  // 1. CARGAR DATOS REALES (READ)
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
+    fetchRooms();
   }, []);
 
-  // --- FUNCIONES LOCALES (Reemplazan a Supabase) ---
+  async function fetchRooms() {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('rooms')
+        .select('*')
+        .order('created_at', { ascending: true });
 
+      if (error) throw error;
+      if (data) setRooms(data);
+    } catch (error) {
+      console.error("Error al cargar salas:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // 2. GUARDAR EN SUPABASE (CREATE)
   async function addRoom() {
     if (!canAdd) return;
     
-    // Creamos el recurso localmente
-    const newRoom: Room = {
-      id: Date.now().toString(), // ID único temporal
-      name: newName.trim(),
-      org_id: ORG_ID,
-      created_at: new Date().toISOString()
-    };
-    
-    setRooms([...rooms, newRoom]);
-    setNewName("");
+    try {
+      // Enviamos a la BD
+      const { data, error } = await supabase
+        .from('rooms')
+        .insert([
+          { 
+            name: newName.trim(),
+            org_id: ORG_ID // Enviamos el ID fijo para asegurar
+          }
+        ])
+        .select(); // El .select() es vital para recuperar el ID real generado
+
+      if (error) throw error;
+
+      if (data) {
+        setRooms([...rooms, ...data]);
+        setNewName("");
+      }
+    } catch (error) {
+      console.error("Error al guardar:", error);
+      alert("Error al guardar. Revisa la consola.");
+    }
   }
 
+  // 3. ACTUALIZAR EN SUPABASE (UPDATE)
   async function saveEdit(roomId: string) {
     if (editingName.trim().length < 2) return;
     
-    // Actualizamos el array local
-    const updatedRooms = rooms.map(r => 
-      r.id === roomId ? { ...r, name: editingName.trim() } : r
-    );
-    
-    setRooms(updatedRooms);
-    setEditingId(null);
+    try {
+      const { error } = await supabase
+        .from('rooms')
+        .update({ name: editingName.trim() })
+        .eq('id', roomId);
+
+      if (error) throw error;
+
+      // Actualizamos localmente solo si la BD respondió bien
+      const updatedRooms = rooms.map(r => 
+        r.id === roomId ? { ...r, name: editingName.trim() } : r
+      );
+      setRooms(updatedRooms);
+      setEditingId(null);
+    } catch (error) {
+      console.error("Error al editar:", error);
+    }
   }
 
+  // 4. BORRAR EN SUPABASE (DELETE)
   async function deleteRoom(roomId: string) {
     if (!confirm("¿Eliminar este recurso?")) return;
     
-    // Filtramos para eliminar
-    setRooms(rooms.filter(r => r.id !== roomId));
+    try {
+      const { error } = await supabase
+        .from('rooms')
+        .delete()
+        .eq('id', roomId);
+
+      if (error) throw error;
+
+      // Actualizamos localmente
+      setRooms(rooms.filter(r => r.id !== roomId));
+    } catch (error) {
+      console.error("Error al eliminar:", error);
+    }
   }
 
   return (
@@ -109,7 +153,7 @@ export default function ResourcesPage() {
               <input 
                 value={newName} 
                 onChange={(e) => setNewName(e.target.value)} 
-                onKeyDown={(e) => e.key === 'Enter' && addRoom()} // Agregué Enter para enviar
+                onKeyDown={(e) => e.key === 'Enter' && addRoom()} 
                 placeholder="Ej: Estudio de Grabación A" 
                 className="bg-transparent border-none p-0 w-full text-white text-sm focus:ring-0 placeholder:text-zinc-700" 
               />
@@ -127,7 +171,7 @@ export default function ResourcesPage() {
         {/* LISTADO DE RECURSOS */}
         <div className="grid grid-cols-1 gap-4">
           {loading ? (
-            <div className="text-center py-20 text-xs tracking-[0.3em] animate-pulse text-emerald-500/50 font-bold">ESCANEANDO INFRAESTRUCTURA...</div>
+            <div className="text-center py-20 text-xs tracking-[0.3em] animate-pulse text-emerald-500/50 font-bold">CONECTANDO A BASE DE DATOS...</div>
           ) : rooms.map((room) => (
             <div key={room.id} className="group bg-zinc-900/20 border border-zinc-800/50 rounded-2xl p-6 hover:border-emerald-500/30 transition-all duration-500 shadow-lg">
               <div className="flex items-center justify-between">
@@ -176,7 +220,7 @@ export default function ResourcesPage() {
         {rooms.length === 0 && !loading && (
           <div className="border border-dashed border-zinc-800 rounded-3xl py-24 text-center">
             <Box className="h-10 w-10 text-zinc-800 mx-auto mb-4" />
-            <p className="text-zinc-600 text-sm italic">No se han detectado recursos configurados.</p>
+            <p className="text-zinc-600 text-sm italic">No se encontraron recursos en la base de datos.</p>
           </div>
         )}
       </div>

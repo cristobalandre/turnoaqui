@@ -1,0 +1,41 @@
+-- Table: bookings
+CREATE TABLE IF NOT EXISTS bookings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  room_id uuid,
+  producer_id uuid,
+  artist_id uuid,
+  start_at timestamp with time zone NOT NULL,
+  end_at timestamp with time zone NOT NULL,
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  service_id uuid,
+  client_name text,
+  client_phone text,
+  staff_id uuid,
+  color text DEFAULT '#3b82f6'::text,
+  org_id uuid,
+  client_id uuid,
+  duration_minutes integer,
+  total_price integer,
+  payment_status text NOT NULL DEFAULT 'pending'::booking_payment_status,
+  payment_method text,
+  paid_at timestamp with time zone,
+  discount_amount numeric DEFAULT 0,
+  deposit_amount numeric DEFAULT 0,
+  client_email text,
+  started_at timestamp with time zone,
+  ended_at timestamp with time zone,
+  reference_url text,
+  PRIMARY KEY (id),
+  CONSTRAINT bookings_artist_id_fkey FOREIGN KEY (artist_id) REFERENCES public.artists (id),
+  CONSTRAINT bookings_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients (id),
+  CONSTRAINT bookings_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.organizations (id),
+  CONSTRAINT bookings_producer_id_fkey FOREIGN KEY (producer_id) REFERENCES public.producers (id),
+  CONSTRAINT bookings_room_id_fkey FOREIGN KEY (room_id) REFERENCES public.rooms (id),
+  CONSTRAINT bookings_service_id_fkey FOREIGN KEY (service_id) REFERENCES public.services (id),
+  CONSTRAINT bookings_staff_id_fkey FOREIGN KEY (staff_id) REFERENCES public.staff (id),
+  CONSTRAINT bookings_payment_status_check CHECK ((payment_status = ANY (ARRAY['pending'::text, 'paid'::text])))
+);
+
+-- COMMENT ON TABLE public.bookings IS '_your_comment_here_';
+
