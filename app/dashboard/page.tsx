@@ -151,7 +151,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
            {[
              { name: "Recursos", icon: Box, link: "/resources" },
-             { name: "Staff", icon: Users, link: "/team" },
+             { name: "Staff", icon: Users, link: "/admin/team" },
              { name: "Servicios", icon: Scissors, link: "/services" },
              ...(isAdmin ? [{ name: "Admin", icon: Shield, link: "/admin/team" }] : [])
            ].map((item) => (
