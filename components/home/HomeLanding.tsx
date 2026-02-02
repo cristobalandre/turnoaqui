@@ -7,7 +7,6 @@ import { Outfit } from "next/font/google";
 import { ArrowRight, LogOut, Chrome, Lock, LayoutDashboard } from "lucide-react"; 
 import { Logo } from "@/components/ui/Logo";
 import { createClient } from "@supabase/supabase-js";
-import PricingSection from "@/components/landing/PricingSection"; 
 
 const outfit = Outfit({ subsets: ["latin"] });
 
@@ -83,14 +82,13 @@ export default function HomeLanding() {
   };
 
   return (
-    <div className={`min-h-screen bg-[#09090b] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
+    <div className={`min-h-screen bg-[#0F1112] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* FONDO HERO MEJORADO */}
-      <div className="absolute top-0 left-0 w-full h-[900px] z-0 overflow-hidden pointer-events-none">
+      {/* FONDO CON VIÑETA MEJORADA */}
+      <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
          <div 
            className="relative w-full h-full max-w-[1400px] mx-auto"
            style={{
-             // Máscara original que te gusta
              maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
              WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
              maskComposite: 'intersect',
@@ -107,16 +105,15 @@ export default function HomeLanding() {
               />
             ))}
          </div>
-         
-         {/* 👇 AQUÍ ESTÁ EL CAMBIO:
-             1. h-[600px]: El degradado es gigante (antes era h-40).
-             2. via-[#09090b]: El negro es sólido hasta la mitad, tapando cualquier línea.
-         */}
-         <div className="absolute bottom-0 left-0 w-full h-[600px] bg-gradient-to-t from-[#09090b] via-[#09090b] to-transparent" />
+         <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-[#0F1112] via-[#0F1112]/80 to-transparent" />
+      </div>
+
+      <div className="fixed inset-0 z-0 pointer-events-none mix-blend-screen">
+        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[700px] bg-emerald-500/10 blur-[120px] rounded-full opacity-40" />
       </div>
 
       {/* NAVBAR */}
-      <nav className="relative z-50 w-full border-b border-white/5 bg-[#09090b]/50 backdrop-blur-md transition-all">
+      <nav className="relative z-50 w-full border-b border-white/5 bg-[#0F1112]/50 backdrop-blur-md transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <Logo widthClass="w-[145px]" />
@@ -149,7 +146,6 @@ export default function HomeLanding() {
               <>
                 <div className="hidden md:flex items-center gap-10 text-sm font-medium text-gray-400">
                   <a href="#features" className="hover:text-emerald-400 transition-colors">Características</a>
-                  <a href="#precios" className="hover:text-emerald-400 transition-colors">Precios</a>
                 </div>
                 <div className="flex items-center gap-3">
                    <Link href="/login" className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white group" title="Ingresar">
@@ -247,12 +243,11 @@ export default function HomeLanding() {
         </div>
       </main>
 
-      {/* SECCIÓN DE PRECIOS */}
-      <PricingSection />
-
-      {/* FOOTER */}
-      <footer className="relative z-10 w-full py-8 border-t border-white/5 bg-[#09090b]/50 backdrop-blur-sm mt-auto">
+      {/* --- FOOTER (AQUÍ ESTÁ LO NUEVO) --- */}
+      <footer className="relative z-10 w-full py-8 border-t border-white/5 bg-[#0F1112]/50 backdrop-blur-sm mt-auto">
         <div className="max-w-7xl mx-auto px-6 flex flex-col items-center justify-center gap-6">
+          
+          {/* Enlaces Legales */}
           <div className="flex flex-wrap justify-center gap-6 md:gap-8 text-xs font-medium text-zinc-500">
             <Link href="/legal/privacy" className="hover:text-emerald-400 transition-colors">
               Política de Privacidad
@@ -264,6 +259,8 @@ export default function HomeLanding() {
               Contacto
             </a>
           </div>
+
+          {/* Copyright */}
           <div className="text-[10px] text-zinc-700 font-bold uppercase tracking-widest flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-zinc-800"></span>
             TurnoAquí © 2026 • Todos los derechos reservados
