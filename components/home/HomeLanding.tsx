@@ -85,13 +85,16 @@ export default function HomeLanding() {
   return (
     <div className={`min-h-screen bg-[#09090b] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* FONDO HERO (Sin aura verde) */}
+      {/* FONDO HERO (Ajustado: Menos degradado, más imagen) */}
       <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
          <div 
            className="relative w-full h-full max-w-[1400px] mx-auto"
            style={{
-             maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
-             WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
+             // 👇 MÁSCARA MÁS PERMISIVA:
+             // 1. 'black 85%': La imagen se ve nítida hasta el 85% de abajo (antes era 40%).
+             // 2. Laterales: 'black 10%, black 90%': Se ve más ancha, menos "tubo".
+             maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
+             WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
              maskComposite: 'intersect',
              WebkitMaskComposite: 'source-in'
            }}
@@ -106,13 +109,13 @@ export default function HomeLanding() {
               />
             ))}
          </div>
-         {/* Degradado Negro para fusionar */}
-         <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-[#09090b] via-[#09090b]/80 to-transparent" />
+         
+         {/* 👇 DEGRADADO INFERIOR SUTIL:
+             Bajamos la altura a h-64 (aprox 250px) para que solo suavice el corte final,
+             sin comerse la foto.
+         */}
+         <div className="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-[#09090b] via-[#09090b]/60 to-transparent" />
       </div>
-
-      {/* 🗑️ ELIMINADO: Aquí estaba el div del "aura verde" (bg-emerald-500/10 blur-[120px])
-         Ahora el fondo es negro puro.
-      */}
 
       {/* NAVBAR */}
       <nav className="relative z-50 w-full border-b border-white/5 bg-[#09090b]/50 backdrop-blur-md transition-all">
