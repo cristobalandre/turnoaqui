@@ -7,7 +7,10 @@ import { ShieldCheck, XCircle, CheckCircle, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 // 🔒 LISTA BLANCA DE SUPER ADMINS (Solo tú)
-const GOD_EMAILS = ['cristobal.andres27@outlook.com']
+const GOD_EMAILS = [
+  'cristobal.andres27@outlook.com', 
+  'tu.correo.google@gmail.com' 
+]
 
 export default function GodModePage() {
   const [requests, setRequests] = useState<any[]>([])
@@ -34,15 +37,18 @@ export default function GodModePage() {
   }
 
   const fetchPendingRequests = async () => {
-    // Buscamos a todos los que están en estado "pending"
-    // OJO: Asegúrate de que tu tabla profiles tenga la columna 'plan_status'
+    setLoading(true)  
     const { data, error } = await supabase
         .from('profiles')
-        .select('*, organizations(name, plan_type)')
+        .select('*')
         .eq('plan_status', 'pending')
         .order('created_at', { ascending: false })
 
-    if (!error) setRequests(data || [])
+    if (error) {
+        console.error("Error cargando solicitudes:", error)
+    } else {
+        setRequests(data || [])
+    }
     setLoading(false)
   }
 

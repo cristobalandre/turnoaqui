@@ -8,6 +8,9 @@ import { ArrowRight, LogOut, Chrome, Lock, LayoutDashboard } from "lucide-react"
 import { Logo } from "@/components/ui/Logo";
 import { createClient } from "@supabase/supabase-js";
 
+// 👇 1. IMPORTAMOS LA NUEVA SECCIÓN (Lo único nuevo arriba)
+import PricingSection from "@/components/landing/PricingSection"; 
+
 const outfit = Outfit({ subsets: ["latin"] });
 
 const HERO_IMAGES = [
@@ -22,6 +25,7 @@ const supabase = createClient(
 );
 
 export default function HomeLanding() {
+  // --- TUS ESTADOS Y LÓGICA ORIGINALES (INTACTOS) ---
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [user, setUser] = useState<any | null>(null);
   const [userName, setUserName] = useState<string>(""); 
@@ -84,7 +88,7 @@ export default function HomeLanding() {
   return (
     <div className={`min-h-screen bg-[#0F1112] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* FONDO CON VIÑETA MEJORADA */}
+      {/* --- FONDO ORIGINAL (INTACTO) --- */}
       <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
          <div 
            className="relative w-full h-full max-w-[1400px] mx-auto"
@@ -112,7 +116,7 @@ export default function HomeLanding() {
         <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[700px] bg-emerald-500/10 blur-[120px] rounded-full opacity-40" />
       </div>
 
-      {/* NAVBAR */}
+      {/* --- NAVBAR ORIGINAL (INTACTA) --- */}
       <nav className="relative z-50 w-full border-b border-white/5 bg-[#0F1112]/50 backdrop-blur-md transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
@@ -146,6 +150,8 @@ export default function HomeLanding() {
               <>
                 <div className="hidden md:flex items-center gap-10 text-sm font-medium text-gray-400">
                   <a href="#features" className="hover:text-emerald-400 transition-colors">Características</a>
+                  {/* Agregamos ancla a precios */}
+                  <a href="#precios" className="hover:text-emerald-400 transition-colors">Precios</a>
                 </div>
                 <div className="flex items-center gap-3">
                    <Link href="/login" className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white group" title="Ingresar">
@@ -162,7 +168,7 @@ export default function HomeLanding() {
         </div>
       </nav>
 
-      {/* HERO SECTION */}
+      {/* --- MAIN HERO (INTACTO) --- */}
       <main className="relative z-10 flex-grow flex flex-col items-center justify-center pt-20 pb-20 text-center px-6">
         
         {/* Badge Estado */}
@@ -243,24 +249,17 @@ export default function HomeLanding() {
         </div>
       </main>
 
-      {/* --- FOOTER (AQUÍ ESTÁ LO NUEVO) --- */}
+      {/* 👇 2. AQUÍ INSERTAMOS LA SECCIÓN DE PRECIOS "GEMINIZADA" */}
+      <PricingSection />
+
+      {/* --- FOOTER ORIGINAL (INTACTO) --- */}
       <footer className="relative z-10 w-full py-8 border-t border-white/5 bg-[#0F1112]/50 backdrop-blur-sm mt-auto">
         <div className="max-w-7xl mx-auto px-6 flex flex-col items-center justify-center gap-6">
-          
-          {/* Enlaces Legales */}
           <div className="flex flex-wrap justify-center gap-6 md:gap-8 text-xs font-medium text-zinc-500">
-            <Link href="/legal/privacy" className="hover:text-emerald-400 transition-colors">
-              Política de Privacidad
-            </Link>
-            <Link href="/legal/terms" className="hover:text-emerald-400 transition-colors">
-              Términos y Condiciones
-            </Link>
-            <a href="mailto:soporte@turnoaqui.com" className="hover:text-emerald-400 transition-colors">
-              Contacto
-            </a>
+            <Link href="/legal/privacy" className="hover:text-emerald-400 transition-colors">Política de Privacidad</Link>
+            <Link href="/legal/terms" className="hover:text-emerald-400 transition-colors">Términos y Condiciones</Link>
+            <a href="mailto:soporte@turnoaqui.com" className="hover:text-emerald-400 transition-colors">Contacto</a>
           </div>
-
-          {/* Copyright */}
           <div className="text-[10px] text-zinc-700 font-bold uppercase tracking-widest flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-zinc-800"></span>
             TurnoAquí © 2026 • Todos los derechos reservados
