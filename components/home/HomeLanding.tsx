@@ -7,8 +7,6 @@ import { Outfit } from "next/font/google";
 import { ArrowRight, LogOut, Chrome, Lock, LayoutDashboard } from "lucide-react"; 
 import { Logo } from "@/components/ui/Logo";
 import { createClient } from "@supabase/supabase-js";
-
-// 👇 1. IMPORTAMOS LA NUEVA SECCIÓN
 import PricingSection from "@/components/landing/PricingSection"; 
 
 const outfit = Outfit({ subsets: ["latin"] });
@@ -25,7 +23,6 @@ const supabase = createClient(
 );
 
 export default function HomeLanding() {
-  // --- TUS ESTADOS Y LÓGICA ORIGINALES (INTACTOS) ---
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [user, setUser] = useState<any | null>(null);
   const [userName, setUserName] = useState<string>(""); 
@@ -86,40 +83,42 @@ export default function HomeLanding() {
   };
 
   return (
-    <div className={`min-h-screen bg-[#0F1112] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
+    // 👇 CAMBIO 1: Fondo base #09090b (Igual que Pricing)
+    <div className={`min-h-screen bg-[#09090b] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* 🎨 AQUÍ ESTÁ EL ARREGLO VISUAL (Fusión Perfecta) */}
-      <div className="absolute top-0 left-0 w-full h-[120vh] z-0 overflow-hidden pointer-events-none">
-         {/* Capa de Imagen con Máscara de Desvanecimiento */}
+      {/* FONDO CON TU ESTILO ORIGINAL */}
+      <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
          <div 
-           className="relative w-full h-full max-w-[1400px] mx-auto opacity-50" 
+           className="relative w-full h-full max-w-[1400px] mx-auto"
            style={{
-             // MÁSCARA MÁGICA: Corta la imagen gradualmente antes de llegar al fondo
-             maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
-             WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)'
+             // Tu máscara original intacta
+             maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
+             WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
+             maskComposite: 'intersect',
+             WebkitMaskComposite: 'source-in'
            }}
          >
             {HERO_IMAGES.map((img, index) => (
               <div
                 key={index}
-                className={`absolute inset-0 bg-cover bg-center transition-all duration-[3000ms] ease-in-out ${
-                  index === currentImageIndex ? "opacity-100 scale-105" : "opacity-0 scale-100"
+                className={`absolute inset-0 bg-cover bg-center transition-all duration-[2500ms] ease-in-out ${
+                  index === currentImageIndex ? "opacity-50 scale-100" : "opacity-0 scale-105"
                 }`}
                 style={{ backgroundImage: `url(${img})` }}
               />
             ))}
          </div>
-         
-         {/* EL BORRADOR DE LÍNEAS: Un degradado sólido gigante que sube desde el fondo */}
-         <div className="absolute bottom-0 left-0 w-full h-[600px] bg-gradient-to-t from-[#0F1112] via-[#0F1112] to-transparent" />
+         {/* 👇 CAMBIO 2: Degradado usando #09090b para fusionarse con el fondo */}
+         <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-[#09090b] via-[#09090b]/80 to-transparent" />
       </div>
 
       <div className="fixed inset-0 z-0 pointer-events-none mix-blend-screen">
         <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[700px] bg-emerald-500/10 blur-[120px] rounded-full opacity-40" />
       </div>
 
-      {/* --- NAVBAR ORIGINAL (INTACTA) --- */}
-      <nav className="relative z-50 w-full border-b border-white/5 bg-[#0F1112]/50 backdrop-blur-md transition-all">
+      {/* NAVBAR */}
+      {/* 👇 CAMBIO 3: Navbar con fondo #09090b */}
+      <nav className="relative z-50 w-full border-b border-white/5 bg-[#09090b]/50 backdrop-blur-md transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <Logo widthClass="w-[145px]" />
@@ -152,7 +151,6 @@ export default function HomeLanding() {
               <>
                 <div className="hidden md:flex items-center gap-10 text-sm font-medium text-gray-400">
                   <a href="#features" className="hover:text-emerald-400 transition-colors">Características</a>
-                  {/* Agregamos ancla a precios */}
                   <a href="#precios" className="hover:text-emerald-400 transition-colors">Precios</a>
                 </div>
                 <div className="flex items-center gap-3">
@@ -170,7 +168,7 @@ export default function HomeLanding() {
         </div>
       </nav>
 
-      {/* --- MAIN HERO (INTACTO) --- */}
+      {/* HERO SECTION */}
       <main className="relative z-10 flex-grow flex flex-col items-center justify-center pt-20 pb-20 text-center px-6">
         
         {/* Badge Estado */}
@@ -251,16 +249,23 @@ export default function HomeLanding() {
         </div>
       </main>
 
-      {/* 👇 2. AQUÍ INSERTAMOS LA SECCIÓN DE PRECIOS "GEMINIZADA" */}
+      {/* SECCIÓN DE PRECIOS */}
       <PricingSection />
 
-      {/* --- FOOTER ORIGINAL (INTACTO) --- */}
-      <footer className="relative z-10 w-full py-8 border-t border-white/5 bg-[#0F1112]/50 backdrop-blur-sm mt-auto">
+      {/* FOOTER */}
+      {/* 👇 CAMBIO 4: Footer con fondo #09090b */}
+      <footer className="relative z-10 w-full py-8 border-t border-white/5 bg-[#09090b]/50 backdrop-blur-sm mt-auto">
         <div className="max-w-7xl mx-auto px-6 flex flex-col items-center justify-center gap-6">
           <div className="flex flex-wrap justify-center gap-6 md:gap-8 text-xs font-medium text-zinc-500">
-            <Link href="/legal/privacy" className="hover:text-emerald-400 transition-colors">Política de Privacidad</Link>
-            <Link href="/legal/terms" className="hover:text-emerald-400 transition-colors">Términos y Condiciones</Link>
-            <a href="mailto:soporte@turnoaqui.com" className="hover:text-emerald-400 transition-colors">Contacto</a>
+            <Link href="/legal/privacy" className="hover:text-emerald-400 transition-colors">
+              Política de Privacidad
+            </Link>
+            <Link href="/legal/terms" className="hover:text-emerald-400 transition-colors">
+              Términos y Condiciones
+            </Link>
+            <a href="mailto:soporte@turnoaqui.com" className="hover:text-emerald-400 transition-colors">
+              Contacto
+            </a>
           </div>
           <div className="text-[10px] text-zinc-700 font-bold uppercase tracking-widest flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-zinc-800"></span>
