@@ -8,7 +8,7 @@ import { ArrowRight, LogOut, Chrome, Lock, LayoutDashboard } from "lucide-react"
 import { Logo } from "@/components/ui/Logo";
 import { createClient } from "@supabase/supabase-js";
 
-// 👇 1. IMPORTAMOS LA NUEVA SECCIÓN (Lo único nuevo arriba)
+// 👇 1. IMPORTAMOS LA NUEVA SECCIÓN
 import PricingSection from "@/components/landing/PricingSection"; 
 
 const outfit = Outfit({ subsets: ["latin"] });
@@ -88,28 +88,30 @@ export default function HomeLanding() {
   return (
     <div className={`min-h-screen bg-[#0F1112] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* --- FONDO ORIGINAL (INTACTO) --- */}
-      <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
+      {/* 🎨 AQUÍ ESTÁ EL ARREGLO VISUAL (Fusión Perfecta) */}
+      <div className="absolute top-0 left-0 w-full h-[120vh] z-0 overflow-hidden pointer-events-none">
+         {/* Capa de Imagen con Máscara de Desvanecimiento */}
          <div 
-           className="relative w-full h-full max-w-[1400px] mx-auto"
+           className="relative w-full h-full max-w-[1400px] mx-auto opacity-50" 
            style={{
-             maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
-             WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
-             maskComposite: 'intersect',
-             WebkitMaskComposite: 'source-in'
+             // MÁSCARA MÁGICA: Corta la imagen gradualmente antes de llegar al fondo
+             maskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)',
+             WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 100%)'
            }}
          >
             {HERO_IMAGES.map((img, index) => (
               <div
                 key={index}
-                className={`absolute inset-0 bg-cover bg-center transition-all duration-[2500ms] ease-in-out ${
-                  index === currentImageIndex ? "opacity-50 scale-100" : "opacity-0 scale-105"
+                className={`absolute inset-0 bg-cover bg-center transition-all duration-[3000ms] ease-in-out ${
+                  index === currentImageIndex ? "opacity-100 scale-105" : "opacity-0 scale-100"
                 }`}
                 style={{ backgroundImage: `url(${img})` }}
               />
             ))}
          </div>
-         <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-[#0F1112] via-[#0F1112]/80 to-transparent" />
+         
+         {/* EL BORRADOR DE LÍNEAS: Un degradado sólido gigante que sube desde el fondo */}
+         <div className="absolute bottom-0 left-0 w-full h-[600px] bg-gradient-to-t from-[#0F1112] via-[#0F1112] to-transparent" />
       </div>
 
       <div className="fixed inset-0 z-0 pointer-events-none mix-blend-screen">
