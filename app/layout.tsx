@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-//  1. MANTENEMOS TU IMPORTACIÓN ORIGINAL
 import { Providers } from "./providers";
 
-//  2. NUEVOS IMPORTS NECESARIOS PARA LA SEGURIDAD
+// Imports de seguridad
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import WaitingRoom from "@/components/auth/WaitingRoom"; // Asegúrate de que la ruta sea correcta
+import WaitingRoom from "@/components/auth/WaitingRoom";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,9 +28,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  //  3. LÓGICA DE SEGURIDAD (PORTERO)
-  // Antes de pintar nada, verificamos quién es el usuario
-  const cookieStore = cookies();
+  // 👇 AQUÍ ESTÁ EL CAMBIO CLAVE: Agregamos 'await'
+  const cookieStore = await cookies();
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,6 +37,7 @@ export default async function RootLayout({
     {
       cookies: {
         get(name: string) {
+          // Ahora cookieStore ya es el objeto real, no una promesa
           return cookieStore.get(name)?.value;
         },
       },
@@ -52,29 +51,23 @@ export default async function RootLayout({
   } = await supabase.auth.getUser();
 
   if (user) {
-    // Si existe, consultamos su estado en la tabla 'profiles'
     const { data: profile } = await supabase
       .from("profiles")
       .select("plan_status")
       .eq("id", user.id)
       .single();
 
-    // Si su estado es 'pending', activamos la bandera
     if (profile?.plan_status === "pending") {
       isPending = true;
     }
   }
 
   return (
-    //  4. TU ESTRUCTURA VISUAL INTACTA
     <html lang="es" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
-          {/*  5. AQUÍ OCURRE LA MAGIA:
-              Si está pendiente -> Muestra Sala de Espera.
-              Si no -> Muestra el sitio normal (children). */}
           {isPending ? <WaitingRoom /> : children}
         </Providers>
       </body>
