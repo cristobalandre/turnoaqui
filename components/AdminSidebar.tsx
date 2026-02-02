@@ -21,8 +21,9 @@ export default function AdminSidebar() {
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Agenda", href: "/admin", icon: Calendar },
     { name: "Salas", href: "/admin/rooms", icon: Music },
-    { name: "Productores", href: "/admin/productores", icon: Mic2 },
-    { name: "Artistas", href: "/admin/artistas", icon: Users },
+    // CAMBIO AQUI: Rutas en inglés
+    { name: "Productores", href: "/admin/producers", icon: Mic2 },
+    { name: "Artistas", href: "/admin/artists", icon: Users },
     { name: "Gestión Equipo", href: "/admin/team", icon: Shield },
   ];
 
@@ -45,7 +46,7 @@ export default function AdminSidebar() {
       {/* MENÚ */}
       <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
         {menuItems.map((item) => {
-          // Lógica exacta para saber si está activo
+          // Lógica para saber si está activo
           const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
 
           return (

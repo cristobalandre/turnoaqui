@@ -38,8 +38,8 @@ interface Booking { // Antes Sesion
   room_id: string
   producer_id: string // Antes productor_id
   artist_id: string   // Antes artista_id
-  starts_at: string   // Antes fecha_inicio
-  ends_at: string     // Antes fecha_fin
+  start_at: string   // Antes fecha_inicio
+  end_at: string     // Antes fecha_fin
   notes: string | null // Antes notas
   status: 'scheduled' | 'active' | 'completed' | 'cancelled' // Antes estado
   rooms: { name: string }
@@ -68,8 +68,8 @@ export default function AgendaPage() {
     room_id: '',
     producer_id: '',
     artist_id: '',
-    starts_at: '',
-    ends_at: '',
+    start_at: '',
+    end_at: '',
     notes: '',
     status: 'scheduled' as const,
   })
@@ -117,9 +117,9 @@ export default function AgendaPage() {
           producers(name),
           artists(name)
         `)
-        .gte('starts_at', weekStartUTC.toISOString())
-        .lt('starts_at', weekEndUTC.toISOString())
-        .order('starts_at', { ascending: true })
+        .gte('start_at', weekStartUTC.toISOString())
+        .lt('start_at', weekEndUTC.toISOString())
+        .order('start_at', { ascending: true })
 
       if (filters.room_id) {
         query = query.eq('room_id', filters.room_id)
@@ -159,7 +159,7 @@ export default function AgendaPage() {
           .select('*')
           .eq(column, value)
           .neq('status', 'cancelled')
-          .or(`and(starts_at.lt.${end},ends_at.gt.${start})`) // Lógica de superposición
+          .or(`and(start_at.lt.${end},end_at.gt.${start})`) // Lógica de superposición
 
         if (data) {
           const hasConflict = data.some(
@@ -184,11 +184,11 @@ export default function AgendaPage() {
     setErrors([])
 
     const startUTC = fromZonedTime(
-      parseISO(formData.starts_at),
+      parseISO(formData.start_at),
       timezone
     ).toISOString()
     const endUTC = fromZonedTime(
-      parseISO(formData.ends_at),
+      parseISO(formData.end_at),
       timezone
     ).toISOString()
 
@@ -218,8 +218,8 @@ export default function AgendaPage() {
         room_id: formData.room_id,
         producer_id: formData.producer_id,
         artist_id: formData.artist_id,
-        starts_at: startUTC,
-        ends_at: endUTC,
+        start_at: startUTC,
+        end_at: endUTC,
         notes: formData.notes || null,
         status: formData.status,
         // updated_at se suele manejar automático en Supabase, pero si lo necesitas:
@@ -250,21 +250,21 @@ export default function AgendaPage() {
   // --- ACCIONES DE UI ---
   const handleEdit = (bk: Booking) => {
     // BLINDAJE: Si la fecha es inválida, no permitimos editar para evitar crash
-    if (!bk.starts_at || !bk.ends_at) return;
+    if (!bk.start_at || !bk.end_at) return;
 
     setEditingBooking(bk)
     const startLocal = toZonedTime(
-      parseISO(bk.starts_at),
+      parseISO(bk.start_at),
       timezone
     )
-    const endLocal = toZonedTime(parseISO(bk.ends_at), timezone)
+    const endLocal = toZonedTime(parseISO(bk.end_at), timezone)
 
     setFormData({
       room_id: bk.room_id,
       producer_id: bk.producer_id,
       artist_id: bk.artist_id,
-      starts_at: format(startLocal, "yyyy-MM-dd'T'HH:mm"),
-      ends_at: format(endLocal, "yyyy-MM-dd'T'HH:mm"),
+      start_at: format(startLocal, "yyyy-MM-dd'T'HH:mm"),
+      end_at: format(endLocal, "yyyy-MM-dd'T'HH:mm"),
       notes: bk.notes || '',
       status: bk.status as any,
     })
@@ -293,8 +293,8 @@ export default function AgendaPage() {
       room_id: '',
       producer_id: '',
       artist_id: '',
-      starts_at: '',
-      ends_at: '',
+      start_at: '',
+      end_at: '',
       notes: '',
       status: 'scheduled',
     })
@@ -313,13 +313,13 @@ export default function AgendaPage() {
   const getBookingsForSlot = (day: Date, hour: number) => {
     return bookings.filter((bk) => {
       // 🛡️ PROTECCIÓN ANTI-CRASH 🛡️
-      if (!bk.starts_at || !bk.ends_at) return false;
+      if (!bk.start_at || !bk.end_at) return false;
       
       if (bk.status === 'cancelled') return false
       
       try {
-        const start = toZonedTime(parseISO(bk.starts_at), timezone)
-        const end = toZonedTime(parseISO(bk.ends_at), timezone)
+        const start = toZonedTime(parseISO(bk.start_at), timezone)
+        const end = toZonedTime(parseISO(bk.end_at), timezone)
         return (
             isSameDay(start, day) &&
             start.getHours() <= hour &&
@@ -332,10 +332,10 @@ export default function AgendaPage() {
   }
 
   const getBookingStyle = (bk: Booking) => {
-    if (!bk.starts_at || !bk.ends_at) return {};
+    if (!bk.start_at || !bk.end_at) return {};
 
-    const start = toZonedTime(parseISO(bk.starts_at), timezone)
-    const end = toZonedTime(parseISO(bk.ends_at), timezone)
+    const start = toZonedTime(parseISO(bk.start_at), timezone)
+    const end = toZonedTime(parseISO(bk.end_at), timezone)
     const duration = (end.getTime() - start.getTime()) / (1000 * 60 * 60)
     const startHour = start.getHours() + start.getMinutes() / 60
 
@@ -447,14 +447,14 @@ export default function AgendaPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="starts_at" className="text-xs font-bold text-zinc-400 uppercase">Inicio</Label>
-                      <Input id="starts_at" type="datetime-local" className="bg-zinc-900 border-zinc-800 text-white focus:ring-emerald-500"
-                        value={formData.starts_at} onChange={(e) => setFormData({ ...formData, starts_at: e.target.value })} required />
+                      <Label htmlFor="start_at" className="text-xs font-bold text-zinc-400 uppercase">Inicio</Label>
+                      <Input id="start_at" type="datetime-local" className="bg-zinc-900 border-zinc-800 text-white focus:ring-emerald-500"
+                        value={formData.start_at} onChange={(e) => setFormData({ ...formData, start_at: e.target.value })} required />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="ends_at" className="text-xs font-bold text-zinc-400 uppercase">Fin</Label>
-                      <Input id="ends_at" type="datetime-local" className="bg-zinc-900 border-zinc-800 text-white focus:ring-emerald-500"
-                        value={formData.ends_at} onChange={(e) => setFormData({ ...formData, ends_at: e.target.value })} required />
+                      <Label htmlFor="end_at" className="text-xs font-bold text-zinc-400 uppercase">Fin</Label>
+                      <Input id="end_at" type="datetime-local" className="bg-zinc-900 border-zinc-800 text-white focus:ring-emerald-500"
+                        value={formData.end_at} onChange={(e) => setFormData({ ...formData, end_at: e.target.value })} required />
                     </div>
                   </div>
                   
