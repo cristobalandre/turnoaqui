@@ -83,15 +83,14 @@ export default function HomeLanding() {
   };
 
   return (
-    // 👇 CAMBIO 1: Fondo base #09090b (Igual que Pricing)
     <div className={`min-h-screen bg-[#09090b] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* FONDO CON TU ESTILO ORIGINAL */}
-      <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
+      {/* FONDO HERO MEJORADO */}
+      <div className="absolute top-0 left-0 w-full h-[900px] z-0 overflow-hidden pointer-events-none">
          <div 
            className="relative w-full h-full max-w-[1400px] mx-auto"
            style={{
-             // Tu máscara original intacta
+             // Máscara original que te gusta
              maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
              WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
              maskComposite: 'intersect',
@@ -108,16 +107,15 @@ export default function HomeLanding() {
               />
             ))}
          </div>
-         {/* 👇 CAMBIO 2: Degradado usando #09090b para fusionarse con el fondo */}
-         <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-[#09090b] via-[#09090b]/80 to-transparent" />
-      </div>
-
-      <div className="fixed inset-0 z-0 pointer-events-none mix-blend-screen">
-        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[700px] bg-emerald-500/10 blur-[120px] rounded-full opacity-40" />
+         
+         {/* 👇 AQUÍ ESTÁ EL CAMBIO:
+             1. h-[600px]: El degradado es gigante (antes era h-40).
+             2. via-[#09090b]: El negro es sólido hasta la mitad, tapando cualquier línea.
+         */}
+         <div className="absolute bottom-0 left-0 w-full h-[600px] bg-gradient-to-t from-[#09090b] via-[#09090b] to-transparent" />
       </div>
 
       {/* NAVBAR */}
-      {/* 👇 CAMBIO 3: Navbar con fondo #09090b */}
       <nav className="relative z-50 w-full border-b border-white/5 bg-[#09090b]/50 backdrop-blur-md transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
@@ -253,7 +251,6 @@ export default function HomeLanding() {
       <PricingSection />
 
       {/* FOOTER */}
-      {/* 👇 CAMBIO 4: Footer con fondo #09090b */}
       <footer className="relative z-10 w-full py-8 border-t border-white/5 bg-[#09090b]/50 backdrop-blur-sm mt-auto">
         <div className="max-w-7xl mx-auto px-6 flex flex-col items-center justify-center gap-6">
           <div className="flex flex-wrap justify-center gap-6 md:gap-8 text-xs font-medium text-zinc-500">
