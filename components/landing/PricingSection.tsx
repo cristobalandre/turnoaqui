@@ -58,7 +58,8 @@ export default function PricingSection() {
   ]
 
   return (
-    <section className="py-32 bg-[#09090b] relative overflow-hidden" id="precios">
+    // 👇 AQUÍ ESTÁ EL CAMBIO: bg-[#0F1112] para coincidir con el Hero
+    <section className="py-32 bg-[#0F1112] relative overflow-hidden" id="precios">
       
       {/* 🌌 ATMÓSFERA GEMINIZADA DE FONDO */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none" />
