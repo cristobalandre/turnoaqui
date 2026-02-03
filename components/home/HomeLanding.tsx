@@ -7,8 +7,9 @@ import { Outfit } from "next/font/google";
 import { ArrowRight, LogOut, Chrome, Lock, LayoutDashboard } from "lucide-react"; 
 import { Logo } from "@/components/ui/Logo";
 import { createClient } from "@supabase/supabase-js";
+
+// 👇 1. MANTENEMOS LA IMPORTACIÓN DE PRECIOS
 import PricingSection from "@/components/landing/PricingSection"; 
-import Image from "next/image";
 
 const outfit = Outfit({ subsets: ["latin"] });
 
@@ -24,6 +25,7 @@ const supabase = createClient(
 );
 
 export default function HomeLanding() {
+  // --- TUS ESTADOS Y LÓGICA (INTACTOS) ---
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [user, setUser] = useState<any | null>(null);
   const [userName, setUserName] = useState<string>(""); 
@@ -84,16 +86,17 @@ export default function HomeLanding() {
   };
 
   return (
-    <div className={`min-h-screen bg-[#09090b] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
+    // 👇 COLOR ORIGINAL #0F1112 (Según tu archivo antiguo)
+    <div className={`min-h-screen bg-[#0F1112] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* FONDO HERO LIMPIO (Todo depende de tu imagen editada en PS) */}
+      {/* --- FONDO HERO ORIGINAL (RESTAURADO) --- */}
       <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
          <div 
            className="relative w-full h-full max-w-[1400px] mx-auto"
            style={{
-             // Mantenemos solo la máscara de desvanecimiento suave (Vignette)
-             maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
-             WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
+             // Tu máscara original exacta
+             maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
+             WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
              maskComposite: 'intersect',
              WebkitMaskComposite: 'source-in'
            }}
@@ -101,27 +104,23 @@ export default function HomeLanding() {
             {HERO_IMAGES.map((img, index) => (
               <div
                 key={index}
-                className={`absolute inset-0 transition-all duration-[2500ms] ease-in-out ${
+                className={`absolute inset-0 bg-cover bg-center transition-all duration-[2500ms] ease-in-out ${
                   index === currentImageIndex ? "opacity-50 scale-100" : "opacity-0 scale-105"
                 }`}
-              >
-                <Image
-                  src={img}
-                  alt="Fondo Estudio"
-                  fill
-                  priority={index === 0}
-                  quality={100} // Máxima calidad para respetar tu ruido de Photoshop
-                  className="object-cover"
-                />
-              </div>
+                style={{ backgroundImage: `url(${img})` }}
+              />
             ))}
          </div>
-         
-         {/* 🧹 ELIMINADO: Degradados CSS y Ruido SVG. Ahora está limpio. */}
+         {/* Degradado original de h-40 con el color #0F1112 */}
+         <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-[#0F1112] via-[#0F1112]/80 to-transparent" />
+      </div>
+
+      <div className="fixed inset-0 z-0 pointer-events-none mix-blend-screen">
+        <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[1000px] h-[700px] bg-emerald-500/10 blur-[120px] rounded-full opacity-40" />
       </div>
 
       {/* NAVBAR */}
-      <nav className="relative z-50 w-full border-b border-white/5 bg-[#09090b]/50 backdrop-blur-md transition-all">
+      <nav className="relative z-50 w-full border-b border-white/5 bg-[#0F1112]/50 backdrop-blur-md transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <Logo widthClass="w-[145px]" />
@@ -252,22 +251,16 @@ export default function HomeLanding() {
         </div>
       </main>
 
-      {/* SECCIÓN DE PRECIOS */}
+      {/* 👇 SECCIÓN DE PRECIOS INTEGRADA */}
       <PricingSection />
 
       {/* FOOTER */}
-      <footer className="relative z-10 w-full py-8 border-t border-white/5 bg-[#09090b]/50 backdrop-blur-sm mt-auto">
+      <footer className="relative z-10 w-full py-8 border-t border-white/5 bg-[#0F1112]/50 backdrop-blur-sm mt-auto">
         <div className="max-w-7xl mx-auto px-6 flex flex-col items-center justify-center gap-6">
           <div className="flex flex-wrap justify-center gap-6 md:gap-8 text-xs font-medium text-zinc-500">
-            <Link href="/legal/privacy" className="hover:text-emerald-400 transition-colors">
-              Política de Privacidad
-            </Link>
-            <Link href="/legal/terms" className="hover:text-emerald-400 transition-colors">
-              Términos y Condiciones
-            </Link>
-            <a href="mailto:soporte@turnoaqui.com" className="hover:text-emerald-400 transition-colors">
-              Contacto
-            </a>
+            <Link href="/legal/privacy" className="hover:text-emerald-400 transition-colors">Política de Privacidad</Link>
+            <Link href="/legal/terms" className="hover:text-emerald-400 transition-colors">Términos y Condiciones</Link>
+            <a href="mailto:soporte@turnoaqui.com" className="hover:text-emerald-400 transition-colors">Contacto</a>
           </div>
           <div className="text-[10px] text-zinc-700 font-bold uppercase tracking-widest flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-zinc-800"></span>
