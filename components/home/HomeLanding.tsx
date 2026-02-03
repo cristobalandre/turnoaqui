@@ -8,7 +8,6 @@ import { ArrowRight, LogOut, Chrome, Lock, LayoutDashboard } from "lucide-react"
 import { Logo } from "@/components/ui/Logo";
 import { createClient } from "@supabase/supabase-js";
 import PricingSection from "@/components/landing/PricingSection"; 
-// 👇 1. IMPORTAMOS EL COMPONENTE IMAGE (La clave de la calidad)
 import Image from "next/image";
 
 const outfit = Outfit({ subsets: ["latin"] });
@@ -87,41 +86,40 @@ export default function HomeLanding() {
   return (
     <div className={`min-h-screen bg-[#09090b] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* FONDO HERO OPTIMIZADO (next/image con Calidad Máxima) */}
+      {/* FONDO HERO LIMPIO (Sin degradados CSS que causan banding) */}
       <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
          <div 
            className="relative w-full h-full max-w-[1400px] mx-auto"
            style={{
-             // Tu máscara original intacta
-             maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
-             WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
+             // Mantenemos la máscara suave lateral y superior
+             maskImage: 'linear-gradient(to bottom, black 90%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
+             WebkitMaskImage: 'linear-gradient(to bottom, black 90%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
              maskComposite: 'intersect',
              WebkitMaskComposite: 'source-in'
            }}
          >
             {HERO_IMAGES.map((img, index) => (
-              // 👇 CAMBIO CLAVE: De 'div con background' a 'Image component'
               <div
                 key={index}
                 className={`absolute inset-0 transition-all duration-[2500ms] ease-in-out ${
-                  // Mantenemos tu efecto de Zoom (Scale) y Opacidad
                   index === currentImageIndex ? "opacity-50 scale-100" : "opacity-0 scale-105"
                 }`}
               >
                 <Image
                   src={img}
                   alt="Fondo Estudio"
-                  fill // Hace lo mismo que background-size: cover
-                  priority={index === 0} // Carga la primera foto volando 🚀
-                  quality={100} // 🔥 CERO COMPRESIÓN = CERO BANDING
+                  fill
+                  priority={index === 0}
+                  quality={100} // Máxima calidad para respetar tu edición de Photoshop
                   className="object-cover"
                 />
               </div>
             ))}
          </div>
          
-         {/* Tu degradado sutil de 64px para fusionar abajo */}
-         <div className="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-[#09090b] via-[#09090b]/60 to-transparent" />
+         {/* 🚫 ELIMINADO: El div con bg-gradient-to-t. 
+             Ahora la suavidad depende 100% de tu imagen editada. 
+         */}
       </div>
 
       {/* NAVBAR */}
