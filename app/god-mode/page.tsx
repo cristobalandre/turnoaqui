@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { ShieldCheck, XCircle, CheckCircle, Loader2 } from 'lucide-react'
+import { ShieldCheck, XCircle, CheckCircle, Loader2, RefreshCw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
-// 🔒 LISTA BLANCA DE SUPER ADMINS (Actualizada)
+// 🔒 LISTA BLANCA DE SUPER ADMINS
 const GOD_EMAILS = [
   'cristobal.andres27@outlook.com', 
-  'cristobal.andres.inta@gmail.com' // ✅ Agregado tu Gmail
+  'cristobal.andres.inta@gmail.com'
 ]
 
 export default function GodModePage() {
@@ -26,102 +26,144 @@ export default function GodModePage() {
   const checkGodStatus = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     
-    // 🛡️ SEGURIDAD: Si el usuario no está en la lista GOD_EMAILS, fuera.
+    // 🛡️ SEGURIDAD FRONTEND
     if (!user || !GOD_EMAILS.includes(user.email || '')) {
        router.push('/dashboard') 
        return
     }
     
     setIsGod(true)
-    fetchPendingRequests()
+    fetchRequests()
   }
 
-  const fetchPendingRequests = async () => {
-    setLoading(true)  
+  const fetchRequests = async () => {
+    setLoading(true)
+    
+    // 👇 EL TRUCO QUE FUNCIONA EN ADMIN/TEAM:
+    // Bajamos TODOS los perfiles ordenados por fecha, sin filtros .eq()
     const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('plan_status', 'pending')
         .order('created_at', { ascending: false })
 
     if (error) {
-        console.error("Error cargando solicitudes:", error)
+        console.error("Error cargando base de datos:", error)
+        alert("Error de conexión con Supabase")
     } else {
-        setRequests(data || [])
+        const allProfiles = data || []
+        
+        // 🔍 FILTRO MANUAL EN JAVASCRIPT (Infalible)
+        // Buscamos a cualquiera que esté 'pending' O que no tenga estado definido
+        const pending = allProfiles.filter(u => u.plan_status === 'pending' || !u.plan_status)
+        
+        console.log("Total perfiles encontrados:", allProfiles.length)
+        console.log("Filtrados como pendientes:", pending.length)
+        
+        setRequests(pending)
     }
     setLoading(false)
   }
 
   const handleDecision = async (userId: string, decision: 'approve' | 'reject') => {
-    if (!confirm(`¿Estás seguro de ${decision === 'approve' ? 'APROBAR' : 'RECHAZAR'} a este usuario?`)) return
+    if (!confirm(`¿Confirmas ${decision === 'approve' ? 'APROBAR' : 'RECHAZAR'} a este usuario?`)) return
 
     if (decision === 'approve') {
-        // ✅ APROBAR: Cambiamos estado a 'active'
+        // ✅ APROBAR: Pasa a 'active'
         await supabase.from('profiles').update({ plan_status: 'active' }).eq('id', userId)
     } else {
-        // ❌ RECHAZAR: Lo marcamos como rechazado
+        // ❌ RECHAZAR: Pasa a 'rejected' (o lo borras si prefieres)
         await supabase.from('profiles').update({ plan_status: 'rejected' }).eq('id', userId)
     }
     
-    fetchPendingRequests() // Recargar lista
+    // Recargamos la lista
+    fetchRequests()
   }
 
   if (!isGod) return null 
 
   return (
-    <div className="min-h-screen bg-black text-white p-8 font-mono">
+    <div className="min-h-screen bg-black text-white p-8 font-mono selection:bg-red-900/30">
       <div className="max-w-5xl mx-auto">
-        <header className="flex justify-between items-center mb-12 border-b border-red-900/50 pb-6">
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 border-b border-red-900/30 pb-6 gap-6">
             <div>
-                <h1 className="text-4xl font-bold text-red-500 flex items-center gap-3">
+                <h1 className="text-4xl font-bold text-red-600 flex items-center gap-3 tracking-tighter">
                     <ShieldCheck className="w-10 h-10" /> GOD MODE
                 </h1>
-                <p className="text-zinc-500 mt-2">Panel de Control Maestro - Acceso Restringido</p>
+                <p className="text-zinc-500 mt-2 text-sm">Panel de Control Maestro • v2.0</p>
             </div>
-            <div className="flex flex-col items-end gap-1">
-                <div className="bg-red-500/10 text-red-500 px-4 py-2 rounded border border-red-500/20 text-xs">
-                    ADMIN: {GOD_EMAILS[0]}
+            <div className="flex flex-col items-end gap-2">
+                <div className="flex gap-2">
+                    {GOD_EMAILS.map(email => (
+                        <div key={email} className="bg-zinc-900 text-zinc-400 px-3 py-1 rounded border border-zinc-800 text-[10px] uppercase tracking-wider">
+                            ADMIN: {email.split('@')[0]}
+                        </div>
+                    ))}
                 </div>
-                <div className="bg-red-500/10 text-red-500 px-4 py-2 rounded border border-red-500/20 text-xs">
-                    ADMIN: {GOD_EMAILS[1]}
-                </div>
+                <Button variant="outline" size="sm" onClick={fetchRequests} className="border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800">
+                    <RefreshCw className="w-3 h-3 mr-2" /> Recargar Datos
+                </Button>
             </div>
         </header>
 
-        <h2 className="text-xl font-bold text-zinc-300 mb-6 flex items-center gap-2">
-            Solicitudes Pendientes <span className="bg-zinc-800 text-white text-xs px-2 py-1 rounded-full">{requests.length}</span>
+        <h2 className="text-xl font-bold text-zinc-200 mb-6 flex items-center gap-3">
+            Solicitudes Pendientes 
+            <span className={`text-xs px-2 py-1 rounded-full font-bold ${requests.length > 0 ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                {requests.length}
+            </span>
         </h2>
 
         {loading ? (
-            <div className="flex justify-center py-20"><Loader2 className="animate-spin text-red-500 w-10 h-10"/></div>
+            <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-50">
+                <Loader2 className="animate-spin text-red-600 w-8 h-8"/>
+                <span className="text-xs text-red-500/50 uppercase tracking-widest">Escaneando Base de Datos...</span>
+            </div>
         ) : requests.length === 0 ? (
-            <div className="text-center py-20 border border-dashed border-zinc-800 rounded-xl text-zinc-600">
-                No hay almas esperando en el limbo hoy.
+            <div className="text-center py-24 border border-dashed border-zinc-900 rounded-2xl bg-zinc-950/50">
+                <p className="text-zinc-700 text-lg font-light">No hay almas esperando en el limbo.</p>
+                <p className="text-zinc-800 text-xs mt-2 uppercase tracking-widest">Todo limpio</p>
             </div>
         ) : (
-            <div className="grid gap-4">
+            <div className="grid gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {requests.map((req) => (
-                    <div key={req.id} className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl flex flex-col md:flex-row justify-between items-center gap-6 hover:border-zinc-700 transition-colors">
-                        <div>
-                            <h3 className="text-lg font-bold text-white">{req.full_name || 'Sin Nombre'}</h3>
-                            <p className="text-zinc-400 text-sm">{req.email}</p>
-                            <div className="flex gap-2 mt-2 text-xs">
-                                <span className="text-zinc-500 py-1">Registrado: {new Date(req.created_at).toLocaleDateString()}</span>
+                    <div key={req.id} className="bg-zinc-950 border border-zinc-900 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-zinc-700 transition-all">
+                        <div className="flex items-center gap-5 w-full md:w-auto">
+                            {/* Avatar o Inicial */}
+                            <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-600 font-bold text-xl border border-zinc-800">
+                                {req.avatar_url ? (
+                                    <img src={req.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                                ) : (
+                                    req.full_name?.charAt(0) || "?"
+                                )}
+                            </div>
+                            
+                            <div>
+                                <h3 className="text-lg font-bold text-white group-hover:text-red-500 transition-colors">
+                                    {req.full_name || 'Usuario Sin Nombre'}
+                                </h3>
+                                <p className="text-zinc-500 text-xs font-mono mb-1">{req.email}</p>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded border border-yellow-500/20 uppercase font-bold tracking-wider">
+                                        Pendiente
+                                    </span>
+                                    <span className="text-[10px] text-zinc-600">
+                                        ID: {req.id.substring(0, 8)}...
+                                    </span>
+                                </div>
                             </div>
                         </div>
                         
-                        <div className="flex gap-3">
+                        <div className="flex gap-3 w-full md:w-auto">
                             <Button 
                                 onClick={() => handleDecision(req.id, 'reject')}
-                                className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20"
+                                className="flex-1 md:flex-none bg-zinc-900 hover:bg-red-950/30 text-zinc-400 hover:text-red-500 border border-zinc-800 hover:border-red-500/30 transition-all"
                             >
-                                <XCircle className="w-4 h-4 mr-2" /> RECHAZAR
+                                <XCircle className="w-4 h-4 mr-2" /> Rechazar
                             </Button>
                             <Button 
                                 onClick={() => handleDecision(req.id, 'approve')}
-                                className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold"
+                                className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white font-bold border border-emerald-500 shadow-lg shadow-emerald-900/20"
                             >
-                                <CheckCircle className="w-4 h-4 mr-2" /> APROBAR ACCESO
+                                <CheckCircle className="w-4 h-4 mr-2" /> APROBAR
                             </Button>
                         </div>
                     </div>
