@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button'
 import { ShieldCheck, XCircle, CheckCircle, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
-// 🔒 LISTA BLANCA DE SUPER ADMINS (Solo tú)
+// 🔒 LISTA BLANCA DE SUPER ADMINS (Actualizada)
 const GOD_EMAILS = [
   'cristobal.andres27@outlook.com', 
-  'tu.correo.google@gmail.com' 
+  'cristobal.andres.inta@gmail.com' // ✅ Agregado tu Gmail
 ]
 
 export default function GodModePage() {
@@ -26,9 +26,9 @@ export default function GodModePage() {
   const checkGodStatus = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     
-    // 🛡️ SEGURIDAD: Si no eres tú, te expulsa
+    // 🛡️ SEGURIDAD: Si el usuario no está en la lista GOD_EMAILS, fuera.
     if (!user || !GOD_EMAILS.includes(user.email || '')) {
-       router.push('/dashboard') // Lo mandamos lejos
+       router.push('/dashboard') 
        return
     }
     
@@ -58,16 +58,15 @@ export default function GodModePage() {
     if (decision === 'approve') {
         // ✅ APROBAR: Cambiamos estado a 'active'
         await supabase.from('profiles').update({ plan_status: 'active' }).eq('id', userId)
-        // También activamos su organización si es necesario
     } else {
-        // ❌ RECHAZAR: Podríamos borrarlo o dejarlo como 'banned'
+        // ❌ RECHAZAR: Lo marcamos como rechazado
         await supabase.from('profiles').update({ plan_status: 'rejected' }).eq('id', userId)
     }
     
     fetchPendingRequests() // Recargar lista
   }
 
-  if (!isGod) return null // Pantalla negra si no eres dios
+  if (!isGod) return null 
 
   return (
     <div className="min-h-screen bg-black text-white p-8 font-mono">
@@ -79,8 +78,13 @@ export default function GodModePage() {
                 </h1>
                 <p className="text-zinc-500 mt-2">Panel de Control Maestro - Acceso Restringido</p>
             </div>
-            <div className="bg-red-500/10 text-red-500 px-4 py-2 rounded border border-red-500/20 text-xs">
-                USUARIO: {GOD_EMAILS[0]}
+            <div className="flex flex-col items-end gap-1">
+                <div className="bg-red-500/10 text-red-500 px-4 py-2 rounded border border-red-500/20 text-xs">
+                    ADMIN: {GOD_EMAILS[0]}
+                </div>
+                <div className="bg-red-500/10 text-red-500 px-4 py-2 rounded border border-red-500/20 text-xs">
+                    ADMIN: {GOD_EMAILS[1]}
+                </div>
             </div>
         </header>
 
@@ -102,8 +106,6 @@ export default function GodModePage() {
                             <h3 className="text-lg font-bold text-white">{req.full_name || 'Sin Nombre'}</h3>
                             <p className="text-zinc-400 text-sm">{req.email}</p>
                             <div className="flex gap-2 mt-2 text-xs">
-                                <span className="bg-zinc-800 px-2 py-1 rounded">Org: {req.organizations?.name || 'N/A'}</span>
-                                <span className="bg-zinc-800 px-2 py-1 rounded">Plan: {req.organizations?.plan_type || 'N/A'}</span>
                                 <span className="text-zinc-500 py-1">Registrado: {new Date(req.created_at).toLocaleDateString()}</span>
                             </div>
                         </div>
