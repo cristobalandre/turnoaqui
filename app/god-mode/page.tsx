@@ -39,29 +39,19 @@ export default function GodModePage() {
   const fetchRequests = async () => {
     setLoading(true)
     
-    // 1. BAJAMOS TODO (Sin filtros en la BD para evitar problemas de RLS silenciosos)
+    // 1. Bajamos TODOS los perfiles (Protegido por RLS en Supabase)
     const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false })
 
     if (error) {
-        console.error("Error crítico cargando base de datos:", error)
-        alert("Error conectando con Supabase. Revisa la consola.")
+        console.error("Error de conexión.") // Solo mostramos error genérico
     } else {
         const allProfiles = data || []
         
-        // 🕵️ DEBUGGING: Esto te mostrará en la consola (F12) qué está pasando realmente
-        console.log("--- DEBUG GOD MODE ---")
-        console.log("Total usuarios descargados:", allProfiles.length)
-        allProfiles.forEach(u => console.log(`Usuario: ${u.full_name} | Estado: "${u.plan_status}"`))
-        
-        // 👇 EL FILTRO RELAJADO:
-        // Mostramos cualquier cosa que NO sea 'active'. 
-        // Esto incluirá: 'pending', 'rejected', null, '', undefined, etc.
+        // 🔍 FILTRO: Mostramos todo usuario que NO esté activo (inactive, pending, null, etc.)
         const pending = allProfiles.filter(u => u.plan_status !== 'active')
-        
-        console.log("Filtrados para mostrar:", pending.length)
         
         setRequests(pending)
     }
@@ -69,19 +59,16 @@ export default function GodModePage() {
   }
 
   const handleDecision = async (userId: string, decision: 'approve' | 'reject') => {
-    if (!confirm(`¿Confirmas ${decision === 'approve' ? 'APROBAR' : 'RECHAZAR'} a este usuario?`)) return
+    if (!confirm(`¿Confirmas esta acción?`)) return
 
     if (decision === 'approve') {
         // ✅ APROBAR: Pasa a 'active'
-        const { error } = await supabase.from('profiles').update({ plan_status: 'active' }).eq('id', userId)
-        if (error) alert("Error al aprobar: " + error.message)
+        await supabase.from('profiles').update({ plan_status: 'active' }).eq('id', userId)
     } else {
         // ❌ RECHAZAR: Pasa a 'rejected'
-        const { error } = await supabase.from('profiles').update({ plan_status: 'rejected' }).eq('id', userId)
-        if (error) alert("Error al rechazar: " + error.message)
+        await supabase.from('profiles').update({ plan_status: 'rejected' }).eq('id', userId)
     }
     
-    // Recargamos la lista
     fetchRequests()
   }
 
@@ -95,13 +82,13 @@ export default function GodModePage() {
                 <h1 className="text-4xl font-bold text-red-600 flex items-center gap-3 tracking-tighter">
                     <ShieldCheck className="w-10 h-10" /> GOD MODE
                 </h1>
-                <p className="text-zinc-500 mt-2 text-sm">Panel de Control Maestro • v2.1 (Filtro Relajado)</p>
+                <p className="text-zinc-500 mt-2 text-sm">Panel de Control Maestro • Acceso Seguro</p>
             </div>
             <div className="flex flex-col items-end gap-2">
                 <div className="flex gap-2">
                     {GOD_EMAILS.map(email => (
                         <div key={email} className="bg-zinc-900 text-zinc-400 px-3 py-1 rounded border border-zinc-800 text-[10px] uppercase tracking-wider">
-                            ADMIN: {email.split('@')[0]}
+                            ADMIN
                         </div>
                     ))}
                 </div>
@@ -121,21 +108,18 @@ export default function GodModePage() {
         {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-50">
                 <Loader2 className="animate-spin text-red-600 w-8 h-8"/>
-                <span className="text-xs text-red-500/50 uppercase tracking-widest">Escaneando Base de Datos...</span>
+                <span className="text-xs text-red-500/50 uppercase tracking-widest">Verificando...</span>
             </div>
         ) : requests.length === 0 ? (
             <div className="text-center py-24 border border-dashed border-zinc-900 rounded-2xl bg-zinc-950/50">
                 <p className="text-zinc-700 text-lg font-light">No hay usuarios pendientes.</p>
-                <p className="text-zinc-800 text-xs mt-2 uppercase tracking-widest">
-                    (Se encontraron {requests.length} usuarios, pero todos están 'active')
-                </p>
+                <p className="text-zinc-800 text-xs mt-2 uppercase tracking-widest">Todo limpio</p>
             </div>
         ) : (
             <div className="grid gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {requests.map((req) => (
                     <div key={req.id} className="bg-zinc-950 border border-zinc-900 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-6 group hover:border-zinc-700 transition-all">
                         <div className="flex items-center gap-5 w-full md:w-auto">
-                            {/* Avatar o Inicial */}
                             <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-600 font-bold text-xl border border-zinc-800">
                                 {req.avatar_url ? (
                                     <img src={req.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
@@ -150,9 +134,8 @@ export default function GodModePage() {
                                 </h3>
                                 <p className="text-zinc-500 text-xs font-mono mb-1">{req.email}</p>
                                 <div className="flex items-center gap-2">
-                                    {/* Mostramos el estado real para debuggear visualmente */}
                                     <span className="text-[10px] bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded border border-yellow-500/20 uppercase font-bold tracking-wider">
-                                        Estado: {req.plan_status || 'NULL'}
+                                        Estado: {req.plan_status || 'DESCONOCIDO'}
                                     </span>
                                     <span className="text-[10px] text-zinc-600">
                                         ID: {req.id.substring(0, 8)}...
