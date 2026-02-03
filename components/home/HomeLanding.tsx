@@ -8,6 +8,7 @@ import { ArrowRight, LogOut, Chrome, Lock, LayoutDashboard } from "lucide-react"
 import { Logo } from "@/components/ui/Logo";
 import { createClient } from "@supabase/supabase-js";
 import PricingSection from "@/components/landing/PricingSection"; 
+// 👇 1. IMPORTAMOS IMAGE PARA OPTIMIZACIÓN REAL
 import Image from "next/image";
 
 const outfit = Outfit({ subsets: ["latin"] });
@@ -86,19 +87,20 @@ export default function HomeLanding() {
   return (
     <div className={`min-h-screen bg-[#09090b] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* FONDO HERO LIMPIO (Sin degradados CSS que causan banding) */}
+      {/* FONDO HERO OPTIMIZADO (Sin banding) */}
       <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
          <div 
            className="relative w-full h-full max-w-[1400px] mx-auto"
            style={{
-             // Mantenemos la máscara suave lateral y superior
-             maskImage: 'linear-gradient(to bottom, black 90%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
-             WebkitMaskImage: 'linear-gradient(to bottom, black 90%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
+             // Tu máscara original intacta (la que te gustó)
+             maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
+             WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
              maskComposite: 'intersect',
              WebkitMaskComposite: 'source-in'
            }}
          >
             {HERO_IMAGES.map((img, index) => (
+              // 👇 CAMBIO ESTRUCTURAL: Usamos <Image /> en lugar de <div> con background
               <div
                 key={index}
                 className={`absolute inset-0 transition-all duration-[2500ms] ease-in-out ${
@@ -110,19 +112,20 @@ export default function HomeLanding() {
                   alt="Fondo Estudio"
                   fill
                   priority={index === 0}
-                  quality={100} // Máxima calidad para respetar tu edición de Photoshop
+                  quality={100} // 🔥 CALIDAD MÁXIMA para respetar tu edición de Photoshop
                   className="object-cover"
                 />
               </div>
             ))}
          </div>
          
-         {/* 🚫 ELIMINADO: El div con bg-gradient-to-t. 
-             Ahora la suavidad depende 100% de tu imagen editada. 
+         {/* 👇 DEGRADADO SUTIL (h-64) + BLUR 
+             El blur ayuda a disimular las líneas del banding del CSS.
          */}
+         <div className="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-[#09090b] via-[#09090b]/60 to-transparent backdrop-blur-[1px]" />
       </div>
 
-      {/* NAVBAR */}
+      {/* NAVBAR (Intacta) */}
       <nav className="relative z-50 w-full border-b border-white/5 bg-[#09090b]/50 backdrop-blur-md transition-all">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
