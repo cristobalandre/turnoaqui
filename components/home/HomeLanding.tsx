@@ -7,8 +7,6 @@ import { Outfit } from "next/font/google";
 import { ArrowRight, LogOut, Chrome, Lock, LayoutDashboard } from "lucide-react"; 
 import { Logo } from "@/components/ui/Logo";
 import { createClient } from "@supabase/supabase-js";
-
-// 👇 1. MANTENEMOS LA IMPORTACIÓN DE PRECIOS
 import PricingSection from "@/components/landing/PricingSection"; 
 
 const outfit = Outfit({ subsets: ["latin"] });
@@ -25,7 +23,6 @@ const supabase = createClient(
 );
 
 export default function HomeLanding() {
-  // --- TUS ESTADOS Y LÓGICA (INTACTOS) ---
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [user, setUser] = useState<any | null>(null);
   const [userName, setUserName] = useState<string>(""); 
@@ -86,15 +83,14 @@ export default function HomeLanding() {
   };
 
   return (
-    // 👇 COLOR ORIGINAL #0F1112 (Según tu archivo antiguo)
+    // Color base global #0F1112
     <div className={`min-h-screen bg-[#0F1112] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* --- FONDO HERO ORIGINAL (RESTAURADO) --- */}
+      {/* FONDO HERO ORIGINAL */}
       <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
          <div 
            className="relative w-full h-full max-w-[1400px] mx-auto"
            style={{
-             // Tu máscara original exacta
              maskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
              WebkitMaskImage: 'linear-gradient(to bottom, black 40%, transparent 100%), linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%)',
              maskComposite: 'intersect',
@@ -111,7 +107,7 @@ export default function HomeLanding() {
               />
             ))}
          </div>
-         {/* Degradado original de h-40 con el color #0F1112 */}
+         {/* Degradado usando el mismo #0F1112 */}
          <div className="absolute bottom-0 left-0 w-full h-40 bg-gradient-to-t from-[#0F1112] via-[#0F1112]/80 to-transparent" />
       </div>
 
@@ -251,8 +247,10 @@ export default function HomeLanding() {
         </div>
       </main>
 
-      {/* 👇 SECCIÓN DE PRECIOS INTEGRADA */}
-      <PricingSection />
+      {/* 👇 FORZAMOS EL COLOR DE FONDO PARA PRECIOS AQUÍ */}
+      <div className="w-full bg-[#0F1112]">
+        <PricingSection />
+      </div>
 
       {/* FOOTER */}
       <footer className="relative z-10 w-full py-8 border-t border-white/5 bg-[#0F1112]/50 backdrop-blur-sm mt-auto">
