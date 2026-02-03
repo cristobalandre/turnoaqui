@@ -39,25 +39,29 @@ export default function GodModePage() {
   const fetchRequests = async () => {
     setLoading(true)
     
-    // 👇 EL TRUCO QUE FUNCIONA EN ADMIN/TEAM:
-    // Bajamos TODOS los perfiles ordenados por fecha, sin filtros .eq()
+    // 1. BAJAMOS TODO (Sin filtros en la BD para evitar problemas de RLS silenciosos)
     const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false })
 
     if (error) {
-        console.error("Error cargando base de datos:", error)
-        alert("Error de conexión con Supabase")
+        console.error("Error crítico cargando base de datos:", error)
+        alert("Error conectando con Supabase. Revisa la consola.")
     } else {
         const allProfiles = data || []
         
-        // 🔍 FILTRO MANUAL EN JAVASCRIPT (Infalible)
-        // Buscamos a cualquiera que esté 'pending' O que no tenga estado definido
-        const pending = allProfiles.filter(u => u.plan_status === 'pending' || !u.plan_status)
+        // 🕵️ DEBUGGING: Esto te mostrará en la consola (F12) qué está pasando realmente
+        console.log("--- DEBUG GOD MODE ---")
+        console.log("Total usuarios descargados:", allProfiles.length)
+        allProfiles.forEach(u => console.log(`Usuario: ${u.full_name} | Estado: "${u.plan_status}"`))
         
-        console.log("Total perfiles encontrados:", allProfiles.length)
-        console.log("Filtrados como pendientes:", pending.length)
+        // 👇 EL FILTRO RELAJADO:
+        // Mostramos cualquier cosa que NO sea 'active'. 
+        // Esto incluirá: 'pending', 'rejected', null, '', undefined, etc.
+        const pending = allProfiles.filter(u => u.plan_status !== 'active')
+        
+        console.log("Filtrados para mostrar:", pending.length)
         
         setRequests(pending)
     }
@@ -69,10 +73,12 @@ export default function GodModePage() {
 
     if (decision === 'approve') {
         // ✅ APROBAR: Pasa a 'active'
-        await supabase.from('profiles').update({ plan_status: 'active' }).eq('id', userId)
+        const { error } = await supabase.from('profiles').update({ plan_status: 'active' }).eq('id', userId)
+        if (error) alert("Error al aprobar: " + error.message)
     } else {
-        // ❌ RECHAZAR: Pasa a 'rejected' (o lo borras si prefieres)
-        await supabase.from('profiles').update({ plan_status: 'rejected' }).eq('id', userId)
+        // ❌ RECHAZAR: Pasa a 'rejected'
+        const { error } = await supabase.from('profiles').update({ plan_status: 'rejected' }).eq('id', userId)
+        if (error) alert("Error al rechazar: " + error.message)
     }
     
     // Recargamos la lista
@@ -89,7 +95,7 @@ export default function GodModePage() {
                 <h1 className="text-4xl font-bold text-red-600 flex items-center gap-3 tracking-tighter">
                     <ShieldCheck className="w-10 h-10" /> GOD MODE
                 </h1>
-                <p className="text-zinc-500 mt-2 text-sm">Panel de Control Maestro • v2.0</p>
+                <p className="text-zinc-500 mt-2 text-sm">Panel de Control Maestro • v2.1 (Filtro Relajado)</p>
             </div>
             <div className="flex flex-col items-end gap-2">
                 <div className="flex gap-2">
@@ -119,8 +125,10 @@ export default function GodModePage() {
             </div>
         ) : requests.length === 0 ? (
             <div className="text-center py-24 border border-dashed border-zinc-900 rounded-2xl bg-zinc-950/50">
-                <p className="text-zinc-700 text-lg font-light">No hay almas esperando en el limbo.</p>
-                <p className="text-zinc-800 text-xs mt-2 uppercase tracking-widest">Todo limpio</p>
+                <p className="text-zinc-700 text-lg font-light">No hay usuarios pendientes.</p>
+                <p className="text-zinc-800 text-xs mt-2 uppercase tracking-widest">
+                    (Se encontraron {requests.length} usuarios, pero todos están 'active')
+                </p>
             </div>
         ) : (
             <div className="grid gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -142,8 +150,9 @@ export default function GodModePage() {
                                 </h3>
                                 <p className="text-zinc-500 text-xs font-mono mb-1">{req.email}</p>
                                 <div className="flex items-center gap-2">
+                                    {/* Mostramos el estado real para debuggear visualmente */}
                                     <span className="text-[10px] bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded border border-yellow-500/20 uppercase font-bold tracking-wider">
-                                        Pendiente
+                                        Estado: {req.plan_status || 'NULL'}
                                     </span>
                                     <span className="text-[10px] text-zinc-600">
                                         ID: {req.id.substring(0, 8)}...
