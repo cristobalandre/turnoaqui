@@ -86,15 +86,16 @@ export default function HomeLanding() {
   return (
     <div className={`min-h-screen bg-[#09090b] text-gray-100 selection:bg-emerald-500/30 ${outfit.className} overflow-x-hidden relative flex flex-col`}>
       
-      {/* FONDO HERO COMPLETO */}
+      {/* FONDO HERO LIMPIO (Todo depende de tu imagen editada en PS) */}
       <div className="absolute top-0 left-0 w-full h-[800px] z-0 overflow-hidden pointer-events-none">
-         
-         {/* 1. IMÁGENES DE FONDO */}
          <div 
            className="relative w-full h-full max-w-[1400px] mx-auto"
            style={{
-             maskImage: 'linear-gradient(to bottom, black 80%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
-             WebkitMaskImage: 'linear-gradient(to bottom, black 80%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
+             // Mantenemos solo la máscara de desvanecimiento suave (Vignette)
+             maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
+             WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%), linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)',
+             maskComposite: 'intersect',
+             WebkitMaskComposite: 'source-in'
            }}
          >
             {HERO_IMAGES.map((img, index) => (
@@ -109,23 +110,14 @@ export default function HomeLanding() {
                   alt="Fondo Estudio"
                   fill
                   priority={index === 0}
-                  quality={100}
+                  quality={100} // Máxima calidad para respetar tu ruido de Photoshop
                   className="object-cover"
                 />
               </div>
             ))}
          </div>
          
-         {/* 2. DEGRADADO NEGRO PARA FUSIÓN */}
-         <div className="absolute bottom-0 left-0 w-full h-64 bg-gradient-to-t from-[#09090b] via-[#09090b]/80 to-transparent" />
-
-         {/* 🔥 3. CAPA DE RUIDO ANTI-BANDING (EL ARREGLO MÁGICO) 🔥 */}
-         <div 
-            className="absolute inset-0 z-10 opacity-[0.08] pointer-events-none mix-blend-overlay"
-            style={{ 
-                backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E")` 
-            }}
-         />
+         {/* 🧹 ELIMINADO: Degradados CSS y Ruido SVG. Ahora está limpio. */}
       </div>
 
       {/* NAVBAR */}
