@@ -15,13 +15,13 @@ const nextConfig = {
 
   // 2. Solución al Error de Build
   // Esto arregla el error "Module not found: Can't resolve 'fs'" de Essentia.js
-  webpack: (config, { isServer }) => {
+  webpack: (config: any, { isServer }: { isServer: boolean }) => {
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
-        fs: false,    // Ignora sistema de archivos (Node) en el navegador
-        path: false,  // Ignora rutas de servidor
-        crypto: false // Ignora criptografía de servidor
+        fs: false,    
+        path: false,  
+        crypto: false 
       };
     }
     return config;
