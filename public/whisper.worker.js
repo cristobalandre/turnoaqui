@@ -1,50 +1,48 @@
-// Usamos la versión CDN para que funcione directo en el navegador
-import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js';
+// Importamos Essentia desde CDN (Versión ES Module)
+import { EssentiaWASM } from 'https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.es.js';
 
-// Configuración
-env.allowLocalModels = false;
-env.useBrowserCache = true; 
-
-let transcriber = null;
+let essentia = null;
 
 self.addEventListener('message', async (event) => {
-    const message = event.data;
+    const { type, audio } = event.data;
 
-    // A. CARGAR MODELO
-    if (message.type === 'load') {
+    // 1. Inicializar (Cargar el cerebro)
+    if (type === 'init') {
         try {
-            self.postMessage({ status: 'loading', data: 'Cargando IA...' });
-            
-            // Usamos 'whisper-tiny' (versión quantized para web)
-            transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', {
-                device: 'webgpu', // Intenta usar gráfica si puede
-            });
-            
-            self.postMessage({ status: 'ready', data: 'IA Lista' });
+            // Inicializamos Essentia (false = no usar worklet interno, usamos este worker)
+            essentia = new EssentiaWASM(false);
+            self.postMessage({ type: 'ready' });
         } catch (err) {
-            // Si falla WebGPU, reintentamos con CPU (wasm)
-             try {
-                transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny');
-                self.postMessage({ status: 'ready', data: 'IA Lista (Modo CPU)' });
-            } catch (retryErr) {
-                self.postMessage({ status: 'error', data: retryErr.message });
-            }
+            self.postMessage({ type: 'error', message: 'Error cargando Essentia: ' + err.message });
         }
     }
 
-    // B. TRANSCRIBIR
-    if (message.type === 'transcribe') {
-        if (!transcriber) return;
+    // 2. Analizar Audio
+    if (type === 'analyze') {
+        if (!essentia) {
+            self.postMessage({ type: 'error', message: 'Essentia no está listo' });
+            return;
+        }
+
         try {
-            const output = await transcriber(message.audio, {
-                chunk_length_s: 30,
-                stride_length_s: 5,
-                language: 'spanish', 
-                task: 'transcribe',
-            });
-            self.postMessage({ status: 'complete', text: output.text });
+            // Convertir el audio (Float32Array) al formato vectorial de Essentia
+            const vectorAudio = essentia.arrayToVector(audio);
+
+            // A. Detectar BPM (Ritmo)
+            const bpmAlgo = essentia.PercivalBpmEstimator(vectorAudio, 1024, 512, 4096, 0, 210, 50, 0);
+            const bpm = Math.round(bpmAlgo.bpm);
+
+            // B. Detectar Tonalidad (Key)
+            const keyAlgo = essentia.KeyExtractor(vectorAudio, true, 4096, 4096, 12, 3500, 60, 25, 0.2, 'hpcp');
+            const key = `${keyAlgo.key} ${keyAlgo.scale}`;
+
+            // Liberar memoria (Importante en móviles)
+            // vectorAudio.delete(); // (Opcional, depende de la versión)
+
+            self.postMessage({ type: 'result', bpm, key });
+
         } catch (err) {
-            self.postMessage({ status: 'error', data: err.message });
+            self.postMessage({ type: 'error', message: 'Fallo en análisis: ' + err.message });
         }
     }
 });

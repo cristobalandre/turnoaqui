@@ -3,8 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Mic, StopCircle, Music, Type, Zap, AlertTriangle, Wifi } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { analyzeAudio } from '@/utils/audioAnalyzer'
-import { logToConsole } from '@/utils/remoteLogger' // 👈 IMPORTANTE
+import { logToConsole } from '@/utils/remoteLogger'
 
 export default function WitnessRecorder() {
   const [status, setStatus] = useState('idle') 
@@ -12,7 +11,10 @@ export default function WitnessRecorder() {
   const [musicStats, setMusicStats] = useState<{ bpm: number; key: string } | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   
-  const workerRef = useRef<Worker | null>(null)
+  // Referencias a los DOS Workers
+  const whisperWorkerRef = useRef<Worker | null>(null)
+  const musicWorkerRef = useRef<Worker | null>(null)
+  
   const audioContextRef = useRef<AudioContext | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const processorRef = useRef<ScriptProcessorNode | null>(null)
@@ -20,36 +22,48 @@ export default function WitnessRecorder() {
   const audioChunksRef = useRef<Float32Array[]>([])
 
   useEffect(() => {
-    // Iniciamos Worker
-    if (!workerRef.current) {
-      logToConsole("Iniciando Worker de IA...");
-      workerRef.current = new Worker('/whisper.worker.js', { type: 'module' });
+    // 1. INICIAR WHISPER (IA de Voz)
+    if (!whisperWorkerRef.current) {
+      logToConsole("Iniciando Worker de Voz...");
+      whisperWorkerRef.current = new Worker('/whisper.worker.js', { type: 'module' });
       
-      workerRef.current.onmessage = (event) => {
+      whisperWorkerRef.current.onmessage = (event) => {
         const { status, text, data } = event.data;
-        if (status === 'loading') setStatus('loading');
-        if (status === 'ready') {
-            setStatus('ready');
-            logToConsole("IA Lista para trabajar");
-        }
+        if (status === 'ready') logToConsole("✅ Voz Lista");
         if (status === 'complete') {
             const cleanText = text.replace(/\(música\)|\(music\)/gi, "").trim();
             if (cleanText) setTranscription(prev => prev + " " + cleanText);
             setStatus('ready');
         }
-        if (status === 'error') {
-            const msg = "Error CRÍTICO del Worker: " + JSON.stringify(data);
-            setErrorMessage(msg);
-            logToConsole(msg); // 🚨 Reportar a la base de datos
-            setStatus('ready');
-        }
+        if (status === 'error') logToConsole("❌ Error Voz:", data);
       };
-      
-      workerRef.current.postMessage({ type: 'load' });
+      whisperWorkerRef.current.postMessage({ type: 'load' });
+    }
+
+    // 2. INICIAR ESSENTIA (IA Musical) - NUEVO 🎵
+    if (!musicWorkerRef.current) {
+        logToConsole("Iniciando Worker Musical...");
+        musicWorkerRef.current = new Worker('/music.worker.js', { type: 'module' });
+
+        musicWorkerRef.current.onmessage = (event) => {
+            const { type, bpm, key, message } = event.data;
+            if (type === 'ready') logToConsole("✅ Música Lista");
+            if (type === 'result') {
+                logToConsole(`🎵 Resultado: ${bpm} BPM, Key: ${key}`);
+                setMusicStats({ bpm, key });
+            }
+            if (type === 'error') {
+                logToConsole("❌ Error Música:", message);
+                // Si falla, mostramos valores por defecto para no asustar
+                setMusicStats({ bpm: 0, key: "?" });
+            }
+        };
+        musicWorkerRef.current.postMessage({ type: 'init' });
     }
 
     return () => {
-        workerRef.current?.terminate();
+        whisperWorkerRef.current?.terminate();
+        musicWorkerRef.current?.terminate();
         stopRecording();
     };
   }, [])
@@ -61,21 +75,17 @@ export default function WitnessRecorder() {
     audioChunksRef.current = [];
 
     try {
-        logToConsole("Intentando acceder al micrófono...");
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
 
-        // Configuración de Audio para iPhone
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
         const audioContext = new AudioContextClass({ sampleRate: 16000 });
         audioContextRef.current = audioContext;
 
-        logToConsole("AudioContext creado. SampleRate: " + audioContext.sampleRate);
-
         const source = audioContext.createMediaStreamSource(stream);
         sourceRef.current = source;
 
-        // Procesador RAW
+        // ScriptProcessor para compatibilidad total
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
         processorRef.current = processor;
 
@@ -88,20 +98,19 @@ export default function WitnessRecorder() {
         processor.connect(audioContext.destination);
 
         setStatus('recording');
-        logToConsole("Grabación iniciada correctamente 🎙️");
+        logToConsole("🎙️ Grabando...");
 
     } catch (err: any) {
-        const msg = "Error al abrir micrófono: " + err.message;
+        const msg = "Error Micrófono: " + err.message;
         alert(msg);
-        logToConsole(msg, err); // 🚨 Reportar error
+        logToConsole(msg);
     }
   }
 
   const stopRecording = async () => {
     if (status !== 'recording') return;
     
-    logToConsole("Deteniendo grabación...");
-
+    // Detener audio
     processorRef.current?.disconnect();
     sourceRef.current?.disconnect();
     streamRef.current?.getTracks().forEach(track => track.stop());
@@ -109,12 +118,11 @@ export default function WitnessRecorder() {
 
     setStatus('processing');
 
-    // Procesar datos
+    // Unir audio
     const totalLength = audioChunksRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
     
     if (totalLength === 0) {
-        logToConsole("⚠️ Alerta: Audio vacío (longitud 0)");
-        setErrorMessage("No se grabó audio.");
+        setErrorMessage("Audio vacío.");
         setStatus('ready');
         return;
     }
@@ -126,41 +134,27 @@ export default function WitnessRecorder() {
         offset += chunk.length;
     }
 
-    logToConsole(`Audio capturado: ${totalLength} samples. Enviando a IA...`);
+    logToConsole(`Procesando ${totalLength} samples...`);
 
-    try {
-        // Enviar a Whisper
-        workerRef.current?.postMessage({ 
-            type: 'transcribe', 
-            audio: fullAudioBuffer 
-        });
+    // 🚀 ENVIAR A LOS DOS CEREBROS (Workers)
+    
+    // 1. Enviar a Whisper (Voz)
+    whisperWorkerRef.current?.postMessage({ 
+        type: 'transcribe', 
+        audio: fullAudioBuffer 
+    });
 
-        // Enviar a Essentia
-        const offlineCtx = new OfflineAudioContext(1, fullAudioBuffer.length, 16000);
-        const audioBuffer = offlineCtx.createBuffer(1, fullAudioBuffer.length, 16000);
-        audioBuffer.copyToChannel(fullAudioBuffer, 0);
-
-        logToConsole("Analizando música con Essentia...");
-        const stats = await analyzeAudio(audioBuffer);
-        
-        if(stats) {
-            logToConsole(`Música detectada: ${JSON.stringify(stats)}`);
-            setMusicStats(stats);
-        } else {
-            logToConsole("Essentia devolvió null (fallo silencioso)");
-        }
-
-    } catch (err: any) {
-        const msg = "Error procesando el audio final: " + err.message;
-        console.error(err);
-        setErrorMessage("Error de procesamiento");
-        logToConsole(msg, err);
-    }
+    // 2. Enviar a Essentia (Música)
+    // Essentia prefiere un buffer más pequeño si es muy largo, pero probemos directo
+    musicWorkerRef.current?.postMessage({ 
+        type: 'analyze', 
+        audio: fullAudioBuffer 
+    });
   }
 
   return (
     <div className="w-full max-w-3xl mx-auto bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
-      {/* Cabecera con indicador de Log */}
+      {/* Cabecera */}
       <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
           <div className="flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${status === 'recording' ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
@@ -168,14 +162,16 @@ export default function WitnessRecorder() {
                 <h2 className="text-white font-bold tracking-tight">Session Analyzer AI</h2>
                 <div className="flex items-center gap-2">
                     <p className="text-zinc-500 text-xs font-mono">
-                        {status === 'loading' && "Descargando IA..."}
-                        {status === 'ready' && "Sistema en espera"}
-                        {status === 'recording' && "GRABANDO RAW..."}
-                        {status === 'processing' && "Procesando..."}
+                        {status === 'loading' && "Cargando Motores..."}
+                        {status === 'ready' && "Listo para grabar"}
+                        {status === 'recording' && "GRABANDO (RAW)..."}
+                        {status === 'processing' && "Analizando..."}
                     </p>
-                    <span className="text-[9px] bg-zinc-800 text-zinc-400 px-1 rounded flex items-center gap-1 border border-zinc-700">
-                        <Wifi size={8} /> REC
-                    </span>
+                    {status === 'recording' && (
+                        <span className="text-[9px] bg-red-500/20 text-red-400 px-1 rounded border border-red-500/50 animate-pulse">
+                            ON AIR
+                        </span>
+                    )}
                 </div>
             </div>
           </div>
@@ -195,7 +191,7 @@ export default function WitnessRecorder() {
           </div>
       )}
 
-      {/* Resultados Visuales */}
+      {/* Resultados */}
       <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-800">
           <div className="p-6 space-y-4">
               <div className="flex items-center gap-2 text-zinc-400 mb-4">
@@ -210,11 +206,15 @@ export default function WitnessRecorder() {
                       </div>
                       <div className="p-4 bg-zinc-900 rounded-xl border border-zinc-800">
                           <span className="text-zinc-500 text-xs uppercase">Key</span>
-                          <div className="text-3xl font-black text-emerald-400">{musicStats.key}</div>
+                          <div className={`text-3xl font-black ${musicStats.key === '?' ? 'text-red-500' : 'text-emerald-400'}`}>
+                              {musicStats.key}
+                          </div>
                       </div>
-                      <div className="text-xs text-zinc-500 mt-2 bg-emerald-500/10 text-emerald-400 p-2 rounded border border-emerald-500/20 inline-flex items-center">
-                          <Zap className="w-3 h-3 mr-1" /> Suggestion: Autotune {musicStats.key}
-                      </div>
+                      {musicStats.key !== '?' && (
+                          <div className="text-xs text-zinc-500 mt-2 bg-emerald-500/10 text-emerald-400 p-2 rounded border border-emerald-500/20 inline-flex items-center">
+                              <Zap className="w-3 h-3 mr-1" /> Suggestion: Autotune {musicStats.key}
+                          </div>
+                      )}
                   </div>
               ) : (
                   <div className="h-32 flex items-center justify-center text-zinc-700 text-sm italic">
