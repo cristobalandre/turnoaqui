@@ -9,7 +9,7 @@ import { Outfit } from "next/font/google";
 import { 
   LogOut, LayoutGrid, Calendar, Box, Users, Settings, ArrowRight, 
   Music2, PlayCircle, Layers, Shield, Scissors, Clock, ShieldAlert,
-  Mic, Zap // 👈 AGREGADO: Iconos para el nuevo botón
+  Mic, Zap, Bug // 👈 1. AGREGADO: Icono del Bicho
 } from "lucide-react";
 
 const outfit = Outfit({ subsets: ["latin"] });
@@ -76,20 +76,16 @@ export default function Dashboard() {
   if (isPending) {
     return (
       <div className={`min-h-screen bg-[#09090b] flex flex-col items-center justify-center p-4 font-sans text-zinc-300 ${outfit.className}`}>
-        {/* Aura Decorativa */}
         <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none" />
-
         <div className="relative z-10 max-w-md w-full bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 text-center backdrop-blur-xl shadow-2xl">
           <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-amber-500/20">
             <Clock className="w-8 h-8 text-amber-500" />
           </div>
-
           <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">Cuenta Pendiente</h1>
           <p className="text-zinc-500 mb-8 leading-relaxed text-sm">
             Hola <span className="text-white font-medium">{profile?.full_name?.split(' ')[0]}</span>, tu solicitud ha sido registrada. 
             Un administrador de <span className="text-emerald-400 font-bold ml-1">StudioHub</span> debe activar tu acceso Enterprise.
           </p>
-
           <div className="bg-black/40 rounded-xl p-4 mb-8 text-left border border-zinc-800/50">
             <div className="flex items-start gap-3">
               <ShieldAlert className="w-5 h-5 text-zinc-500 mt-0.5 shrink-0" />
@@ -101,7 +97,6 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
           <button 
             onClick={handleLogout}
             className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition-all text-sm group border border-zinc-700 hover:border-zinc-600"
@@ -110,7 +105,6 @@ export default function Dashboard() {
             Cerrar Sesión
           </button>
         </div>
-        
         <p className="fixed bottom-8 text-[10px] text-zinc-600 uppercase tracking-widest font-bold opacity-50">
           StudioHub Enterprise Security
         </p>
@@ -157,30 +151,41 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* 🟢 BARRA DE NAVEGACIÓN ACTUALIZADA */}
       <nav className="relative z-20 px-6 md:px-12 py-6 flex justify-between items-center border-b border-white/5 bg-[#050505]/80 backdrop-blur-xl sticky top-0">
          <div className="flex items-center gap-3">
             <div className="h-8 w-8 bg-white rounded-lg flex items-center justify-center text-black font-bold">T</div>
             <span className="font-medium text-zinc-400">Bienvenido, <span className="text-white">{profile?.full_name?.split(' ')[0]}</span></span>
          </div>
-         <button onClick={handleLogout} className="p-2 hover:bg-white/10 rounded-full transition-colors"><LogOut size={18} /></button>
+         
+         <div className="flex items-center gap-2">
+            {/* 🕷️ BOTÓN DEBUGGER (Solo visible para ti) */}
+            <Link href="/dashboard/debug">
+                <div className="p-2 hover:bg-red-500/10 rounded-full transition-colors group cursor-pointer" title="Remote Debugger">
+                    <Bug size={18} className="text-zinc-600 group-hover:text-red-500 transition-colors" />
+                </div>
+            </Link>
+
+            <button onClick={handleLogout} className="p-2 hover:bg-white/10 rounded-full transition-colors text-zinc-400 hover:text-white">
+                <LogOut size={18} />
+            </button>
+         </div>
       </nav>
 
       <main className="relative z-10 max-w-7xl mx-auto p-6 md:p-12">
         
-        {/* 🟠 NUEVO: BOTÓN MAESTRO "WITNESS MODE" */}
-        {/* Inyectado justo aquí, respetando el layout original */}
+        {/* 🟠 BOTÓN MAESTRO "WITNESS MODE" */}
         <div className="flex justify-center mb-16 relative z-30 animate-in fade-in zoom-in duration-1000">
           <Link href="/dashboard/witness">
              <div className="relative group cursor-pointer">
-                {/* Aura Naranja Respirando (Estilo Geminizado) */}
+                {/* Aura Naranja Respirando */}
                 <div className="absolute inset-0 bg-orange-500 rounded-full blur-[40px] opacity-20 group-hover:opacity-50 transition-opacity duration-700 animate-pulse" />
                 
                 {/* Botón Físico */}
                 <div className="relative w-20 h-20 md:w-24 md:h-24 bg-[#0A0A0A] border border-orange-500/30 group-hover:border-orange-500 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform duration-500 ease-out">
-                   <div className="absolute inset-1 rounded-full border border-white/5" /> {/* Aro interno sutil */}
+                   <div className="absolute inset-1 rounded-full border border-white/5" /> 
                    <Mic className="text-zinc-500 group-hover:text-orange-400 w-8 h-8 md:w-10 md:h-10 transition-colors duration-300" />
                    
-                   {/* Partícula de estado activo */}
                    <div className="absolute top-0 right-0 w-3 h-3 bg-orange-500 rounded-full border-2 border-black animate-ping opacity-0 group-hover:opacity-100 transition-opacity delay-100" />
                 </div>
 
@@ -194,7 +199,7 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* GRID PRINCIPAL (Intacto) */}
+        {/* GRID PRINCIPAL */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           
           {/* 1. PROYECTOS */}
@@ -244,7 +249,7 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* BARRA INFERIOR MINIMALISTA (Intacta) */}
+        {/* BARRA INFERIOR MINIMALISTA */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
            {[
              { name: "Recursos", icon: Box, link: "/resources" },

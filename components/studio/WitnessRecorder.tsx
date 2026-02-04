@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Mic, StopCircle, Music, Type, Zap, AlertTriangle } from 'lucide-react'
+import { Mic, StopCircle, Music, Type, Zap, AlertTriangle, Wifi } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { analyzeAudio } from '@/utils/audioAnalyzer'
+import { logToConsole } from '@/utils/remoteLogger' // 👈 IMPORTANTE
 
 export default function WitnessRecorder() {
   const [status, setStatus] = useState('idle') 
@@ -12,7 +13,6 @@ export default function WitnessRecorder() {
   const [errorMessage, setErrorMessage] = useState('')
   
   const workerRef = useRef<Worker | null>(null)
-  // Reemplazamos MediaRecorder por referencias de AudioContext
   const audioContextRef = useRef<AudioContext | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const processorRef = useRef<ScriptProcessorNode | null>(null)
@@ -20,31 +20,37 @@ export default function WitnessRecorder() {
   const audioChunksRef = useRef<Float32Array[]>([])
 
   useEffect(() => {
-    // 1. Iniciamos el Worker (Igual que antes)
+    // Iniciamos Worker
     if (!workerRef.current) {
+      logToConsole("Iniciando Worker de IA...");
       workerRef.current = new Worker('/whisper.worker.js', { type: 'module' });
       
       workerRef.current.onmessage = (event) => {
         const { status, text, data } = event.data;
         if (status === 'loading') setStatus('loading');
-        if (status === 'ready') setStatus('ready');
+        if (status === 'ready') {
+            setStatus('ready');
+            logToConsole("IA Lista para trabajar");
+        }
         if (status === 'complete') {
             const cleanText = text.replace(/\(música\)|\(music\)/gi, "").trim();
             if (cleanText) setTranscription(prev => prev + " " + cleanText);
             setStatus('ready');
         }
         if (status === 'error') {
-            setErrorMessage("Error IA: " + data);
+            const msg = "Error CRÍTICO del Worker: " + JSON.stringify(data);
+            setErrorMessage(msg);
+            logToConsole(msg); // 🚨 Reportar a la base de datos
             setStatus('ready');
         }
       };
-
+      
       workerRef.current.postMessage({ type: 'load' });
     }
 
     return () => {
         workerRef.current?.terminate();
-        stopRecording(); // Limpieza de seguridad
+        stopRecording();
     };
   }, [])
 
@@ -52,45 +58,50 @@ export default function WitnessRecorder() {
     setErrorMessage('');
     setTranscription('');
     setMusicStats(null);
-    audioChunksRef.current = []; // Limpiamos buffer
+    audioChunksRef.current = [];
 
     try {
+        logToConsole("Intentando acceder al micrófono...");
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
 
-        // 🦁 TRUCO UNIVERSAL: AudioContext
-        // Safari necesita webkitAudioContext antiguo a veces, pero los nuevos usan AudioContext estándar
+        // Configuración de Audio para iPhone
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        const audioContext = new AudioContextClass({ sampleRate: 16000 }); // Whisper ama 16khz
+        const audioContext = new AudioContextClass({ sampleRate: 16000 });
         audioContextRef.current = audioContext;
+
+        logToConsole("AudioContext creado. SampleRate: " + audioContext.sampleRate);
 
         const source = audioContext.createMediaStreamSource(stream);
         sourceRef.current = source;
 
-        // "ScriptProcessor" es antiguo pero es el más compatible universalmente para capturar RAW
+        // Procesador RAW
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
         processorRef.current = processor;
 
         processor.onaudioprocess = (e) => {
-            // Capturamos los datos crudos (float32)
             const inputData = e.inputBuffer.getChannelData(0);
-            // Hacemos una copia profunda de los datos
             audioChunksRef.current.push(new Float32Array(inputData));
         };
 
         source.connect(processor);
-        processor.connect(audioContext.destination); // Necesario para que el proceso corra
+        processor.connect(audioContext.destination);
 
         setStatus('recording');
+        logToConsole("Grabación iniciada correctamente 🎙️");
+
     } catch (err: any) {
-        alert("Error Micrófono: " + err.message);
+        const msg = "Error al abrir micrófono: " + err.message;
+        alert(msg);
+        logToConsole(msg, err); // 🚨 Reportar error
     }
   }
 
   const stopRecording = async () => {
     if (status !== 'recording') return;
+    
+    logToConsole("Deteniendo grabación...");
 
-    // 1. Detener todo
     processorRef.current?.disconnect();
     sourceRef.current?.disconnect();
     streamRef.current?.getTracks().forEach(track => track.stop());
@@ -98,8 +109,16 @@ export default function WitnessRecorder() {
 
     setStatus('processing');
 
-    // 2. Unir todos los trozos de audio (Flatten)
+    // Procesar datos
     const totalLength = audioChunksRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
+    
+    if (totalLength === 0) {
+        logToConsole("⚠️ Alerta: Audio vacío (longitud 0)");
+        setErrorMessage("No se grabó audio.");
+        setStatus('ready');
+        return;
+    }
+
     const fullAudioBuffer = new Float32Array(totalLength);
     let offset = 0;
     for (const chunk of audioChunksRef.current) {
@@ -107,51 +126,57 @@ export default function WitnessRecorder() {
         offset += chunk.length;
     }
 
-    // Si el audio es muy corto o silencio absoluto
-    if (fullAudioBuffer.length === 0) {
-        setErrorMessage("No se grabó audio.");
-        setStatus('ready');
-        return;
-    }
+    logToConsole(`Audio capturado: ${totalLength} samples. Enviando a IA...`);
 
     try {
-        // --- ENVÍO A LA IA (WHISPER) ---
-        // Whisper acepta Float32Array directo, ¡no necesitamos convertir a archivo!
+        // Enviar a Whisper
         workerRef.current?.postMessage({ 
             type: 'transcribe', 
             audio: fullAudioBuffer 
         });
 
-        // --- ENVÍO A MÚSICA (ESSENTIA) ---
-        // Necesitamos recrear un AudioBuffer falso para Essentia
-        // (Ya que Essentia.js espera un AudioBuffer del navegador)
+        // Enviar a Essentia
         const offlineCtx = new OfflineAudioContext(1, fullAudioBuffer.length, 16000);
         const audioBuffer = offlineCtx.createBuffer(1, fullAudioBuffer.length, 16000);
         audioBuffer.copyToChannel(fullAudioBuffer, 0);
 
+        logToConsole("Analizando música con Essentia...");
         const stats = await analyzeAudio(audioBuffer);
-        setMusicStats(stats);
+        
+        if(stats) {
+            logToConsole(`Música detectada: ${JSON.stringify(stats)}`);
+            setMusicStats(stats);
+        } else {
+            logToConsole("Essentia devolvió null (fallo silencioso)");
+        }
 
-    } catch (err) {
+    } catch (err: any) {
+        const msg = "Error procesando el audio final: " + err.message;
         console.error(err);
-        setErrorMessage("Error procesando audio.");
+        setErrorMessage("Error de procesamiento");
+        logToConsole(msg, err);
     }
   }
 
   return (
     <div className="w-full max-w-3xl mx-auto bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
-      {/* Cabecera */}
+      {/* Cabecera con indicador de Log */}
       <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
           <div className="flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${status === 'recording' ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
             <div>
                 <h2 className="text-white font-bold tracking-tight">Session Analyzer AI</h2>
-                <p className="text-zinc-500 text-xs font-mono">
-                    {status === 'loading' && "Descargando IA..."}
-                    {status === 'ready' && "Sistema en espera"}
-                    {status === 'recording' && "GRABANDO RAW..."}
-                    {status === 'processing' && "Procesando..."}
-                </p>
+                <div className="flex items-center gap-2">
+                    <p className="text-zinc-500 text-xs font-mono">
+                        {status === 'loading' && "Descargando IA..."}
+                        {status === 'ready' && "Sistema en espera"}
+                        {status === 'recording' && "GRABANDO RAW..."}
+                        {status === 'processing' && "Procesando..."}
+                    </p>
+                    <span className="text-[9px] bg-zinc-800 text-zinc-400 px-1 rounded flex items-center gap-1 border border-zinc-700">
+                        <Wifi size={8} /> REC
+                    </span>
+                </div>
             </div>
           </div>
           <Button 
@@ -170,9 +195,8 @@ export default function WitnessRecorder() {
           </div>
       )}
 
-      {/* Resultados */}
+      {/* Resultados Visuales */}
       <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-800">
-          {/* Columna Música */}
           <div className="p-6 space-y-4">
               <div className="flex items-center gap-2 text-zinc-400 mb-4">
                   <Music className="w-4 h-4" />
@@ -199,7 +223,6 @@ export default function WitnessRecorder() {
               )}
           </div>
 
-          {/* Columna Texto */}
           <div className="p-6 flex flex-col">
               <div className="flex items-center gap-2 text-zinc-400 mb-4">
                   <Type className="w-4 h-4" />
