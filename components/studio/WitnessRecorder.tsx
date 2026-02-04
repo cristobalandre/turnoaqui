@@ -1,9 +1,12 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Mic, StopCircle, Music, Type, Zap, AlertTriangle, Wifi } from 'lucide-react'
+import { Mic, StopCircle, Music, Type, Zap, AlertTriangle, Wifi, Share, Copy, CloudUpload, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { logToConsole } from '@/utils/remoteLogger'
+import { createClient } from '@/lib/supabase/client'
+
+const supabase = createClient();
 
 export default function WitnessRecorder() {
   const [status, setStatus] = useState('idle') 
@@ -11,58 +14,35 @@ export default function WitnessRecorder() {
   const [musicStats, setMusicStats] = useState<{ bpm: number; key: string } | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   
-  // Referencias a los DOS Workers
-  const whisperWorkerRef = useRef<Worker | null>(null)
+  // Estado para el Audio Final y Subida
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done'>('idle');
+
+  // Referencias
   const musicWorkerRef = useRef<Worker | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null) // 👈 El grabador comprimido
+  const chunksRef = useRef<Blob[]>([]) // 👈 Aquí guardamos lo comprimido
   
+  // Referencias para Análisis (BPM/Key)
   const audioContextRef = useRef<AudioContext | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const processorRef = useRef<ScriptProcessorNode | null>(null)
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
-  const audioChunksRef = useRef<Float32Array[]>([])
+  const rawAudioBufferRef = useRef<Float32Array[]>([]) // 👈 Buffer temporal solo para BPM
 
   useEffect(() => {
-    // 1. INICIAR WHISPER (IA de Voz)
-    if (!whisperWorkerRef.current) {
-      logToConsole("Iniciando Worker de Voz...");
-      whisperWorkerRef.current = new Worker('/whisper.worker.js', { type: 'module' });
-      
-      whisperWorkerRef.current.onmessage = (event) => {
-        const { status, text, data } = event.data;
-        if (status === 'ready') logToConsole("✅ Voz Lista");
-        if (status === 'complete') {
-            const cleanText = text.replace(/\(música\)|\(music\)/gi, "").trim();
-            if (cleanText) setTranscription(prev => prev + " " + cleanText);
-            setStatus('ready');
-        }
-        if (status === 'error') logToConsole("❌ Error Voz:", data);
-      };
-      whisperWorkerRef.current.postMessage({ type: 'load' });
-    }
-
-    // 2. INICIAR ESSENTIA (IA Musical) - NUEVO 🎵
+    // 1. WORKER MUSICAL (Essentia)
     if (!musicWorkerRef.current) {
-        logToConsole("Iniciando Worker Musical...");
-        musicWorkerRef.current = new Worker('/music.worker.js', { type: 'module' });
-
+        musicWorkerRef.current = new Worker('/music.worker.js');
         musicWorkerRef.current.onmessage = (event) => {
             const { type, bpm, key, message } = event.data;
-            if (type === 'ready') logToConsole("✅ Música Lista");
-            if (type === 'result') {
-                logToConsole(`🎵 Resultado: ${bpm} BPM, Key: ${key}`);
-                setMusicStats({ bpm, key });
-            }
-            if (type === 'error') {
-                logToConsole("❌ Error Música:", message);
-                // Si falla, mostramos valores por defecto para no asustar
-                setMusicStats({ bpm: 0, key: "?" });
-            }
+            if (type === 'result') setMusicStats({ bpm, key });
+            if (type === 'error') logToConsole("⚠️ Música:", message);
         };
         musicWorkerRef.current.postMessage({ type: 'init' });
     }
 
     return () => {
-        whisperWorkerRef.current?.terminate();
         musicWorkerRef.current?.terminate();
         stopRecording();
     };
@@ -70,47 +50,74 @@ export default function WitnessRecorder() {
 
   const startRecording = async () => {
     setErrorMessage('');
-    setTranscription('');
     setMusicStats(null);
-    audioChunksRef.current = [];
+    setAudioBlob(null);
+    setUploadStatus('idle');
+    chunksRef.current = [];
+    rawAudioBufferRef.current = [];
 
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
 
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        // --- SISTEMA 1: GRABACIÓN COMPRIMIDA (Para Guardar/Texto) ---
+        // Detectamos el mejor formato (iPhone ama mp4, Chrome ama webm)
+        let mimeType = 'audio/webm';
+        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            mimeType = 'audio/mp4'; // Safari / iPhone
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+            mimeType = 'audio/ogg';
+        }
+        
+        logToConsole(`Usando compresión: ${mimeType}`);
+
+        const mediaRecorder = new MediaRecorder(stream, { mimeType });
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) chunksRef.current.push(e.data);
+        };
+
+        mediaRecorder.start(1000); // Guardar trozos cada 1s
+
+        // --- SISTEMA 2: ANÁLISIS RAW (Solo para BPM en tiempo real) ---
+        // @ts-ignore
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         const audioContext = new AudioContextClass({ sampleRate: 16000 });
         audioContextRef.current = audioContext;
 
         const source = audioContext.createMediaStreamSource(stream);
         sourceRef.current = source;
-
-        // ScriptProcessor para compatibilidad total
+        
+        // ScriptProcessor solo para "escuchar" el ritmo, no para grabar el archivo final
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
         processorRef.current = processor;
 
         processor.onaudioprocess = (e) => {
             const inputData = e.inputBuffer.getChannelData(0);
-            audioChunksRef.current.push(new Float32Array(inputData));
+            // Guardamos copia ligera para análisis
+            rawAudioBufferRef.current.push(new Float32Array(inputData));
         };
 
         source.connect(processor);
         processor.connect(audioContext.destination);
 
         setStatus('recording');
-        logToConsole("🎙️ Grabando...");
+        logToConsole("🎙️ Grabando (Híbrido)...");
 
     } catch (err: any) {
-        const msg = "Error Micrófono: " + err.message;
-        alert(msg);
-        logToConsole(msg);
+        alert("Error: " + err.message);
+        logToConsole("Error Start:", err.message);
     }
   }
 
   const stopRecording = async () => {
     if (status !== 'recording') return;
     
-    // Detener audio
+    // Detener grabación comprimida
+    mediaRecorderRef.current?.stop();
+    
+    // Detener procesamiento RAW
     processorRef.current?.disconnect();
     sourceRef.current?.disconnect();
     streamRef.current?.getTracks().forEach(track => track.stop());
@@ -118,70 +125,136 @@ export default function WitnessRecorder() {
 
     setStatus('processing');
 
-    // Unir audio
-    const totalLength = audioChunksRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
-    
-    if (totalLength === 0) {
-        setErrorMessage("Audio vacío.");
+    // Esperar un momento a que MediaRecorder termine de cerrar el archivo
+    setTimeout(async () => {
+        // 1. CREAR ARCHIVO COMPRIMIDO FINAL 📦
+        // Esto crea un archivo .mp4 o .webm real y pequeño
+        const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+        const finalBlob = new Blob(chunksRef.current, { type: mimeType });
+        setAudioBlob(finalBlob);
+        
+        const sizeKB = (finalBlob.size / 1024).toFixed(2);
+        logToConsole(`Archivo generado: ${mimeType}, Tamaño: ${sizeKB} KB`);
+
+        // 2. ENVIAR A GROQ (Texto) 🧠
+        // Enviamos el Blob comprimido directo (Groq lo soporta y es más rápido subirlo)
+        const formData = new FormData();
+        // Le ponemos extensión correcta para que Groq no se queje
+        const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
+        formData.append('file', finalBlob, `audio.${ext}`);
+
+        try {
+            const response = await fetch('/api/transcribe', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (data.text) {
+                setTranscription(prev => (prev ? prev + " " : "") + data.text);
+            }
+        } catch (e: any) {
+            logToConsole("Error Transcripción:", e.message);
+        }
+
+        // 3. ENVIAR A ESSENTIA (Música) 🎵
+        // Para música seguimos usando los datos RAW que capturamos por el otro canal
+        const totalLength = rawAudioBufferRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
+        const fullRawBuffer = new Float32Array(totalLength);
+        let offset = 0;
+        for (const chunk of rawAudioBufferRef.current) {
+            fullRawBuffer.set(chunk, offset);
+            offset += chunk.length;
+        }
+        
+        if (musicWorkerRef.current) {
+            musicWorkerRef.current.postMessage({ type: 'analyze', audio: fullRawBuffer });
+        }
+
         setStatus('ready');
-        return;
-    }
-
-    const fullAudioBuffer = new Float32Array(totalLength);
-    let offset = 0;
-    for (const chunk of audioChunksRef.current) {
-        fullAudioBuffer.set(chunk, offset);
-        offset += chunk.length;
-    }
-
-    logToConsole(`Procesando ${totalLength} samples...`);
-
-    // 🚀 ENVIAR A LOS DOS CEREBROS (Workers)
-    
-    // 1. Enviar a Whisper (Voz)
-    whisperWorkerRef.current?.postMessage({ 
-        type: 'transcribe', 
-        audio: fullAudioBuffer 
-    });
-
-    // 2. Enviar a Essentia (Música)
-    // Essentia prefiere un buffer más pequeño si es muy largo, pero probemos directo
-    musicWorkerRef.current?.postMessage({ 
-        type: 'analyze', 
-        audio: fullAudioBuffer 
-    });
+    }, 500);
   }
+
+  // ☁️ SUBIDA INTELIGENTE A SUPABASE
+  const handleUpload = async () => {
+    if (!audioBlob) return;
+    setUploadStatus('uploading');
+
+    try {
+        // Detectar extensión correcta
+        const isMp4 = audioBlob.type.includes('mp4');
+        const ext = isMp4 ? 'm4a' : 'webm';
+        const fileName = `demo_${Date.now()}.${ext}`;
+        
+        const { data, error } = await supabase.storage
+            .from('demos')
+            .upload(fileName, audioBlob, {
+                contentType: audioBlob.type,
+                cacheControl: '3600',
+                upsert: false
+            });
+
+        if (error) throw error;
+
+        logToConsole(`✅ Subido: ${fileName} (${(audioBlob.size/1024).toFixed(1)} KB)`);
+        setUploadStatus('done');
+
+    } catch (err: any) {
+        alert("Error subiendo: " + err.message);
+        setUploadStatus('idle');
+    }
+  };
+
+  const handleShare = async () => {
+    const textToShare = `🎵 IDEA:\n${transcription}\n\nBPM: ${musicStats?.bpm || '-'}`;
+    
+    // Fix TypeScript error
+    if ((navigator as any).share) {
+      await (navigator as any).share({ title: 'Studio Idea', text: textToShare });
+    } else {
+      navigator.clipboard.writeText(textToShare);
+      alert("Copiado!");
+    }
+  };
 
   return (
     <div className="w-full max-w-3xl mx-auto bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
-      {/* Cabecera */}
+      
+      {/* HEADER */}
       <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
           <div className="flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${status === 'recording' ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
             <div>
                 <h2 className="text-white font-bold tracking-tight">Session Analyzer AI</h2>
-                <div className="flex items-center gap-2">
-                    <p className="text-zinc-500 text-xs font-mono">
-                        {status === 'loading' && "Cargando Motores..."}
-                        {status === 'ready' && "Listo para grabar"}
-                        {status === 'recording' && "GRABANDO (RAW)..."}
-                        {status === 'processing' && "Analizando..."}
-                    </p>
-                    {status === 'recording' && (
-                        <span className="text-[9px] bg-red-500/20 text-red-400 px-1 rounded border border-red-500/50 animate-pulse">
-                            ON AIR
-                        </span>
+                <div className="flex gap-2 text-zinc-500 text-xs font-mono items-center">
+                    {status === 'recording' ? "REC (Compresor Activado)..." : "Listo"}
+                    
+                    {status === 'ready' && audioBlob && (
+                        <button 
+                            onClick={handleUpload}
+                            disabled={uploadStatus !== 'idle'}
+                            className={`ml-2 px-2 py-0.5 rounded flex items-center gap-1 transition-all ${
+                                uploadStatus === 'done' 
+                                ? 'bg-emerald-500/20 text-emerald-400' 
+                                : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
+                            }`}
+                        >
+                            {uploadStatus === 'uploading' && <Wifi className="animate-pulse w-3 h-3" />}
+                            {uploadStatus === 'done' && <Check className="w-3 h-3" />}
+                            {uploadStatus === 'idle' && <CloudUpload className="w-3 h-3" />}
+                            {uploadStatus === 'idle' ? 'Guardar' : uploadStatus === 'done' ? 'Guardado' : 'Subiendo...'}
+                        </button>
                     )}
                 </div>
             </div>
           </div>
+          
           <Button 
             onClick={status === 'recording' ? stopRecording : startRecording}
-            disabled={status === 'loading' || status === 'processing'}
+            disabled={status === 'processing'}
             className={status === 'recording' ? 'bg-red-500 hover:bg-red-600' : 'bg-white text-black hover:bg-zinc-200'}
           >
               {status === 'recording' ? <StopCircle className="mr-2 h-4 w-4"/> : <Mic className="mr-2 h-4 w-4"/>}
-              {status === 'recording' ? 'DETENER' : 'GRABAR'}
+              {status === 'recording' ? 'STOP' : 'REC'}
           </Button>
       </div>
 
@@ -191,7 +264,6 @@ export default function WitnessRecorder() {
           </div>
       )}
 
-      {/* Resultados */}
       <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-800">
           <div className="p-6 space-y-4">
               <div className="flex items-center gap-2 text-zinc-400 mb-4">
@@ -206,39 +278,31 @@ export default function WitnessRecorder() {
                       </div>
                       <div className="p-4 bg-zinc-900 rounded-xl border border-zinc-800">
                           <span className="text-zinc-500 text-xs uppercase">Key</span>
-                          <div className={`text-3xl font-black ${musicStats.key === '?' ? 'text-red-500' : 'text-emerald-400'}`}>
-                              {musicStats.key}
-                          </div>
+                          <div className="text-3xl font-black text-emerald-400">{musicStats.key}</div>
                       </div>
-                      {musicStats.key !== '?' && (
-                          <div className="text-xs text-zinc-500 mt-2 bg-emerald-500/10 text-emerald-400 p-2 rounded border border-emerald-500/20 inline-flex items-center">
-                              <Zap className="w-3 h-3 mr-1" /> Suggestion: Autotune {musicStats.key}
-                          </div>
-                      )}
                   </div>
               ) : (
                   <div className="h-32 flex items-center justify-center text-zinc-700 text-sm italic">
-                      Graba música para detectar BPM/Key...
+                      ...
                   </div>
               )}
           </div>
 
-          <div className="p-6 flex flex-col">
-              <div className="flex items-center gap-2 text-zinc-400 mb-4">
-                  <Type className="w-4 h-4" />
-                  <span className="text-xs font-bold uppercase tracking-widest">Transcripción</span>
+          <div className="p-6 flex flex-col h-full">
+              <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-zinc-400">
+                      <Type className="w-4 h-4" />
+                      <span className="text-xs font-bold uppercase">Transcripción</span>
+                  </div>
+                  <button onClick={handleShare} disabled={!transcription} className="text-[10px] bg-zinc-800 px-2 py-1 rounded hover:bg-zinc-700 transition-colors">
+                    Copiar / Notas
+                  </button>
               </div>
-              <div className="flex-1 bg-zinc-900/50 rounded-xl p-4 border border-zinc-800 min-h-[200px]">
-                  {transcription ? (
-                      <p className="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap animate-in fade-in">
-                          {transcription}
-                      </p>
-                  ) : (
-                      <span className="text-zinc-700 text-sm italic">
-                          La letra aparecerá aquí...
-                      </span>
-                  )}
-              </div>
+              <textarea 
+                  value={transcription}
+                  onChange={(e) => setTranscription(e.target.value)}
+                  className="flex-1 w-full bg-zinc-900/50 rounded-xl p-4 border border-zinc-800 text-zinc-300 text-sm font-mono focus:outline-none resize-none min-h-[200px]"
+              />
           </div>
       </div>
     </div>
