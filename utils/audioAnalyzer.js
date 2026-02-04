@@ -2,21 +2,24 @@ import { EssentiaWASM } from 'essentia.js';
 
 export const analyzeAudio = async (audioBuffer) => {
     try {
-        // CORRECCIÓN: Quitamos el doble .EssentiaWASM
+        // CORRECCIÓN CLAVE: 
+        // Antes era: new EssentiaWASM.EssentiaWASM(false) -> ESTO FALLABA
+        // Ahora es:  new EssentiaWASM(false) -> ESTO FUNCIONA
         const essentia = new EssentiaWASM(false);
         
         const channelData = audioBuffer.getChannelData(0);
         
-        // 1. CHEQUEO DE SILENCIO (Para evitar errores si no se grabó nada)
-        // Calculamos el volumen promedio (RMS)
+        // 1. CHEQUEO DE SILENCIO (Evita crasheos si el micro no grabó nada)
         let sum = 0;
         for (let i = 0; i < channelData.length; i++) {
             sum += channelData[i] * channelData[i];
         }
         const rms = Math.sqrt(sum / channelData.length);
         
-        // Si el volumen es casi cero, cancelamos
-        if (rms < 0.01) throw new Error("Audio demasiado silencioso");
+        if (rms < 0.005) {
+             console.warn("Audio demasiado bajo/silencio detectado.");
+             return { bpm: 0, key: "Silencio" };
+        }
 
         const vectorAudio = essentia.arrayToVector(channelData);
 
@@ -30,7 +33,8 @@ export const analyzeAudio = async (audioBuffer) => {
 
         return { bpm, key };
     } catch (e) {
-        console.warn("No se pudo analizar música:", e);
-        return null;
+        console.error("Error analizando música:", e);
+        // Devolvemos valores seguros para que no rompa la UI
+        return { bpm: 0, key: "Error" };
     }
 };
