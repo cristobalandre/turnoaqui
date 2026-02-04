@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Mic, StopCircle, Loader2, Music, Type, Zap } from 'lucide-react'
+import { Mic, StopCircle, Music, Type, Zap, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { analyzeAudio } from '@/utils/audioAnalyzer'
 
@@ -9,13 +9,18 @@ export default function WitnessRecorder() {
   const [status, setStatus] = useState('idle') 
   const [transcription, setTranscription] = useState('')
   const [musicStats, setMusicStats] = useState<{ bpm: number; key: string } | null>(null)
+  const [errorMessage, setErrorMessage] = useState('')
   
   const workerRef = useRef<Worker | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Blob[]>([])
+  // Reemplazamos MediaRecorder por referencias de AudioContext
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const processorRef = useRef<ScriptProcessorNode | null>(null)
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
+  const audioChunksRef = useRef<Float32Array[]>([])
 
   useEffect(() => {
-    // 1. Iniciamos el Worker (IMPORTANTE: type module para imports CDN)
+    // 1. Iniciamos el Worker (Igual que antes)
     if (!workerRef.current) {
       workerRef.current = new Worker('/whisper.worker.js', { type: 'module' });
       
@@ -24,10 +29,14 @@ export default function WitnessRecorder() {
         if (status === 'loading') setStatus('loading');
         if (status === 'ready') setStatus('ready');
         if (status === 'complete') {
-            setTranscription(prev => prev + " " + text);
+            const cleanText = text.replace(/\(música\)|\(music\)/gi, "").trim();
+            if (cleanText) setTranscription(prev => prev + " " + cleanText);
             setStatus('ready');
         }
-        if (status === 'error') console.error("Error Worker:", data);
+        if (status === 'error') {
+            setErrorMessage("Error IA: " + data);
+            setStatus('ready');
+        }
       };
 
       workerRef.current.postMessage({ type: 'load' });
@@ -35,55 +44,98 @@ export default function WitnessRecorder() {
 
     return () => {
         workerRef.current?.terminate();
-        workerRef.current = null;
+        stopRecording(); // Limpieza de seguridad
     };
   }, [])
 
   const startRecording = async () => {
+    setErrorMessage('');
+    setTranscription('');
+    setMusicStats(null);
+    audioChunksRef.current = []; // Limpiamos buffer
+
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorderRef.current = new MediaRecorder(stream);
-        chunksRef.current = [];
+        streamRef.current = stream;
 
-        mediaRecorderRef.current.ondataavailable = (e) => {
-            if (e.data.size > 0) chunksRef.current.push(e.data);
+        // 🦁 TRUCO UNIVERSAL: AudioContext
+        // Safari necesita webkitAudioContext antiguo a veces, pero los nuevos usan AudioContext estándar
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const audioContext = new AudioContextClass({ sampleRate: 16000 }); // Whisper ama 16khz
+        audioContextRef.current = audioContext;
+
+        const source = audioContext.createMediaStreamSource(stream);
+        sourceRef.current = source;
+
+        // "ScriptProcessor" es antiguo pero es el más compatible universalmente para capturar RAW
+        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+        processorRef.current = processor;
+
+        processor.onaudioprocess = (e) => {
+            // Capturamos los datos crudos (float32)
+            const inputData = e.inputBuffer.getChannelData(0);
+            // Hacemos una copia profunda de los datos
+            audioChunksRef.current.push(new Float32Array(inputData));
         };
 
-        mediaRecorderRef.current.onstop = async () => {
-            setStatus('processing');
-            const blob = new Blob(chunksRef.current, { type: 'audio/wav' });
-            
-            // Procesar Audio
-            const arrayBuffer = await blob.arrayBuffer();
-            const audioContext = new AudioContext();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        source.connect(processor);
+        processor.connect(audioContext.destination); // Necesario para que el proceso corra
 
-            // 1. Enviar a Whisper (Worker)
-            const audioData = audioBuffer.getChannelData(0);
-            workerRef.current?.postMessage({ type: 'transcribe', audio: audioData });
-
-            // 2. Analizar Música (Essentia)
-            try {
-                const stats = await analyzeAudio(audioBuffer);
-                setMusicStats(stats);
-            } catch (err) {
-                console.log("Audio muy corto o silencio.", err);
-            }
-        };
-
-        mediaRecorderRef.current.start();
-        setTranscription('');
-        setMusicStats(null);
         setStatus('recording');
-    } catch (err) {
-        alert("Error: No se pudo acceder al micrófono.");
-        console.error(err);
+    } catch (err: any) {
+        alert("Error Micrófono: " + err.message);
     }
   }
 
-  const stopRecording = () => {
-    mediaRecorderRef.current?.stop();
-    mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+  const stopRecording = async () => {
+    if (status !== 'recording') return;
+
+    // 1. Detener todo
+    processorRef.current?.disconnect();
+    sourceRef.current?.disconnect();
+    streamRef.current?.getTracks().forEach(track => track.stop());
+    audioContextRef.current?.close();
+
+    setStatus('processing');
+
+    // 2. Unir todos los trozos de audio (Flatten)
+    const totalLength = audioChunksRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
+    const fullAudioBuffer = new Float32Array(totalLength);
+    let offset = 0;
+    for (const chunk of audioChunksRef.current) {
+        fullAudioBuffer.set(chunk, offset);
+        offset += chunk.length;
+    }
+
+    // Si el audio es muy corto o silencio absoluto
+    if (fullAudioBuffer.length === 0) {
+        setErrorMessage("No se grabó audio.");
+        setStatus('ready');
+        return;
+    }
+
+    try {
+        // --- ENVÍO A LA IA (WHISPER) ---
+        // Whisper acepta Float32Array directo, ¡no necesitamos convertir a archivo!
+        workerRef.current?.postMessage({ 
+            type: 'transcribe', 
+            audio: fullAudioBuffer 
+        });
+
+        // --- ENVÍO A MÚSICA (ESSENTIA) ---
+        // Necesitamos recrear un AudioBuffer falso para Essentia
+        // (Ya que Essentia.js espera un AudioBuffer del navegador)
+        const offlineCtx = new OfflineAudioContext(1, fullAudioBuffer.length, 16000);
+        const audioBuffer = offlineCtx.createBuffer(1, fullAudioBuffer.length, 16000);
+        audioBuffer.copyToChannel(fullAudioBuffer, 0);
+
+        const stats = await analyzeAudio(audioBuffer);
+        setMusicStats(stats);
+
+    } catch (err) {
+        console.error(err);
+        setErrorMessage("Error procesando audio.");
+    }
   }
 
   return (
@@ -97,7 +149,7 @@ export default function WitnessRecorder() {
                 <p className="text-zinc-500 text-xs font-mono">
                     {status === 'loading' && "Descargando IA..."}
                     {status === 'ready' && "Sistema en espera"}
-                    {status === 'recording' && "Escuchando..."}
+                    {status === 'recording' && "GRABANDO RAW..."}
                     {status === 'processing' && "Procesando..."}
                 </p>
             </div>
@@ -111,6 +163,12 @@ export default function WitnessRecorder() {
               {status === 'recording' ? 'DETENER' : 'GRABAR'}
           </Button>
       </div>
+
+      {errorMessage && (
+          <div className="bg-red-500/10 border-b border-red-500/20 p-2 text-center text-red-400 text-xs flex items-center justify-center gap-2">
+              <AlertTriangle className="w-3 h-3" /> {errorMessage}
+          </div>
+      )}
 
       {/* Resultados */}
       <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-800">
