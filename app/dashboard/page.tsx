@@ -8,13 +8,14 @@ import Image from "next/image";
 import { Outfit } from "next/font/google";
 import { 
   LogOut, LayoutGrid, Calendar, Box, Users, Settings, ArrowRight, 
-  Music2, PlayCircle, Layers, Shield, Scissors, Clock, ShieldAlert // <--- Agregamos iconos nuevos
+  Music2, PlayCircle, Layers, Shield, Scissors, Clock, ShieldAlert,
+  Mic, Zap // 👈 AGREGADO: Iconos para el nuevo botón
 } from "lucide-react";
 
 const outfit = Outfit({ subsets: ["latin"] });
 const supabase = createClient();
 
-// 📸 TUS NUEVAS FOTOS DE ARTE
+// 📸 TUS FOTOS DE ARTE (Intactas)
 const studioImages = [
   "/art-1.jpg",
   "/art-2.jpg",
@@ -24,12 +25,12 @@ const studioImages = [
 export default function Dashboard() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isPending, setIsPending] = useState(false); // <--- Nuevo estado para controlar el bloqueo
+  const [isPending, setIsPending] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     const init = async () => {
-      // 1. Verificamos sesión (Evita pedir login si ya está conectado)
+      // 1. Verificamos sesión
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) { 
@@ -37,8 +38,8 @@ export default function Dashboard() {
         return; 
       }
 
-      // 2. Obtenemos el perfil con la política de seguridad que creamos
-      const { data, error } = await supabase
+      // 2. Obtenemos perfil
+      const { data } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", session.user.id)
@@ -47,8 +48,7 @@ export default function Dashboard() {
       if (data) {
         setProfile(data);
 
-        // 🛡️ LÓGICA DE SEGURIDAD ENTERPRISE 🛡️
-        // Si no tiene plan activo O no tiene organización asignada -> BLOQUEO
+        // 🛡️ SEGURIDAD (Intacta)
         if (data.plan_status !== 'active' || !data.org_id) {
           setIsPending(true);
         }
@@ -65,14 +65,14 @@ export default function Dashboard() {
     router.replace("/login");
   };
 
-  // PANTALLA DE CARGA (Minimalista)
+  // PANTALLA DE CARGA
   if (loading) return (
     <div className="min-h-screen bg-[#050505] flex items-center justify-center text-zinc-500 font-mono animate-pulse">
       CARGANDO STUDIO HUB...
     </div>
   );
 
-  // 🔒 PANTALLA DE CUENTA PENDIENTE (Bloqueo elegante)
+  // 🔒 PANTALLA DE CUENTA PENDIENTE (Intacta)
   if (isPending) {
     return (
       <div className={`min-h-screen bg-[#09090b] flex flex-col items-center justify-center p-4 font-sans text-zinc-300 ${outfit.className}`}>
@@ -96,7 +96,7 @@ export default function Dashboard() {
               <div>
                  <p className="text-sm font-medium text-zinc-300">Estado: En espera</p>
                  <p className="text-xs text-zinc-500 mt-1">
-                   No necesitas hacer nada más. El sistema te dará acceso automáticamente cuando tu organización te autorice.
+                   No necesitas hacer nada más. El sistema te dará acceso automáticamente.
                  </p>
               </div>
             </div>
@@ -118,7 +118,6 @@ export default function Dashboard() {
     );
   }
 
-  // ✅ SI PASA LA SEGURIDAD, MOSTRAMOS EL DASHBOARD ORIGINAL
   const isAdmin = profile?.role === 'admin';
 
   return (
@@ -130,7 +129,7 @@ export default function Dashboard() {
           <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-900/10 rounded-full blur-[120px]" />
       </div>
 
-      {/* 🎞️ CORREDOR DE FOTOS */}
+      {/* 🎞️ CORREDOR DE FOTOS (Intacto) */}
       <div className="relative z-10 w-full h-48 md:h-64 overflow-hidden border-b border-white/5 bg-zinc-900/50">
         <div className="absolute inset-0 flex items-center animate-marquee gap-0">
              {[...studioImages, ...studioImages, ...studioImages, ...studioImages].map((src, i) => (
@@ -168,10 +167,37 @@ export default function Dashboard() {
 
       <main className="relative z-10 max-w-7xl mx-auto p-6 md:p-12">
         
-        {/* GRID PRINCIPAL */}
+        {/* 🟠 NUEVO: BOTÓN MAESTRO "WITNESS MODE" */}
+        {/* Inyectado justo aquí, respetando el layout original */}
+        <div className="flex justify-center mb-16 relative z-30 animate-in fade-in zoom-in duration-1000">
+          <Link href="/dashboard/witness">
+             <div className="relative group cursor-pointer">
+                {/* Aura Naranja Respirando (Estilo Geminizado) */}
+                <div className="absolute inset-0 bg-orange-500 rounded-full blur-[40px] opacity-20 group-hover:opacity-50 transition-opacity duration-700 animate-pulse" />
+                
+                {/* Botón Físico */}
+                <div className="relative w-20 h-20 md:w-24 md:h-24 bg-[#0A0A0A] border border-orange-500/30 group-hover:border-orange-500 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform duration-500 ease-out">
+                   <div className="absolute inset-1 rounded-full border border-white/5" /> {/* Aro interno sutil */}
+                   <Mic className="text-zinc-500 group-hover:text-orange-400 w-8 h-8 md:w-10 md:h-10 transition-colors duration-300" />
+                   
+                   {/* Partícula de estado activo */}
+                   <div className="absolute top-0 right-0 w-3 h-3 bg-orange-500 rounded-full border-2 border-black animate-ping opacity-0 group-hover:opacity-100 transition-opacity delay-100" />
+                </div>
+
+                {/* Texto descriptivo flotante */}
+                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                    <span className="text-[10px] font-bold text-orange-400 uppercase tracking-[0.2em] whitespace-nowrap flex items-center gap-1 bg-orange-500/10 px-3 py-1 rounded-full border border-orange-500/20">
+                       <Zap size={10} className="fill-orange-400" /> Witness AI
+                    </span>
+                </div>
+             </div>
+          </Link>
+        </div>
+
+        {/* GRID PRINCIPAL (Intacto) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           
-          {/* 1. STUDIO HUB */}
+          {/* 1. PROYECTOS */}
           <Link href="/projects" className="col-span-1 md:col-span-2 group">
             <div className="relative h-64 md:h-80 rounded-3xl bg-[#0A0A0A] border border-white/10 hover:border-emerald-500/50 transition-all duration-500 overflow-hidden shadow-2xl group-hover:shadow-emerald-900/20">
               <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/20 to-black opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -218,7 +244,7 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* BARRA INFERIOR MINIMALISTA */}
+        {/* BARRA INFERIOR MINIMALISTA (Intacta) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
            {[
              { name: "Recursos", icon: Box, link: "/resources" },
