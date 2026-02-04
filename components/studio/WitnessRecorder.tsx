@@ -17,7 +17,7 @@ export default function WitnessRecorder() {
 
   useEffect(() => {
     // 1. Iniciamos el Worker de Whisper (Parte 1)
-    workerRef.current = new Worker(new URL('/whisper.worker.js', import.meta.url));
+    workerRef.current = new Worker('/whisper.worker.js');
     
     workerRef.current.onmessage = (event) => {
       const { status, text } = event.data;

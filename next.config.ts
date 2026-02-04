@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   
+  // 1. Configuración de Imágenes (INTACTA)
   images: {
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
@@ -12,12 +13,24 @@ const nextConfig = {
     ],
   },
 
+  // 2. Solución al Error de Build
+  // Esto arregla el error "Module not found: Can't resolve 'fs'" de Essentia.js
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,    // Ignora sistema de archivos (Node) en el navegador
+        path: false,  // Ignora rutas de servidor
+        crypto: false // Ignora criptografía de servidor
+      };
+    }
+    return config;
+  },
+
+  // 3. Headers de Seguridad para Audio/WASM (INTACTO)
   async headers() {
     return [
       {
-        // EL CAMBIO DRASTICO:
-        // Solo activamos los headers estrictos en las rutas de proyectos.
-        // El resto del sitio (/login, /dashboard, etc.) queda libre para Google.
         source: '/projects/:path*', 
         headers: [
           {
