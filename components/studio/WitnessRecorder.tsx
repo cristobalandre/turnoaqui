@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Mic, StopCircle, Music, Type, Zap, AlertTriangle, Wifi, Share, Copy, CloudUpload, Check, FolderOpen, ExternalLink } from 'lucide-react'
+// Agregamos 'Plus' y 'X' para la interfaz de nuevo proyecto
+import { Mic, StopCircle, Music, Type, Zap, AlertTriangle, Wifi, Share, Copy, CloudUpload, Check, FolderOpen, ExternalLink, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { logToConsole } from '@/utils/remoteLogger'
 import { createClient } from '@/lib/supabase/client'
@@ -19,8 +20,11 @@ export default function WitnessRecorder() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done'>('idle');
 
+  // 🆕 ESTADOS PARA NUEVO PROYECTO
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [isCreatingNew, setIsCreatingNew] = useState(false); // ¿Estamos creando uno nuevo?
+  const [newProjectName, setNewProjectName] = useState('');  // Nombre del nuevo proyecto
 
   const musicWorkerRef = useRef<Worker | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -33,39 +37,9 @@ export default function WitnessRecorder() {
   const rawAudioBufferRef = useRef<Float32Array[]>([])
 
   useEffect(() => {
-    // 1. CARGA DE PROYECTOS (CORREGIDO)
-    const fetchProjects = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if(!session) return;
-
-        // 🛠️ FIX: Pedimos 'title' en vez de 'name' para evitar el error de Supabase
-        // Si tu columna se llama de otra forma, cambia 'title' por el nombre real.
-        const { data, error } = await supabase
-            .from('projects')
-            .select('id, title') 
-            .order('created_at', { ascending: false });
-        
-        if (error) {
-            console.error("Error cargando proyectos:", error);
-            return;
-        }
-
-        if (data) {
-            // Mapeamos 'title' a 'name' para que el selector funcione igual
-            const formattedProjects = data.map((p: any) => ({
-                id: p.id,
-                name: p.title || 'Sin Título' 
-            }));
-            
-            setProjects(formattedProjects);
-            
-            // Seleccionar el primero por defecto
-            if (formattedProjects.length > 0) setSelectedProjectId(formattedProjects[0].id);
-        }
-    };
     fetchProjects();
 
-    // 2. WORKER MUSICAL
+    // WORKER MUSICAL
     if (!musicWorkerRef.current) {
         musicWorkerRef.current = new Worker('/music.worker.js');
         musicWorkerRef.current.onmessage = (event) => {
@@ -82,6 +56,28 @@ export default function WitnessRecorder() {
     };
   }, [])
 
+  const fetchProjects = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if(!session) return;
+
+    const { data } = await supabase
+        .from('projects')
+        .select('id, title') // Usamos 'title' como corregimos antes
+        .order('created_at', { ascending: false });
+    
+    if (data) {
+        const formattedProjects = data.map((p: any) => ({
+            id: p.id,
+            name: p.title || 'Sin Título' 
+        }));
+        setProjects(formattedProjects);
+        // Seleccionar el primero por defecto si existe
+        if (formattedProjects.length > 0 && !selectedProjectId) {
+            setSelectedProjectId(formattedProjects[0].id);
+        }
+    }
+  };
+
   const startRecording = async () => {
     setErrorMessage('');
     setMusicStats(null);
@@ -94,11 +90,8 @@ export default function WitnessRecorder() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
 
-        // COMPRESIÓN AUTOMÁTICA
         let mimeType = 'audio/webm';
-        if (MediaRecorder.isTypeSupported('audio/mp4')) {
-            mimeType = 'audio/mp4'; 
-        }
+        if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4'; 
         
         logToConsole(`Usando compresión: ${mimeType}`);
 
@@ -111,12 +104,10 @@ export default function WitnessRecorder() {
 
         mediaRecorder.start(1000);
 
-        // ANÁLISIS RAW (BPM)
         // @ts-ignore
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         const audioContext = new AudioContextClass({ sampleRate: 16000 });
         audioContextRef.current = audioContext;
-
         const source = audioContext.createMediaStreamSource(stream);
         sourceRef.current = source;
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
@@ -131,11 +122,9 @@ export default function WitnessRecorder() {
         processor.connect(audioContext.destination);
 
         setStatus('recording');
-        logToConsole("🎙️ Grabando...");
 
     } catch (err: any) {
         alert("Error: " + err.message);
-        logToConsole("Error Start:", err.message);
     }
   }
 
@@ -151,33 +140,24 @@ export default function WitnessRecorder() {
     setStatus('processing');
 
     setTimeout(async () => {
-        // GENERAR ARCHIVO
         const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
         const finalBlob = new Blob(chunksRef.current, { type: mimeType });
         setAudioBlob(finalBlob);
         
-        const sizeKB = (finalBlob.size / 1024).toFixed(2);
-        logToConsole(`Archivo generado: ${mimeType}, Tamaño: ${sizeKB} KB`);
-
-        // TRANSCRIBIR (GROQ)
+        // Transcribir (Groq)
         const formData = new FormData();
         const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
         formData.append('file', finalBlob, `audio.${ext}`);
 
         try {
-            const response = await fetch('/api/transcribe', {
-                method: 'POST',
-                body: formData
-            });
+            const response = await fetch('/api/transcribe', { method: 'POST', body: formData });
             const data = await response.json();
-            if (data.text) {
-                setTranscription(prev => (prev ? prev + " " : "") + data.text);
-            }
+            if (data.text) setTranscription(prev => (prev ? prev + " " : "") + data.text);
         } catch (e: any) {
             logToConsole("Error Transcripción:", e.message);
         }
 
-        // ANALIZAR MÚSICA (ESSENTIA)
+        // Analizar Música
         const totalLength = rawAudioBufferRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
         const fullRawBuffer = new Float32Array(totalLength);
         let offset = 0;
@@ -185,61 +165,90 @@ export default function WitnessRecorder() {
             fullRawBuffer.set(chunk, offset);
             offset += chunk.length;
         }
-        
-        if (musicWorkerRef.current) {
-            musicWorkerRef.current.postMessage({ type: 'analyze', audio: fullRawBuffer });
-        }
+        musicWorkerRef.current?.postMessage({ type: 'analyze', audio: fullRawBuffer });
 
         setStatus('ready');
     }, 500);
   }
 
+  // 🚀 LÓGICA MAESTRA DE GUARDADO
   const handleUpload = async () => {
     if (!audioBlob) return;
-    if (!selectedProjectId) {
-        alert("⚠️ Por favor selecciona un proyecto para guardar esta idea.");
+    
+    // Validación de Nuevo Proyecto
+    if (isCreatingNew && !newProjectName.trim()) {
+        alert("⚠️ Escribe un nombre para el nuevo proyecto.");
+        return;
+    }
+    if (!isCreatingNew && !selectedProjectId) {
+        alert("⚠️ Selecciona un proyecto.");
         return;
     }
 
     setUploadStatus('uploading');
 
     try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("No sesión");
+
+        let targetProjectId = selectedProjectId;
+
+        // 1. SI ES NUEVO PROYECTO: CREARLO PRIMERO
+        if (isCreatingNew) {
+            const { data: newProject, error: createError } = await supabase
+                .from('projects')
+                .insert({
+                    title: newProjectName, // Usamos 'title'
+                    user_id: session.user.id,
+                    status: 'active'
+                })
+                .select()
+                .single();
+
+            if (createError) throw createError;
+            
+            targetProjectId = newProject.id;
+            
+            // Actualizamos la lista localmente para que se vea reflejado
+            const newProjFormatted = { id: newProject.id, name: newProject.title };
+            setProjects([newProjFormatted, ...projects]);
+            setSelectedProjectId(newProject.id);
+            setIsCreatingNew(false); // Salimos del modo creación
+            setNewProjectName("");
+        }
+
+        // 2. SUBIR AUDIO
         const isMp4 = audioBlob.type.includes('mp4');
         const ext = isMp4 ? 'm4a' : 'webm';
-        const fileName = `${selectedProjectId}/${Date.now()}_demo.${ext}`;
+        const fileName = `${targetProjectId}/${Date.now()}_demo.${ext}`;
         
-        // 1. SUBIR A STORAGE
-        const { data, error } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
             .from('demos')
-            .upload(fileName, audioBlob, {
-                contentType: audioBlob.type,
-                cacheControl: '3600',
-                upsert: false
-            });
+            .upload(fileName, audioBlob, { contentType: audioBlob.type, upsert: false });
 
-        if (error) throw error;
+        if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = supabase.storage.from('demos').getPublicUrl(fileName);
 
-        // 2. GUARDAR EN DB (PUENTE)
+        // 3. GUARDAR LA IDEA (LINK)
         const { error: dbError } = await supabase
             .from('project_ideas')
             .insert({
-                project_id: selectedProjectId,
+                project_id: targetProjectId,
                 file_url: publicUrl,
                 transcription: transcription,
                 bpm: musicStats?.bpm || 0,
                 music_key: musicStats?.key || '',
-                name: `Idea de Voz ${new Date().toLocaleTimeString().slice(0,5)}`
+                name: `Idea ${new Date().toLocaleTimeString().slice(0,5)}`
             });
 
         if (dbError) throw dbError;
 
-        logToConsole(`✅ Guardado en Proyecto ID: ${selectedProjectId}`);
+        logToConsole(`✅ Guardado en Proyecto: ${targetProjectId}`);
         setUploadStatus('done');
 
     } catch (err: any) {
-        alert("Error guardando: " + err.message);
+        alert("Error: " + err.message);
         setUploadStatus('idle');
     }
   };
@@ -255,12 +264,24 @@ export default function WitnessRecorder() {
   };
 
   const goToProject = () => {
-    if (selectedProjectId) {
+    if (selectedProjectId && !isCreatingNew) {
         router.push(`/projects/${selectedProjectId}`);
     } else {
         router.push('/projects');
     }
   }
+
+  // Manejador del Selector
+  const handleProjectSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const val = e.target.value;
+      if (val === '__NEW__') {
+          setIsCreatingNew(true);
+          setSelectedProjectId('');
+      } else {
+          setIsCreatingNew(false);
+          setSelectedProjectId(val);
+      }
+  };
 
   return (
     <div className="w-full max-w-3xl mx-auto bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
@@ -273,34 +294,60 @@ export default function WitnessRecorder() {
             <div className="flex flex-col w-full">
                 <h2 className="text-white font-bold tracking-tight">Witness AI</h2>
                 
-                {/* SELECTOR + LINK */}
+                {/* 🔽 ZONA DE SELECCIÓN INTELIGENTE 🔽 */}
                 <div className="flex items-center gap-2 mt-1">
                     <FolderOpen size={12} className="text-zinc-500" />
-                    <select 
-                        value={selectedProjectId}
-                        onChange={(e) => setSelectedProjectId(e.target.value)}
-                        className="bg-transparent text-zinc-400 text-xs border-none outline-none cursor-pointer hover:text-emerald-400 transition-colors w-32 truncate"
-                    >
-                        <option value="" disabled>Seleccionar Proyecto...</option>
-                        {projects.map(p => (
-                            <option key={p.id} value={p.id} className="bg-zinc-900 text-zinc-300">
-                                {p.name}
+                    
+                    {isCreatingNew ? (
+                        // INPUT PARA NUEVO PROYECTO
+                        <div className="flex items-center gap-1 animate-in fade-in slide-in-from-left-2">
+                            <input 
+                                type="text" 
+                                autoFocus
+                                placeholder="Nombre del nuevo proyecto..."
+                                value={newProjectName}
+                                onChange={(e) => setNewProjectName(e.target.value)}
+                                className="bg-zinc-800 text-white text-xs px-2 py-1 rounded border border-zinc-700 outline-none w-40 focus:border-emerald-500"
+                            />
+                            <button onClick={() => setIsCreatingNew(false)} className="text-zinc-500 hover:text-red-400">
+                                <X size={14} />
+                            </button>
+                        </div>
+                    ) : (
+                        // SELECTOR NORMAL
+                        <select 
+                            value={selectedProjectId}
+                            onChange={handleProjectSelect}
+                            className="bg-transparent text-zinc-400 text-xs border-none outline-none cursor-pointer hover:text-emerald-400 transition-colors w-40 truncate"
+                        >
+                            {/* OPCIÓN MÁGICA */}
+                            <option value="__NEW__" className="bg-zinc-800 text-emerald-400 font-bold">
+                                + Crear Nuevo Proyecto...
                             </option>
-                        ))}
-                    </select>
+                            <option disabled className="bg-zinc-900">----------------</option>
+                            {projects.map(p => (
+                                <option key={p.id} value={p.id} className="bg-zinc-900 text-zinc-300">
+                                    {p.name}
+                                </option>
+                            ))}
+                        </select>
+                    )}
 
-                    <button 
-                        onClick={goToProject}
-                        className="p-1.5 bg-zinc-800/50 hover:bg-emerald-500/20 text-zinc-500 hover:text-emerald-400 rounded-full transition-all border border-zinc-700/50 hover:border-emerald-500/30"
-                        title="Ir a este proyecto"
-                    >
-                        <ExternalLink size={12} />
-                    </button>
+                    {!isCreatingNew && (
+                        <button 
+                            onClick={goToProject}
+                            className="p-1.5 bg-zinc-800/50 hover:bg-emerald-500/20 text-zinc-500 hover:text-emerald-400 rounded-full transition-all border border-zinc-700/50 hover:border-emerald-500/30"
+                            title="Ir a este proyecto"
+                        >
+                            <ExternalLink size={12} />
+                        </button>
+                    )}
                 </div>
             </div>
           </div>
           
           <div className="flex items-center gap-3">
+             {/* BOTÓN DE GUARDADO */}
              {status === 'ready' && audioBlob && (
                 <button 
                     onClick={handleUpload}
@@ -308,13 +355,17 @@ export default function WitnessRecorder() {
                     className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all ${
                         uploadStatus === 'done' 
                         ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50' 
-                        : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20'
+                        : isCreatingNew ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20'
                     }`}
                 >
                     {uploadStatus === 'uploading' && <Wifi className="animate-pulse w-3 h-3" />}
                     {uploadStatus === 'done' && <Check className="w-3 h-3" />}
-                    {uploadStatus === 'idle' && <CloudUpload className="w-4 h-4" />}
-                    {uploadStatus === 'idle' ? 'Guardar en Proyecto' : uploadStatus === 'done' ? '¡Guardado!' : 'Subiendo...'}
+                    {uploadStatus === 'idle' && (isCreatingNew ? <Plus className="w-4 h-4" /> : <CloudUpload className="w-4 h-4" />)}
+                    
+                    {/* TEXTO DINÁMICO */}
+                    {uploadStatus === 'idle' 
+                        ? (isCreatingNew ? 'Crear y Guardar' : 'Guardar en Proyecto') 
+                        : uploadStatus === 'done' ? '¡Listo!' : 'Procesando...'}
                 </button>
             )}
 
@@ -334,6 +385,7 @@ export default function WitnessRecorder() {
           </div>
       )}
 
+      {/* BODY (Igual) */}
       <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-800">
           <div className="p-6 space-y-4">
               <div className="flex items-center gap-2 text-zinc-400 mb-4">
