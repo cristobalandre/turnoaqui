@@ -88,32 +88,35 @@ export default function WitnessRecorder() {
                               <label className="text-[10px] text-zinc-500 uppercase flex items-center gap-1"><User size={10}/> Cliente</label>
                               <input 
                                 className="w-full bg-zinc-900/50 border border-zinc-700 rounded px-2 py-1 text-xs text-white focus:border-emerald-500 outline-none"
-                                placeholder="Ej: Sony Music"
+                                placeholder="Ej: Stars Music"
                                 value={credits.client}
                                 onChange={(e) => setCredits({...credits, client: e.target.value})}
                               />
                           </div>
                           <div className="space-y-1">
-                              <label className="text-[10px] text-zinc-500 uppercase flex items-center gap-1"><Disc size={10}/> Productor</label>
+                              {/* Pluralizamos la etiqueta */}
+                              <label className="text-[10px] text-zinc-500 uppercase flex items-center gap-1"><Disc size={10}/> Productor(es)</label>
                               <input 
                                 className="w-full bg-zinc-900/50 border border-zinc-700 rounded px-2 py-1 text-xs text-white focus:border-emerald-500 outline-none"
-                                placeholder="Ej: Bizarrap"
+                                placeholder="Ej: Bizarrap, Fred Again..." // Placeholder claro
                                 value={credits.producer}
                                 onChange={(e) => setCredits({...credits, producer: e.target.value})}
                               />
                           </div>
                           <div className="space-y-1">
-                              <label className="text-[10px] text-zinc-500 uppercase flex items-center gap-1"><PenTool size={10}/> Compositor</label>
+                              <label className="text-[10px] text-zinc-500 uppercase flex items-center gap-1"><PenTool size={10}/> Compositor(es)</label>
                               <input 
                                 className="w-full bg-zinc-900/50 border border-zinc-700 rounded px-2 py-1 text-xs text-white focus:border-emerald-500 outline-none"
+                                placeholder="Ej: Deftones, Bad bunny"
                                 value={credits.songwriter}
                                 onChange={(e) => setCredits({...credits, songwriter: e.target.value})}
                               />
                           </div>
                           <div className="space-y-1">
-                              <label className="text-[10px] text-zinc-500 uppercase flex items-center gap-1"><Headphones size={10}/> Ingeniero</label>
+                              <label className="text-[10px] text-zinc-500 uppercase flex items-center gap-1"><Headphones size={10}/> Ingeniero(s)</label>
                               <input 
                                 className="w-full bg-zinc-900/50 border border-zinc-700 rounded px-2 py-1 text-xs text-white focus:border-emerald-500 outline-none"
+                                placeholder="Ej: MixMaster, Assistant"
                                 value={credits.engineer}
                                 onChange={(e) => setCredits({...credits, engineer: e.target.value})}
                               />

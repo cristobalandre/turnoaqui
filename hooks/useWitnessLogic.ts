@@ -207,6 +207,9 @@ export const useWitnessLogic = () => {
 
         // 1. Crear Nuevo Proyecto
         if (isCreatingNew) {
+            // FUNCIÓN MÁGICA: Convierte "Juan, Pepe" en ["Juan", "Pepe"]
+            const formatList = (str: string) => str.split(',').map(s => s.trim()).filter(Boolean);
+
             const { data: newProject, error: createError } = await supabase
                 .from('projects')
                 .insert({
@@ -215,9 +218,10 @@ export const useWitnessLogic = () => {
                     status: 'active',
                     client: credits.client,
                     credits: {
-                        producer: credits.producer,
-                        songwriter: credits.songwriter,
-                        engineer: credits.engineer
+                        // Guardamos como ARRAYS (Listas) para poder buscar después
+                        producer: formatList(credits.producer), 
+                        songwriter: formatList(credits.songwriter),
+                        engineer: formatList(credits.engineer)
                     }
                 })
                 .select()
