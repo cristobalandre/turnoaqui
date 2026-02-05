@@ -1,18 +1,17 @@
 // ----------------------------------------------------------------------
-// 🕵️‍♂️ MUSIC WORKER: AUTO-DETECT & DEBUG MODE
+// 🕵️‍♂️ MUSIC WORKER: VERSIÓN "MOTOR PRE-ENCENDIDO"
 // ----------------------------------------------------------------------
 
-// 1. POLYFILLS (Engañamos a la librería)
+// 1. POLYFILLS
 if (typeof self.window === 'undefined') self.window = self;
 if (typeof self.document === 'undefined') {
     self.document = { createElement: () => ({}), addEventListener: () => {}, querySelector: () => null };
 }
 
-// 2. CARGAMOS LOS ARCHIVOS
+// 2. IMPORTACIONES
 try {
     importScripts('/essentia-wasm.web.js'); 
     importScripts('/essentia.js');
-    console.log("✅ Scripts importados correctamente.");
 } catch (e) {
     self.postMessage({ type: 'error', message: 'Fallo importando scripts: ' + e.message });
 }
@@ -25,42 +24,32 @@ self.addEventListener('message', async (event) => {
     // --- INICIALIZACIÓN ---
     if (type === 'init') {
         try {
-            // 🔍 DEBUG: ¿Qué tenemos cargado?
-            console.log("🔍 Debug EssentiaWASM:", typeof EssentiaWASM);
-            console.log("🔍 Debug Essentia:", typeof Essentia);
-
-            // 🧠 AUTO-CORRECCIÓN: Buscamos la clase Essentia donde esté
-            let EssentiaClass = null;
-
-            if (typeof Essentia === 'function') {
-                EssentiaClass = Essentia; // Caso normal
-            } else if (typeof self.Essentia === 'function') {
-                EssentiaClass = self.Essentia; // Caso Global
-            } else if (self.Essentia && typeof self.Essentia.Essentia === 'function') {
-                EssentiaClass = self.Essentia.Essentia; // Caso Namespaced
+            // 🧠 DETECCIÓN DE CLASE
+            let EssentiaClass = self.Essentia; 
+            // Si está escondida en un namespace, la buscamos
+            if (!EssentiaClass && self.Essentia && self.Essentia.Essentia) {
+                EssentiaClass = self.Essentia.Essentia;
             }
 
-            if (!EssentiaClass) {
-                throw new Error("No se encontró la clase 'Essentia'. Revisa si essentia.js se descargó bien.");
+            if (!EssentiaClass) throw new Error("No se encontró la clase Essentia.");
+
+            // 🚀 CORRECCIÓN CLAVE: ENCENDEMOS EL MOTOR PRIMERO
+            // 'EssentiaWASM' es la fábrica. La ejecutamos y esperamos a que el motor nazca.
+            const wasmModule = await EssentiaWASM({
+                onRuntimeInitialized: () => { console.log("wasm init event"); }
+            });
+
+            // Ahora sí: Pasamos el 'wasmModule' (el objeto REAL) a la clase.
+            // Antes pasábamos 'EssentiaWASM' (la función) y por eso fallaba.
+            essentia = new EssentiaClass(wasmModule, false);
+
+            // Verificamos que los algoritmos existan
+            if (essentia.PercivalBpmEstimator) {
+                console.log("✅ Motor Essentia 100% Operativo");
+                self.postMessage({ type: 'ready' });
+            } else {
+                throw new Error("El motor cargó pero faltan algoritmos.");
             }
-
-            if (typeof EssentiaWASM !== 'function') {
-                throw new Error("No se encontró 'EssentiaWASM'. Revisa essentia-wasm.web.js.");
-            }
-
-            // 🚀 ARRANCAMOS EL MOTOR
-            // false = No usar worklet interno
-            essentia = new EssentiaClass(EssentiaWASM, false);
-
-            const checkReady = () => {
-                if (essentia.PercivalBpmEstimator) {
-                    console.log("🎵 Motor Essentia Listo!");
-                    self.postMessage({ type: 'ready' });
-                } else {
-                    setTimeout(checkReady, 100);
-                }
-            };
-            checkReady();
 
         } catch (err) {
             console.error("❌ Error Init:", err);
