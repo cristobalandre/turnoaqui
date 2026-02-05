@@ -1,37 +1,56 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Mic, StopCircle, Music, Type, Zap, AlertTriangle, Wifi, Share, Copy, CloudUpload, Check } from 'lucide-react'
+// 1. AGREGAMOS 'ExternalLink' A LOS ICONOS
+import { Mic, StopCircle, Music, Type, Zap, AlertTriangle, Wifi, Share, Copy, CloudUpload, Check, FolderOpen, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { logToConsole } from '@/utils/remoteLogger'
 import { createClient } from '@/lib/supabase/client'
+// 2. IMPORTAMOS EL ROUTER PARA PODER NAVEGAR
+import { useRouter } from 'next/navigation'
 
 const supabase = createClient();
 
 export default function WitnessRecorder() {
+  const router = useRouter(); // 👈 Inicializamos el router
   const [status, setStatus] = useState('idle') 
   const [transcription, setTranscription] = useState('')
   const [musicStats, setMusicStats] = useState<{ bpm: number; key: string } | null>(null)
   const [errorMessage, setErrorMessage] = useState('')
   
-  // Estado para el Audio Final y Subida
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done'>('idle');
 
-  // Referencias
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+
   const musicWorkerRef = useRef<Worker | null>(null)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null) // 👈 El grabador comprimido
-  const chunksRef = useRef<Blob[]>([]) // 👈 Aquí guardamos lo comprimido
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
   
-  // Referencias para Análisis (BPM/Key)
   const audioContextRef = useRef<AudioContext | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const processorRef = useRef<ScriptProcessorNode | null>(null)
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null)
-  const rawAudioBufferRef = useRef<Float32Array[]>([]) // 👈 Buffer temporal solo para BPM
+  const rawAudioBufferRef = useRef<Float32Array[]>([])
 
   useEffect(() => {
-    // 1. WORKER MUSICAL (Essentia)
+    const fetchProjects = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if(!session) return;
+
+        const { data } = await supabase
+            .from('projects')
+            .select('id, name')
+            .order('created_at', { ascending: false });
+        
+        if (data) {
+            setProjects(data);
+            if (data.length > 0) setSelectedProjectId(data[0].id);
+        }
+    };
+    fetchProjects();
+
     if (!musicWorkerRef.current) {
         musicWorkerRef.current = new Worker('/music.worker.js');
         musicWorkerRef.current.onmessage = (event) => {
@@ -60,13 +79,9 @@ export default function WitnessRecorder() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
 
-        // --- SISTEMA 1: GRABACIÓN COMPRIMIDA (Para Guardar/Texto) ---
-        // Detectamos el mejor formato (iPhone ama mp4, Chrome ama webm)
         let mimeType = 'audio/webm';
         if (MediaRecorder.isTypeSupported('audio/mp4')) {
-            mimeType = 'audio/mp4'; // Safari / iPhone
-        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
-            mimeType = 'audio/ogg';
+            mimeType = 'audio/mp4'; 
         }
         
         logToConsole(`Usando compresión: ${mimeType}`);
@@ -78,9 +93,8 @@ export default function WitnessRecorder() {
             if (e.data.size > 0) chunksRef.current.push(e.data);
         };
 
-        mediaRecorder.start(1000); // Guardar trozos cada 1s
+        mediaRecorder.start(1000);
 
-        // --- SISTEMA 2: ANÁLISIS RAW (Solo para BPM en tiempo real) ---
         // @ts-ignore
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         const audioContext = new AudioContextClass({ sampleRate: 16000 });
@@ -88,14 +102,11 @@ export default function WitnessRecorder() {
 
         const source = audioContext.createMediaStreamSource(stream);
         sourceRef.current = source;
-        
-        // ScriptProcessor solo para "escuchar" el ritmo, no para grabar el archivo final
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
         processorRef.current = processor;
 
         processor.onaudioprocess = (e) => {
             const inputData = e.inputBuffer.getChannelData(0);
-            // Guardamos copia ligera para análisis
             rawAudioBufferRef.current.push(new Float32Array(inputData));
         };
 
@@ -114,10 +125,7 @@ export default function WitnessRecorder() {
   const stopRecording = async () => {
     if (status !== 'recording') return;
     
-    // Detener grabación comprimida
     mediaRecorderRef.current?.stop();
-    
-    // Detener procesamiento RAW
     processorRef.current?.disconnect();
     sourceRef.current?.disconnect();
     streamRef.current?.getTracks().forEach(track => track.stop());
@@ -125,10 +133,7 @@ export default function WitnessRecorder() {
 
     setStatus('processing');
 
-    // Esperar un momento a que MediaRecorder termine de cerrar el archivo
     setTimeout(async () => {
-        // 1. CREAR ARCHIVO COMPRIMIDO FINAL 📦
-        // Esto crea un archivo .mp4 o .webm real y pequeño
         const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
         const finalBlob = new Blob(chunksRef.current, { type: mimeType });
         setAudioBlob(finalBlob);
@@ -136,10 +141,7 @@ export default function WitnessRecorder() {
         const sizeKB = (finalBlob.size / 1024).toFixed(2);
         logToConsole(`Archivo generado: ${mimeType}, Tamaño: ${sizeKB} KB`);
 
-        // 2. ENVIAR A GROQ (Texto) 🧠
-        // Enviamos el Blob comprimido directo (Groq lo soporta y es más rápido subirlo)
         const formData = new FormData();
-        // Le ponemos extensión correcta para que Groq no se queje
         const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
         formData.append('file', finalBlob, `audio.${ext}`);
 
@@ -156,8 +158,6 @@ export default function WitnessRecorder() {
             logToConsole("Error Transcripción:", e.message);
         }
 
-        // 3. ENVIAR A ESSENTIA (Música) 🎵
-        // Para música seguimos usando los datos RAW que capturamos por el otro canal
         const totalLength = rawAudioBufferRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
         const fullRawBuffer = new Float32Array(totalLength);
         let offset = 0;
@@ -174,16 +174,19 @@ export default function WitnessRecorder() {
     }, 500);
   }
 
-  // ☁️ SUBIDA INTELIGENTE A SUPABASE
   const handleUpload = async () => {
     if (!audioBlob) return;
+    if (!selectedProjectId) {
+        alert("⚠️ Por favor selecciona un proyecto para guardar esta idea.");
+        return;
+    }
+
     setUploadStatus('uploading');
 
     try {
-        // Detectar extensión correcta
         const isMp4 = audioBlob.type.includes('mp4');
         const ext = isMp4 ? 'm4a' : 'webm';
-        const fileName = `demo_${Date.now()}.${ext}`;
+        const fileName = `${selectedProjectId}/${Date.now()}_demo.${ext}`;
         
         const { data, error } = await supabase.storage
             .from('demos')
@@ -195,19 +198,32 @@ export default function WitnessRecorder() {
 
         if (error) throw error;
 
-        logToConsole(`✅ Subido: ${fileName} (${(audioBlob.size/1024).toFixed(1)} KB)`);
+        const { data: { publicUrl } } = supabase.storage.from('demos').getPublicUrl(fileName);
+
+        const { error: dbError } = await supabase
+            .from('project_ideas')
+            .insert({
+                project_id: selectedProjectId,
+                file_url: publicUrl,
+                transcription: transcription,
+                bpm: musicStats?.bpm || 0,
+                music_key: musicStats?.key || '',
+                name: `Idea de Voz ${new Date().toLocaleTimeString().slice(0,5)}`
+            });
+
+        if (dbError) throw dbError;
+
+        logToConsole(`✅ Guardado en Proyecto ID: ${selectedProjectId}`);
         setUploadStatus('done');
 
     } catch (err: any) {
-        alert("Error subiendo: " + err.message);
+        alert("Error guardando: " + err.message);
         setUploadStatus('idle');
     }
   };
 
   const handleShare = async () => {
     const textToShare = `🎵 IDEA:\n${transcription}\n\nBPM: ${musicStats?.bpm || '-'}`;
-    
-    // Fix TypeScript error
     if ((navigator as any).share) {
       await (navigator as any).share({ title: 'Studio Idea', text: textToShare });
     } else {
@@ -216,46 +232,81 @@ export default function WitnessRecorder() {
     }
   };
 
+  // 3. FUNCIÓN DE NAVEGACIÓN INTELIGENTE
+  const goToProject = () => {
+    if (selectedProjectId) {
+        // Si hay proyecto seleccionado, vamos a ese específico
+        router.push(`/projects/${selectedProjectId}`);
+    } else {
+        // Si no, vamos a la lista general
+        router.push('/projects');
+    }
+  }
+
   return (
     <div className="w-full max-w-3xl mx-auto bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
       
-      {/* HEADER */}
-      <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${status === 'recording' ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
-            <div>
-                <h2 className="text-white font-bold tracking-tight">Session Analyzer AI</h2>
-                <div className="flex gap-2 text-zinc-500 text-xs font-mono items-center">
-                    {status === 'recording' ? "REC (Compresor Activado)..." : "Listo"}
-                    
-                    {status === 'ready' && audioBlob && (
-                        <button 
-                            onClick={handleUpload}
-                            disabled={uploadStatus !== 'idle'}
-                            className={`ml-2 px-2 py-0.5 rounded flex items-center gap-1 transition-all ${
-                                uploadStatus === 'done' 
-                                ? 'bg-emerald-500/20 text-emerald-400' 
-                                : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
-                            }`}
-                        >
-                            {uploadStatus === 'uploading' && <Wifi className="animate-pulse w-3 h-3" />}
-                            {uploadStatus === 'done' && <Check className="w-3 h-3" />}
-                            {uploadStatus === 'idle' && <CloudUpload className="w-3 h-3" />}
-                            {uploadStatus === 'idle' ? 'Guardar' : uploadStatus === 'done' ? 'Guardado' : 'Subiendo...'}
-                        </button>
-                    )}
+      <div className="p-6 border-b border-zinc-800 flex flex-col md:flex-row justify-between items-center gap-4 bg-zinc-900/50">
+          
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className={`w-3 h-3 rounded-full shrink-0 ${status === 'recording' ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+            <div className="flex flex-col w-full">
+                <h2 className="text-white font-bold tracking-tight">Witness AI</h2>
+                
+                {/* SELECTOR + BOTÓN DE SALTO RÁPIDO */}
+                <div className="flex items-center gap-2 mt-1">
+                    <FolderOpen size={12} className="text-zinc-500" />
+                    <select 
+                        value={selectedProjectId}
+                        onChange={(e) => setSelectedProjectId(e.target.value)}
+                        className="bg-transparent text-zinc-400 text-xs border-none outline-none cursor-pointer hover:text-emerald-400 transition-colors w-32 truncate"
+                    >
+                        <option value="" disabled>Seleccionar Proyecto...</option>
+                        {projects.map(p => (
+                            <option key={p.id} value={p.id} className="bg-zinc-900 text-zinc-300">
+                                {p.name}
+                            </option>
+                        ))}
+                    </select>
+
+                    {/* 🚀 BOTÓN NUEVO: IR AL PROYECTO */}
+                    <button 
+                        onClick={goToProject}
+                        className="p-1.5 bg-zinc-800/50 hover:bg-emerald-500/20 text-zinc-500 hover:text-emerald-400 rounded-full transition-all border border-zinc-700/50 hover:border-emerald-500/30"
+                        title="Ir a este proyecto"
+                    >
+                        <ExternalLink size={12} />
+                    </button>
                 </div>
             </div>
           </div>
           
-          <Button 
-            onClick={status === 'recording' ? stopRecording : startRecording}
-            disabled={status === 'processing'}
-            className={status === 'recording' ? 'bg-red-500 hover:bg-red-600' : 'bg-white text-black hover:bg-zinc-200'}
-          >
-              {status === 'recording' ? <StopCircle className="mr-2 h-4 w-4"/> : <Mic className="mr-2 h-4 w-4"/>}
-              {status === 'recording' ? 'STOP' : 'REC'}
-          </Button>
+          <div className="flex items-center gap-3">
+             {status === 'ready' && audioBlob && (
+                <button 
+                    onClick={handleUpload}
+                    disabled={uploadStatus !== 'idle'}
+                    className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all ${
+                        uploadStatus === 'done' 
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50' 
+                        : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/20'
+                    }`}
+                >
+                    {uploadStatus === 'uploading' && <Wifi className="animate-pulse w-3 h-3" />}
+                    {uploadStatus === 'done' && <Check className="w-3 h-3" />}
+                    {uploadStatus === 'idle' && <CloudUpload className="w-4 h-4" />}
+                    {uploadStatus === 'idle' ? 'Guardar en Proyecto' : uploadStatus === 'done' ? '¡Guardado!' : 'Subiendo...'}
+                </button>
+            )}
+
+            <Button 
+                onClick={status === 'recording' ? stopRecording : startRecording}
+                disabled={status === 'processing'}
+                className={status === 'recording' ? 'bg-red-500 hover:bg-red-600 w-12 h-12 rounded-full p-0' : 'bg-white text-black hover:bg-zinc-200 w-12 h-12 rounded-full p-0'}
+            >
+                {status === 'recording' ? <StopCircle className="h-5 w-5"/> : <Mic className="h-5 w-5"/>}
+            </Button>
+          </div>
       </div>
 
       {errorMessage && (
