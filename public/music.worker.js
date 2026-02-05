@@ -1,22 +1,20 @@
 // ----------------------------------------------------------------------
-// 1. CARGA DE LIBRERÍAS (Motor + Traductor)
+// 🕵️‍♂️ MUSIC WORKER: AUTO-DETECT & DEBUG MODE
 // ----------------------------------------------------------------------
-// Polyfills: Engañamos a la librería para que crea que hay un navegador real
+
+// 1. POLYFILLS (Engañamos a la librería)
 if (typeof self.window === 'undefined') self.window = self;
 if (typeof self.document === 'undefined') {
-    self.document = { 
-        createElement: () => ({}), 
-        addEventListener: () => {}, 
-        querySelector: () => null 
-    };
+    self.document = { createElement: () => ({}), addEventListener: () => {}, querySelector: () => null };
 }
 
-// CARGAMOS LOS DOS ARCHIVOS QUE DESCARGASTE:
+// 2. CARGAMOS LOS ARCHIVOS
 try {
-    importScripts('/essentia-wasm.web.js'); // El Motor (Cerebro)
-    importScripts('/essentia.js');          // El Traductor (Lenguaje)
+    importScripts('/essentia-wasm.web.js'); 
+    importScripts('/essentia.js');
+    console.log("✅ Scripts importados correctamente.");
 } catch (e) {
-    self.postMessage({ type: 'error', message: 'Faltan archivos en public/: ' + e.message });
+    self.postMessage({ type: 'error', message: 'Fallo importando scripts: ' + e.message });
 }
 
 let essentia = null;
@@ -27,24 +25,45 @@ self.addEventListener('message', async (event) => {
     // --- INICIALIZACIÓN ---
     if (type === 'init') {
         try {
-            // Usamos la clase 'Essentia' (del archivo nuevo) que envuelve al motor.
-            // Esto conecta el JS con el WASM automáticamente.
-            // false = No usar worklet interno (ya estamos en un worker)
-            essentia = new Essentia(EssentiaWASM, false);
+            // 🔍 DEBUG: ¿Qué tenemos cargado?
+            console.log("🔍 Debug EssentiaWASM:", typeof EssentiaWASM);
+            console.log("🔍 Debug Essentia:", typeof Essentia);
 
-            // Esperamos a que el motor arranque revisando si las funciones existen
+            // 🧠 AUTO-CORRECCIÓN: Buscamos la clase Essentia donde esté
+            let EssentiaClass = null;
+
+            if (typeof Essentia === 'function') {
+                EssentiaClass = Essentia; // Caso normal
+            } else if (typeof self.Essentia === 'function') {
+                EssentiaClass = self.Essentia; // Caso Global
+            } else if (self.Essentia && typeof self.Essentia.Essentia === 'function') {
+                EssentiaClass = self.Essentia.Essentia; // Caso Namespaced
+            }
+
+            if (!EssentiaClass) {
+                throw new Error("No se encontró la clase 'Essentia'. Revisa si essentia.js se descargó bien.");
+            }
+
+            if (typeof EssentiaWASM !== 'function') {
+                throw new Error("No se encontró 'EssentiaWASM'. Revisa essentia-wasm.web.js.");
+            }
+
+            // 🚀 ARRANCAMOS EL MOTOR
+            // false = No usar worklet interno
+            essentia = new EssentiaClass(EssentiaWASM, false);
+
             const checkReady = () => {
-                // Si estas funciones existen, el motor cargó bien
-                if (essentia.PercivalBpmEstimator && essentia.KeyExtractor) {
+                if (essentia.PercivalBpmEstimator) {
+                    console.log("🎵 Motor Essentia Listo!");
                     self.postMessage({ type: 'ready' });
                 } else {
-                    // Si no, esperamos 100ms y volvemos a preguntar
-                    setTimeout(checkReady, 100); 
+                    setTimeout(checkReady, 100);
                 }
             };
             checkReady();
 
         } catch (err) {
+            console.error("❌ Error Init:", err);
             self.postMessage({ type: 'error', message: 'Error Init: ' + err.message });
         }
     }
@@ -57,13 +76,8 @@ self.addEventListener('message', async (event) => {
         }
 
         try {
-            // Convertimos el audio a Vector (formato que entiende C++)
             const vectorAudio = essentia.arrayToVector(audio);
-
-            // 1. BPM (Ritmo)
             const bpmAlgo = essentia.PercivalBpmEstimator(vectorAudio, 1024, 512, 4096, 0, 210, 50, 0);
-            
-            // 2. KEY (Nota Musical)
             const keyAlgo = essentia.KeyExtractor(vectorAudio, true, 4096, 4096, 12, 3500, 60, 25, 0.2, 'hpcp');
 
             self.postMessage({ 
@@ -71,9 +85,6 @@ self.addEventListener('message', async (event) => {
                 bpm: Math.round(bpmAlgo.bpm), 
                 key: `${keyAlgo.key} ${keyAlgo.scale}` 
             });
-
-            // Limpieza (Opcional en JS moderno pero buena práctica en WASM)
-            // vectorAudio.delete(); 
 
         } catch (err) {
             self.postMessage({ type: 'error', message: 'Error Análisis: ' + err.message });
