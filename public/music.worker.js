@@ -1,26 +1,25 @@
 // ----------------------------------------------------------------------
-// 1. EL TRUCO DE MAGIA (Polyfill) 🎩✨
+// 1. EL TRUCO DE MAGIA (Polyfill Definitivo) 🎩✨
 // ----------------------------------------------------------------------
-// Los Workers no tienen 'document'. Creamos uno falso para engañar a la librería
-// y que crea que está en el navegador principal.
+// Engañamos a la librería definiendo 'window' y 'document' falsos.
+if (typeof self.window === 'undefined') self.window = self;
 if (typeof self.document === 'undefined') {
     self.document = {
-        currentScript: null, // Lo más importante que suele buscar
-        createElement: () => ({}), // Si intenta crear algo, le damos aire
-        querySelectorAll: () => [],
-        addEventListener: () => {}
+        createElement: () => ({}), // Devuelve objeto vacío si intenta crear algo
+        addEventListener: () => {}, 
+        querySelector: () => null,
+        getElementById: () => null
     };
 }
 
 // ----------------------------------------------------------------------
-// 2. CARGA DE LA LIBRERÍA
+// 2. CARGA DE LA LIBRERÍA LOCAL
 // ----------------------------------------------------------------------
-// Ahora sí cargamos el cerebro musical desde tu carpeta local
 if (typeof EssentiaWASM === 'undefined') {
     try {
         importScripts('/essentia-wasm.web.js');
     } catch (e) {
-        console.error("Fallo al importar script:", e);
+        self.postMessage({ type: 'error', message: 'No se encontró essentia-wasm.web.js en public/' });
     }
 }
 
@@ -35,50 +34,58 @@ self.addEventListener('message', async (event) => {
     if (type === 'init') {
         try {
             // Inicializamos el motor.
-            // false = Usar este worker, no crear otro interno (ya estamos en uno)
-            essentia = new EssentiaWASM(false);
+            // En esta versión, 'essentia' ya es el objeto Módulo directamente.
+            essentia = new EssentiaWASM({
+                onRuntimeInitialized: () => {
+                     self.postMessage({ type: 'ready' });
+                }
+            });
             
-            // Esperamos a que el motor WASM arranque
-            essentia.module.onRuntimeInitialized = () => {
-                self.postMessage({ type: 'ready' });
-            };
-            
-            // A veces carga tan rápido que el evento anterior ya pasó
-            if (essentia.module.calledRun) {
-                 self.postMessage({ type: 'ready' });
+            // Si carga instantáneo (síncrono), avisamos igual.
+            // Usamos setTimeout para asegurar que el hilo principal esté escuchando.
+            if (essentia instanceof Promise) {
+                 // Si es una versión moderna que devuelve promesa
+                 essentia.then((mod) => {
+                     essentia = mod;
+                     self.postMessage({ type: 'ready' });
+                 });
+            } else {
+                 // Versión clásica
+                 setTimeout(() => {
+                     if(!essentia.calledRun) self.postMessage({ type: 'ready' });
+                 }, 100);
             }
 
         } catch (err) {
-            // Si falla aquí, verás el mensaje exacto
             self.postMessage({ type: 'error', message: 'Error Init: ' + err.message });
         }
     }
 
     if (type === 'analyze') {
         if (!essentia) {
-            self.postMessage({ type: 'error', message: 'Motor no iniciado (Espera a "ready")' });
+            self.postMessage({ type: 'error', message: 'Motor no iniciado' });
             return;
         }
 
         try {
-            // Convertimos el audio a un formato que C++ entienda (Vector)
+            // Convertimos audio a Vector de C++
             const vectorAudio = essentia.arrayToVector(audio);
 
-            // --- ALGORITMOS MÁGICOS ---
-            // 1. BPM (Ritmo)
+            // Algoritmos (Verificamos que existan antes de llamar)
+            if (!essentia.PercivalBpmEstimator || !essentia.KeyExtractor) {
+                throw new Error("Algoritmos no encontrados en WASM");
+            }
+
             const bpmAlgo = essentia.PercivalBpmEstimator(vectorAudio, 1024, 512, 4096, 0, 210, 50, 0);
-            
-            // 2. Key (Tonalidad)
             const keyAlgo = essentia.KeyExtractor(vectorAudio, true, 4096, 4096, 12, 3500, 60, 25, 0.2, 'hpcp');
 
-            // Devolvemos el resultado limpio
             self.postMessage({ 
                 type: 'result', 
                 bpm: Math.round(bpmAlgo.bpm), 
                 key: `${keyAlgo.key} ${keyAlgo.scale}` 
             });
 
-            // Limpieza de memoria (importante en WASM)
+            // Limpieza de memoria C++
             vectorAudio.delete();
             bpmAlgo.delete();
             keyAlgo.delete();
