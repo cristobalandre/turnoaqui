@@ -39,11 +39,17 @@ export default function WitnessRecorder() {
         if(!session) return;
 
         // 🛠️ FIX: Pedimos 'title' en vez de 'name' para evitar el error de Supabase
-        const { data } = await supabase
+        // Si tu columna se llama de otra forma, cambia 'title' por el nombre real.
+        const { data, error } = await supabase
             .from('projects')
             .select('id, title') 
             .order('created_at', { ascending: false });
         
+        if (error) {
+            console.error("Error cargando proyectos:", error);
+            return;
+        }
+
         if (data) {
             // Mapeamos 'title' a 'name' para que el selector funcione igual
             const formattedProjects = data.map((p: any) => ({
@@ -328,7 +334,6 @@ export default function WitnessRecorder() {
           </div>
       )}
 
-      {/* BODY */}
       <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-800">
           <div className="p-6 space-y-4">
               <div className="flex items-center gap-2 text-zinc-400 mb-4">
