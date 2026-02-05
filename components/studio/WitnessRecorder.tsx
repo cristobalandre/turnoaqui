@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-// Agregamos 'Plus' y 'X' para la interfaz de nuevo proyecto
+// Importamos iconos nuevos (Plus, X) para la interfaz de creación
 import { Mic, StopCircle, Music, Type, Zap, AlertTriangle, Wifi, Share, Copy, CloudUpload, Check, FolderOpen, ExternalLink, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { logToConsole } from '@/utils/remoteLogger'
@@ -20,10 +20,10 @@ export default function WitnessRecorder() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done'>('idle');
 
-  // 🆕 ESTADOS PARA NUEVO PROYECTO
+  // 🆕 ESTADOS PARA GESTIÓN DE PROYECTOS
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [isCreatingNew, setIsCreatingNew] = useState(false); // ¿Estamos creando uno nuevo?
+  const [isCreatingNew, setIsCreatingNew] = useState(false); // ¿Modo creación activado?
   const [newProjectName, setNewProjectName] = useState('');  // Nombre del nuevo proyecto
 
   const musicWorkerRef = useRef<Worker | null>(null)
@@ -39,13 +39,14 @@ export default function WitnessRecorder() {
   useEffect(() => {
     fetchProjects();
 
-    // WORKER MUSICAL
+    // INICIALIZACIÓN DEL WORKER MUSICAL (EL QUE ACABAMOS DE ARREGLAR)
     if (!musicWorkerRef.current) {
         musicWorkerRef.current = new Worker('/music.worker.js');
         musicWorkerRef.current.onmessage = (event) => {
             const { type, bpm, key, message } = event.data;
             if (type === 'result') setMusicStats({ bpm, key });
             if (type === 'error') logToConsole("⚠️ Música:", message);
+            if (type === 'ready') logToConsole("✅ Motor Musical Listo en UI");
         };
         musicWorkerRef.current.postMessage({ type: 'init' });
     }
@@ -62,7 +63,7 @@ export default function WitnessRecorder() {
 
     const { data } = await supabase
         .from('projects')
-        .select('id, title') // Usamos 'title' como corregimos antes
+        .select('id, title')
         .order('created_at', { ascending: false });
     
     if (data) {
@@ -71,8 +72,8 @@ export default function WitnessRecorder() {
             name: p.title || 'Sin Título' 
         }));
         setProjects(formattedProjects);
-        // Seleccionar el primero por defecto si existe
-        if (formattedProjects.length > 0 && !selectedProjectId) {
+        // Seleccionar el primero por defecto si no estamos creando uno nuevo
+        if (formattedProjects.length > 0 && !selectedProjectId && !isCreatingNew) {
             setSelectedProjectId(formattedProjects[0].id);
         }
     }
@@ -104,6 +105,7 @@ export default function WitnessRecorder() {
 
         mediaRecorder.start(1000);
 
+        // Configuración de Audio para Análisis
         // @ts-ignore
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         const audioContext = new AudioContextClass({ sampleRate: 16000 });
@@ -124,7 +126,7 @@ export default function WitnessRecorder() {
         setStatus('recording');
 
     } catch (err: any) {
-        alert("Error: " + err.message);
+        alert("Error Micrófono: " + err.message);
     }
   }
 
@@ -157,7 +159,7 @@ export default function WitnessRecorder() {
             logToConsole("Error Transcripción:", e.message);
         }
 
-        // Analizar Música
+        // Analizar Música (Enviamos al Worker que ya funciona)
         const totalLength = rawAudioBufferRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
         const fullRawBuffer = new Float32Array(totalLength);
         let offset = 0;
@@ -171,17 +173,17 @@ export default function WitnessRecorder() {
     }, 500);
   }
 
-  // 🚀 LÓGICA MAESTRA DE GUARDADO
+  // 🚀 LÓGICA MAESTRA: GUARDADO O CREACIÓN AUTOMÁTICA
   const handleUpload = async () => {
     if (!audioBlob) return;
     
-    // Validación de Nuevo Proyecto
+    // Validaciones
     if (isCreatingNew && !newProjectName.trim()) {
-        alert("⚠️ Escribe un nombre para el nuevo proyecto.");
+        alert("⚠️ Por favor, escribe un nombre para el nuevo proyecto.");
         return;
     }
     if (!isCreatingNew && !selectedProjectId) {
-        alert("⚠️ Selecciona un proyecto.");
+        alert("⚠️ Selecciona un proyecto existente o crea uno nuevo.");
         return;
     }
 
@@ -189,11 +191,11 @@ export default function WitnessRecorder() {
 
     try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error("No sesión");
+        if (!session) throw new Error("No hay sesión activa");
 
         let targetProjectId = selectedProjectId;
 
-        // 1. SI ES NUEVO PROYECTO: CREARLO PRIMERO
+        // 1. SI ES NUEVO PROYECTO: LO CREAMOS PRIMERO
         if (isCreatingNew) {
             const { data: newProject, error: createError } = await supabase
                 .from('projects')
@@ -209,15 +211,16 @@ export default function WitnessRecorder() {
             
             targetProjectId = newProject.id;
             
-            // Actualizamos la lista localmente para que se vea reflejado
+            // Actualizamos la lista visualmente
             const newProjFormatted = { id: newProject.id, name: newProject.title };
             setProjects([newProjFormatted, ...projects]);
             setSelectedProjectId(newProject.id);
-            setIsCreatingNew(false); // Salimos del modo creación
+            setIsCreatingNew(false);
             setNewProjectName("");
+            logToConsole(`✨ Proyecto creado: ${newProject.title}`);
         }
 
-        // 2. SUBIR AUDIO
+        // 2. SUBIR EL AUDIO
         const isMp4 = audioBlob.type.includes('mp4');
         const ext = isMp4 ? 'm4a' : 'webm';
         const fileName = `${targetProjectId}/${Date.now()}_demo.${ext}`;
@@ -244,11 +247,11 @@ export default function WitnessRecorder() {
 
         if (dbError) throw dbError;
 
-        logToConsole(`✅ Guardado en Proyecto: ${targetProjectId}`);
+        logToConsole(`✅ Guardado exitoso en Proyecto ID: ${targetProjectId}`);
         setUploadStatus('done');
 
     } catch (err: any) {
-        alert("Error: " + err.message);
+        alert("Error en el proceso: " + err.message);
         setUploadStatus('idle');
     }
   };
@@ -263,6 +266,7 @@ export default function WitnessRecorder() {
     }
   };
 
+  // Navegación Inteligente
   const goToProject = () => {
     if (selectedProjectId && !isCreatingNew) {
         router.push(`/projects/${selectedProjectId}`);
@@ -271,7 +275,6 @@ export default function WitnessRecorder() {
     }
   }
 
-  // Manejador del Selector
   const handleProjectSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
       const val = e.target.value;
       if (val === '__NEW__') {
@@ -299,7 +302,7 @@ export default function WitnessRecorder() {
                     <FolderOpen size={12} className="text-zinc-500" />
                     
                     {isCreatingNew ? (
-                        // INPUT PARA NUEVO PROYECTO
+                        // INPUT: Crear Nuevo Proyecto
                         <div className="flex items-center gap-1 animate-in fade-in slide-in-from-left-2">
                             <input 
                                 type="text" 
@@ -314,13 +317,12 @@ export default function WitnessRecorder() {
                             </button>
                         </div>
                     ) : (
-                        // SELECTOR NORMAL
+                        // SELECTOR: Elegir Existente o Nuevo
                         <select 
                             value={selectedProjectId}
                             onChange={handleProjectSelect}
                             className="bg-transparent text-zinc-400 text-xs border-none outline-none cursor-pointer hover:text-emerald-400 transition-colors w-40 truncate"
                         >
-                            {/* OPCIÓN MÁGICA */}
                             <option value="__NEW__" className="bg-zinc-800 text-emerald-400 font-bold">
                                 + Crear Nuevo Proyecto...
                             </option>
@@ -347,7 +349,7 @@ export default function WitnessRecorder() {
           </div>
           
           <div className="flex items-center gap-3">
-             {/* BOTÓN DE GUARDADO */}
+             {/* BOTÓN DE ACCIÓN DINÁMICO */}
              {status === 'ready' && audioBlob && (
                 <button 
                     onClick={handleUpload}
@@ -362,7 +364,6 @@ export default function WitnessRecorder() {
                     {uploadStatus === 'done' && <Check className="w-3 h-3" />}
                     {uploadStatus === 'idle' && (isCreatingNew ? <Plus className="w-4 h-4" /> : <CloudUpload className="w-4 h-4" />)}
                     
-                    {/* TEXTO DINÁMICO */}
                     {uploadStatus === 'idle' 
                         ? (isCreatingNew ? 'Crear y Guardar' : 'Guardar en Proyecto') 
                         : uploadStatus === 'done' ? '¡Listo!' : 'Procesando...'}
@@ -385,7 +386,7 @@ export default function WitnessRecorder() {
           </div>
       )}
 
-      {/* BODY (Igual) */}
+      {/* RESULTADOS */}
       <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-800">
           <div className="p-6 space-y-4">
               <div className="flex items-center gap-2 text-zinc-400 mb-4">
