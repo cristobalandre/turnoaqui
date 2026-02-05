@@ -1,18 +1,16 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-// 1. AGREGAMOS 'ExternalLink' A LOS ICONOS
 import { Mic, StopCircle, Music, Type, Zap, AlertTriangle, Wifi, Share, Copy, CloudUpload, Check, FolderOpen, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { logToConsole } from '@/utils/remoteLogger'
 import { createClient } from '@/lib/supabase/client'
-// 2. IMPORTAMOS EL ROUTER PARA PODER NAVEGAR
 import { useRouter } from 'next/navigation'
 
 const supabase = createClient();
 
 export default function WitnessRecorder() {
-  const router = useRouter(); // 👈 Inicializamos el router
+  const router = useRouter();
   const [status, setStatus] = useState('idle') 
   const [transcription, setTranscription] = useState('')
   const [musicStats, setMusicStats] = useState<{ bpm: number; key: string } | null>(null)
@@ -35,22 +33,33 @@ export default function WitnessRecorder() {
   const rawAudioBufferRef = useRef<Float32Array[]>([])
 
   useEffect(() => {
+    // 1. CARGA DE PROYECTOS (CORREGIDO)
     const fetchProjects = async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if(!session) return;
 
+        // 🛠️ FIX: Pedimos 'title' en vez de 'name' para evitar el error de Supabase
         const { data } = await supabase
             .from('projects')
-            .select('id, name')
+            .select('id, title') 
             .order('created_at', { ascending: false });
         
         if (data) {
-            setProjects(data);
-            if (data.length > 0) setSelectedProjectId(data[0].id);
+            // Mapeamos 'title' a 'name' para que el selector funcione igual
+            const formattedProjects = data.map((p: any) => ({
+                id: p.id,
+                name: p.title || 'Sin Título' 
+            }));
+            
+            setProjects(formattedProjects);
+            
+            // Seleccionar el primero por defecto
+            if (formattedProjects.length > 0) setSelectedProjectId(formattedProjects[0].id);
         }
     };
     fetchProjects();
 
+    // 2. WORKER MUSICAL
     if (!musicWorkerRef.current) {
         musicWorkerRef.current = new Worker('/music.worker.js');
         musicWorkerRef.current.onmessage = (event) => {
@@ -79,6 +88,7 @@ export default function WitnessRecorder() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
 
+        // COMPRESIÓN AUTOMÁTICA
         let mimeType = 'audio/webm';
         if (MediaRecorder.isTypeSupported('audio/mp4')) {
             mimeType = 'audio/mp4'; 
@@ -95,6 +105,7 @@ export default function WitnessRecorder() {
 
         mediaRecorder.start(1000);
 
+        // ANÁLISIS RAW (BPM)
         // @ts-ignore
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         const audioContext = new AudioContextClass({ sampleRate: 16000 });
@@ -114,7 +125,7 @@ export default function WitnessRecorder() {
         processor.connect(audioContext.destination);
 
         setStatus('recording');
-        logToConsole("🎙️ Grabando (Híbrido)...");
+        logToConsole("🎙️ Grabando...");
 
     } catch (err: any) {
         alert("Error: " + err.message);
@@ -134,6 +145,7 @@ export default function WitnessRecorder() {
     setStatus('processing');
 
     setTimeout(async () => {
+        // GENERAR ARCHIVO
         const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
         const finalBlob = new Blob(chunksRef.current, { type: mimeType });
         setAudioBlob(finalBlob);
@@ -141,6 +153,7 @@ export default function WitnessRecorder() {
         const sizeKB = (finalBlob.size / 1024).toFixed(2);
         logToConsole(`Archivo generado: ${mimeType}, Tamaño: ${sizeKB} KB`);
 
+        // TRANSCRIBIR (GROQ)
         const formData = new FormData();
         const ext = mimeType.includes('mp4') ? 'm4a' : 'webm';
         formData.append('file', finalBlob, `audio.${ext}`);
@@ -158,6 +171,7 @@ export default function WitnessRecorder() {
             logToConsole("Error Transcripción:", e.message);
         }
 
+        // ANALIZAR MÚSICA (ESSENTIA)
         const totalLength = rawAudioBufferRef.current.reduce((acc, chunk) => acc + chunk.length, 0);
         const fullRawBuffer = new Float32Array(totalLength);
         let offset = 0;
@@ -188,6 +202,7 @@ export default function WitnessRecorder() {
         const ext = isMp4 ? 'm4a' : 'webm';
         const fileName = `${selectedProjectId}/${Date.now()}_demo.${ext}`;
         
+        // 1. SUBIR A STORAGE
         const { data, error } = await supabase.storage
             .from('demos')
             .upload(fileName, audioBlob, {
@@ -200,6 +215,7 @@ export default function WitnessRecorder() {
 
         const { data: { publicUrl } } = supabase.storage.from('demos').getPublicUrl(fileName);
 
+        // 2. GUARDAR EN DB (PUENTE)
         const { error: dbError } = await supabase
             .from('project_ideas')
             .insert({
@@ -232,13 +248,10 @@ export default function WitnessRecorder() {
     }
   };
 
-  // 3. FUNCIÓN DE NAVEGACIÓN INTELIGENTE
   const goToProject = () => {
     if (selectedProjectId) {
-        // Si hay proyecto seleccionado, vamos a ese específico
         router.push(`/projects/${selectedProjectId}`);
     } else {
-        // Si no, vamos a la lista general
         router.push('/projects');
     }
   }
@@ -246,6 +259,7 @@ export default function WitnessRecorder() {
   return (
     <div className="w-full max-w-3xl mx-auto bg-zinc-950 border border-zinc-800 rounded-3xl overflow-hidden shadow-2xl">
       
+      {/* HEADER */}
       <div className="p-6 border-b border-zinc-800 flex flex-col md:flex-row justify-between items-center gap-4 bg-zinc-900/50">
           
           <div className="flex items-center gap-3 w-full md:w-auto">
@@ -253,7 +267,7 @@ export default function WitnessRecorder() {
             <div className="flex flex-col w-full">
                 <h2 className="text-white font-bold tracking-tight">Witness AI</h2>
                 
-                {/* SELECTOR + BOTÓN DE SALTO RÁPIDO */}
+                {/* SELECTOR + LINK */}
                 <div className="flex items-center gap-2 mt-1">
                     <FolderOpen size={12} className="text-zinc-500" />
                     <select 
@@ -269,7 +283,6 @@ export default function WitnessRecorder() {
                         ))}
                     </select>
 
-                    {/* 🚀 BOTÓN NUEVO: IR AL PROYECTO */}
                     <button 
                         onClick={goToProject}
                         className="p-1.5 bg-zinc-800/50 hover:bg-emerald-500/20 text-zinc-500 hover:text-emerald-400 rounded-full transition-all border border-zinc-700/50 hover:border-emerald-500/30"
@@ -315,6 +328,7 @@ export default function WitnessRecorder() {
           </div>
       )}
 
+      {/* BODY */}
       <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-800">
           <div className="p-6 space-y-4">
               <div className="flex items-center gap-2 text-zinc-400 mb-4">
