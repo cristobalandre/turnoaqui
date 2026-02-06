@@ -27,12 +27,13 @@ const nextConfig = {
     return config;
   },
 
-  // 3. Headers de Seguridad (CORREGIDO GLOBALMENTE)
+  // 3. Headers de Seguridad (SINTAXIS ESTÁNDAR)
   async headers() {
     return [
       {
-        //  CAMBIO CRÍTICO: Usamos '/(.*)' para cubrir /dashboard, /projects y todo el sitio.
-        source: '/(.*)', 
+        // Usamos '/:path*' que es la forma nativa de Next.js para decir "TODO"
+        // Esto asegura que cubra API, páginas y assets servidos por Next
+        source: '/:path*', 
         headers: [
           {
             key: 'Cross-Origin-Opener-Policy',
@@ -40,7 +41,7 @@ const nextConfig = {
           },
           {
             key: 'Cross-Origin-Embedder-Policy',
-            value: 'require-corp', // Esto permite activar el motor WASM de Essentia
+            value: 'require-corp',
           },
         ],
       },
