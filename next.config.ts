@@ -10,11 +10,11 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.googleusercontent.com' },
       { protocol: 'https', hostname: 'api.dicebear.com' },
       { protocol: 'https', hostname: 'pynaormfmxkzonmjyxyy.supabase.co' },
+      { protocol: 'https', hostname: 'images.unsplash.com' }, // Agregué Unsplash por si usas fotos de ahí en el perfil
     ],
   },
 
-  // 2. Solución al Error de Build
-  // Esto arregla el error "Module not found: Can't resolve 'fs'" de Essentia.js
+  // 2. Solución al Error de Build (INTACTA)
   webpack: (config: any, { isServer }: { isServer: boolean }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -27,11 +27,13 @@ const nextConfig = {
     return config;
   },
 
-  // 3. Headers de Seguridad para Audio/WASM (INTACTO)
+  // 3. Headers de Seguridad para Audio/WASM (CORREGIDO GLOBALMENTE)
   async headers() {
     return [
       {
-        source: '/projects/:path*', 
+        //  CAMBIO CLAVE: Aplicamos esto a TODO el sitio (/(.*)), no solo a /projects
+        // Esto arregla el error en /dashboard/witness
+        source: '/(.*)', 
         headers: [
           {
             key: 'Cross-Origin-Opener-Policy',
@@ -39,7 +41,7 @@ const nextConfig = {
           },
           {
             key: 'Cross-Origin-Embedder-Policy',
-            value: 'credentialless', 
+            value: 'require-corp', // Esto permite activar el motor musical potente
           },
         ],
       },
