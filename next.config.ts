@@ -6,10 +6,7 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: [
-      { protocol: 'https', hostname: '*.googleusercontent.com' },
-      { protocol: 'https', hostname: 'api.dicebear.com' },
-      { protocol: 'https', hostname: 'pynaormfmxkzonmjyxyy.supabase.co' },
-      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: '**' }
     ],
   },
 
@@ -28,7 +25,6 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Usamos /:path* para que Next.js aplique esto a TODO (incluido el worker)
         source: '/:path*',
         headers: [
           {
@@ -37,7 +33,7 @@ const nextConfig = {
           },
           {
             key: 'Cross-Origin-Embedder-Policy',
-            value: 'require-corp',
+            value: 'credentialless', //  EL CAMBIO CLAVE
           },
         ],
       },
