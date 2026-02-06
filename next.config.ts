@@ -2,7 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   
-  // 1. Configuración de Imágenes (INTACTA)
   images: {
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
@@ -14,7 +13,6 @@ const nextConfig = {
     ],
   },
 
-  // 2. Solución al Error de Build (INTACTA)
   webpack: (config: any, { isServer }: { isServer: boolean }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -27,13 +25,11 @@ const nextConfig = {
     return config;
   },
 
-  // 3. Headers de Seguridad (SINTAXIS ESTÁNDAR)
   async headers() {
     return [
       {
-        // Usamos '/:path*' que es la forma nativa de Next.js para decir "TODO"
-        // Esto asegura que cubra API, páginas y assets servidos por Next
-        source: '/:path*', 
+        // Usamos /:path* para que Next.js aplique esto a TODO (incluido el worker)
+        source: '/:path*',
         headers: [
           {
             key: 'Cross-Origin-Opener-Policy',
