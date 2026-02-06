@@ -10,7 +10,7 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.googleusercontent.com' },
       { protocol: 'https', hostname: 'api.dicebear.com' },
       { protocol: 'https', hostname: 'pynaormfmxkzonmjyxyy.supabase.co' },
-      { protocol: 'https', hostname: 'images.unsplash.com' }, // Agregué Unsplash por si usas fotos de ahí en el perfil
+      { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },
 
@@ -27,12 +27,11 @@ const nextConfig = {
     return config;
   },
 
-  // 3. Headers de Seguridad para Audio/WASM (CORREGIDO GLOBALMENTE)
+  // 3. Headers de Seguridad (CORREGIDO GLOBALMENTE)
   async headers() {
     return [
       {
-        //  CAMBIO CLAVE: Aplicamos esto a TODO el sitio (/(.*)), no solo a /projects
-        // Esto arregla el error en /dashboard/witness
+        //  CAMBIO CRÍTICO: Usamos '/(.*)' para cubrir /dashboard, /projects y todo el sitio.
         source: '/(.*)', 
         headers: [
           {
@@ -41,7 +40,7 @@ const nextConfig = {
           },
           {
             key: 'Cross-Origin-Embedder-Policy',
-            value: 'require-corp', // Esto permite activar el motor musical potente
+            value: 'require-corp', // Esto permite activar el motor WASM de Essentia
           },
         ],
       },
