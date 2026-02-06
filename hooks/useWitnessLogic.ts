@@ -100,8 +100,33 @@ export const useWitnessLogic = () => {
     chunksRef.current = [];
     rawAudioBufferRef.current = [];
 
+    // 🔥 TRUCO PARA IPHONE (1/2): Iniciamos el AudioContext ANTES de pedir permiso.
+    // Esto asegura que iOS no lo bloquee por "falta de interacción".
+    // @ts-ignore
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const audioContext = new AudioContextClass({ 
+        sampleRate: 16000,
+        latencyHint: 'interactive' 
+    });
+    
+    // Si nace dormido, lo despertamos AHORA MISMO.
+    if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+        console.log("🔊 AudioContext pre-activado para iOS");
+    }
+    
+    audioContextRef.current = audioContext;
+
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // 🔥 TRUCO PARA IPHONE (2/2): Pedimos audio "crudo" sin filtros
+        // para que el análisis musical sea más preciso.
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+            } 
+        });
         streamRef.current = stream;
 
         let mimeType = 'audio/webm';
@@ -116,19 +141,7 @@ export const useWitnessLogic = () => {
 
         mediaRecorder.start(1000);
 
-        // Audio Context para Análisis
-        // @ts-ignore
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        const audioContext = new AudioContextClass({ sampleRate: 16000 });
-        
-        // ✨ CORRECCIÓN APLICADA: Si el audioContext nace dormido, lo despertamos a la fuerza.
-        // Esto soluciona que el BPM salga en 0.
-        if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-            console.log("🔊 AudioContext despertado forzosamente para análisis");
-        }
-
-        audioContextRef.current = audioContext;
+        // Conectar el stream al AudioContext que ya preparamos
         const source = audioContext.createMediaStreamSource(stream);
         sourceRef.current = source;
         const processor = audioContext.createScriptProcessor(4096, 1, 1);
@@ -215,7 +228,6 @@ export const useWitnessLogic = () => {
 
         // 1. Crear Nuevo Proyecto
         if (isCreatingNew) {
-            // FUNCIÓN MÁGICA: Convierte "Juan, Pepe" en ["Juan", "Pepe"]
             const formatList = (str: string) => str.split(',').map(s => s.trim()).filter(Boolean);
 
             const { data: newProject, error: createError } = await supabase
@@ -226,7 +238,6 @@ export const useWitnessLogic = () => {
                     status: 'active',
                     client: credits.client,
                     credits: {
-                        // Guardamos como ARRAYS (Listas) para poder buscar después
                         producer: formatList(credits.producer), 
                         songwriter: formatList(credits.songwriter),
                         engineer: formatList(credits.engineer)
