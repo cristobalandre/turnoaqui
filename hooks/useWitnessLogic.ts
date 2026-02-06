@@ -120,6 +120,14 @@ export const useWitnessLogic = () => {
         // @ts-ignore
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         const audioContext = new AudioContextClass({ sampleRate: 16000 });
+        
+        // ✨ CORRECCIÓN APLICADA: Si el audioContext nace dormido, lo despertamos a la fuerza.
+        // Esto soluciona que el BPM salga en 0.
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+            console.log("🔊 AudioContext despertado forzosamente para análisis");
+        }
+
         audioContextRef.current = audioContext;
         const source = audioContext.createMediaStreamSource(stream);
         sourceRef.current = source;
