@@ -1,5 +1,5 @@
 // ----------------------------------------------------------------------
-// 🕵️‍♂️ MUSIC WORKER: VERSIÓN "MOTOR PRE-ENCENDIDO"
+// 🕵️‍♂️ MUSIC WORKER: VERSIÓN "MOTOR PRE-ENCENDIDO" (CON PROTECCIÓN)
 // ----------------------------------------------------------------------
 
 // 1. POLYFILLS
@@ -21,29 +21,22 @@ let essentia = null;
 self.addEventListener('message', async (event) => {
     const { type, audio } = event.data;
 
-    // --- INICIALIZACIÓN ---
+    // --- INICIALIZACIÓN (ESTO YA FUNCIONABA, SE MANTIENE IGUAL) ---
     if (type === 'init') {
         try {
-            // 🧠 DETECCIÓN DE CLASE
             let EssentiaClass = self.Essentia; 
-            // Si está escondida en un namespace, la buscamos
             if (!EssentiaClass && self.Essentia && self.Essentia.Essentia) {
                 EssentiaClass = self.Essentia.Essentia;
             }
 
             if (!EssentiaClass) throw new Error("No se encontró la clase Essentia.");
 
-            // 🚀 CORRECCIÓN CLAVE: ENCENDEMOS EL MOTOR PRIMERO
-            // 'EssentiaWASM' es la fábrica. La ejecutamos y esperamos a que el motor nazca.
             const wasmModule = await EssentiaWASM({
                 onRuntimeInitialized: () => { console.log("wasm init event"); }
             });
 
-            // Ahora sí: Pasamos el 'wasmModule' (el objeto REAL) a la clase.
-            // Antes pasábamos 'EssentiaWASM' (la función) y por eso fallaba.
             essentia = new EssentiaClass(wasmModule, false);
 
-            // Verificamos que los algoritmos existan
             if (essentia.PercivalBpmEstimator) {
                 console.log("✅ Motor Essentia 100% Operativo");
                 self.postMessage({ type: 'ready' });
@@ -57,7 +50,7 @@ self.addEventListener('message', async (event) => {
         }
     }
 
-    // --- ANÁLISIS ---
+    // --- ANÁLISIS (AQUÍ ESTÁ LA CORRECCIÓN) ---
     if (type === 'analyze') {
         if (!essentia) {
             self.postMessage({ type: 'error', message: 'Motor no iniciado' });
@@ -65,18 +58,44 @@ self.addEventListener('message', async (event) => {
         }
 
         try {
+            // 🛡️ PROTECCIÓN NUEVA: Si el audio es muy corto o vacío, cancelamos para no romper el motor
+            if (!audio || audio.length < 4096) { 
+                console.warn("Audio demasiado corto para analizar");
+                self.postMessage({ 
+                    type: 'result', 
+                    bpm: 0, 
+                    key: "-" 
+                });
+                return;
+            }
+
             const vectorAudio = essentia.arrayToVector(audio);
-            const bpmAlgo = essentia.PercivalBpmEstimator(vectorAudio, 1024, 512, 4096, 0, 210, 50, 0);
-            const keyAlgo = essentia.KeyExtractor(vectorAudio, true, 4096, 4096, 12, 3500, 60, 25, 0.2, 'hpcp');
+            
+            // Usamos valores por defecto por si un algoritmo falla individualmente
+            let bpmValue = 0;
+            let keyValue = "-";
+
+            try {
+                const bpmAlgo = essentia.PercivalBpmEstimator(vectorAudio, 1024, 512, 4096, 0, 210, 50, 0);
+                bpmValue = Math.round(bpmAlgo.bpm);
+            } catch(e) { console.warn("Fallo cálculo BPM", e); }
+
+            try {
+                const keyAlgo = essentia.KeyExtractor(vectorAudio, true, 4096, 4096, 12, 3500, 60, 25, 0.2, 'hpcp');
+                keyValue = `${keyAlgo.key} ${keyAlgo.scale}`;
+            } catch(e) { console.warn("Fallo cálculo Key", e); }
 
             self.postMessage({ 
                 type: 'result', 
-                bpm: Math.round(bpmAlgo.bpm), 
-                key: `${keyAlgo.key} ${keyAlgo.scale}` 
+                bpm: bpmValue, 
+                key: keyValue
             });
 
         } catch (err) {
-            self.postMessage({ type: 'error', message: 'Error Análisis: ' + err.message });
+            console.error(err);
+            // Mensaje de error seguro (evita el "undefined")
+            const msg = err.message ? err.message : "Error desconocido en worker";
+            self.postMessage({ type: 'error', message: 'Error Análisis: ' + msg });
         }
     }
 });
